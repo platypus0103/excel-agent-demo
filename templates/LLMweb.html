@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>LLM 聊天室</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='LLMweb.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='price_rolling.css') }}"> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Luckysheet -->
+    <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/plugins/css/pluginsCss.css' />
+    <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/plugins/plugins.css' />
+    <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/css/luckysheet.css' />
+    <script src="https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/plugins/js/plugin.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/luckysheet.umd.js"></script>
+    
+    <!-- Luckysheet 載入檢測和備用方案 -->
+    <script>
+        window.addEventListener('load', function() {
+            console.log('頁面載入完成，檢查 Luckysheet...');
+            setTimeout(function() {
+                if (typeof luckysheet === 'undefined') {
+                    console.warn('主要 CDN 載入失敗，嘗試備用 CDN...');
+                    // 備用 CDN
+                    const script = document.createElement('script');
+                    script.src = 'https://unpkg.com/luckysheet@latest/dist/luckysheet.umd.js';
+                    script.onload = function() {
+                        console.log('備用 CDN 載入成功');
+                    };
+                    script.onerror = function() {
+                        console.error('備用 CDN 也載入失敗');
+                    };
+                    document.head.appendChild(script);
+                }
+            }, 2000);
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3>試算表列表</h3>
+                <button id="addCaseBtn" class="add-case-btn">+</button>
+            </div>
+            <ul id="caseList" class="case-list">
+                <!-- 項目將由 JS 動態載入 -->
+            </ul>
+        </div>
+
+        <div class="main">
+            <div class="excel-box" id="excelBox">
+                <div id="excel-controls">
+                    <input type="file" id="fileInput" accept=".xlsx, .xls">
+                    <button id="importBtn" style="display: none;">匯入 Excel</button>
+                    <button id="priceRollingBtn" class="price-rolling-btn">價金滾算</button>
+                    <span id="excel-status">請選擇 Excel 檔案</span>
+                </div>
+                <div id="luckysheet-container">
+                    <!-- Luckysheet 將在這裡初始化 -->
+                </div>
+            </div>
+
+            <div class="llm-box">
+                <div class="llm-header">
+                    <div style="display:flex; align-items:center;">
+                        <div class="llm-logo">LLM</div>
+                        <span id="caseTitle">請選擇或新增試算表</span>
+                    </div>
+                    
+                </div>
+
+                <div class="chat-messages" id="chatMessages"></div>
+
+
+                <div class="chat-input">
+                    <input type="text" id="userInput" placeholder="輸入訊息...">
+                    <button>送出</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 價金滾算對話框 -->
+    <div class="price-dialog-overlay" id="priceDialogOverlay">
+        <div class="price-dialog" id="priceDialog">
+            <div class="price-dialog-header" id="priceDialogHeader">
+                <div class="price-dialog-title">價金滾算參數設定</div>
+                <button class="price-close-btn" onclick="closePriceDialog()">×</button>
+            </div>
+
+            <div class="price-dialog-body">
+                <form id="priceCostForm">
+                    <!-- 基本參數 -->
+                    <div class="price-section-title">基本參數設定</div>
+                    <div class="price-basic-params">
+                        <div class="price-form-group">
+                            <label>初始價金 / kW *</label>
+                            <input type="number" id="priceEquipmentCost" required placeholder="載入中...">
+                        </div>
+
+                        <div class="price-form-group">
+                            <label>信邦利潤率 *</label>
+                            <input type="number" id="priceProfitRate" step="0.01" min="0" max="1" required placeholder="載入中...">
+                        </div>
+
+                        <div class="price-form-group">
+                            <label>開發費 (每年)</label>
+                            <input type="number" id="priceDevelopmentFee" min="0" placeholder="載入中...">
+                        </div>
+
+                        <div class="price-form-group">
+                            <label>邊界價格 *</label>
+                            <input type="number" id="priceBoundary" required placeholder="載入中...">
+                        </div>
+                    </div>
+
+                    <!-- 模式選擇 -->
+                    <div class="price-mode-section">
+                        <div class="price-section-title">選擇計算模式</div>
+                        <div class="price-mode-options">
+                            <div class="price-mode-option" onclick="selectPriceMode('cash')">
+                                <input type="radio" name="priceMode" id="priceModeCash" value="cash">
+                                <label for="priceModeCash">CashMode - 固定金額模式</label>
+                            </div>
+                            <div id="priceCashParams" class="price-mode-params">
+                                <div class="price-form-group">
+                                    <label>每次調整 Step (固定金額)</label>
+                                    <input type="number" id="priceCashStep" placeholder="載入中...">
+                                </div>
+                            </div>
+
+                            <div class="price-mode-option" onclick="selectPriceMode('ratio')">
+                                <input type="radio" name="priceMode" id="priceModeRatio" value="ratio">
+                                <label for="priceModeRatio">RatioMode - 比例模式</label>
+                            </div>
+                            <div id="priceRatioParams" class="price-mode-params">
+                                <div class="price-form-group">
+                                    <label>調整比例 (0-1)</label>
+                                    <input type="number" id="priceRatioStep" step="0.01" min="0" max="1" placeholder="載入中...">
+                                </div>
+                            </div>
+
+                            <div class="price-mode-option" onclick="selectPriceMode('conditional')">
+                                <input type="radio" name="priceMode" id="priceModeConditional" value="conditional">
+                                <label for="priceModeConditional">ConditionalMode - 條件模式</label>
+                            </div>
+                            <div id="priceConditionalParams" class="price-mode-params">
+                                <div class="price-params-grid">
+                                    <div class="price-form-group">
+                                        <label>最大價格值</label>
+                                        <input type="number" id="priceMaxValue" placeholder="載入中...">
+                                    </div>
+                                    <div class="price-form-group">
+                                        <label>最小價格值</label>
+                                        <input type="number" id="priceMinValue" placeholder="載入中...">
+                                    </div>
+                                    <div class="price-form-group">
+                                        <label>Step 1 (價金 > 最大值)</label>
+                                        <input type="number" id="priceCondStep1" placeholder="載入中...">
+                                    </div>
+                                    <div class="price-form-group">
+                                        <label>Step 2 (最小值 ≤ 價金 ≤ 最大值)</label>
+                                        <input type="number" id="priceCondStep2" placeholder="載入中...">
+                                    </div>
+                                    <div class="price-form-group">
+                                        <label>Step 3 (價金 < 最小值)</label>
+                                        <input type="number" id="priceCondStep3" placeholder="載入中...">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="price-mode-option" onclick="selectPriceMode('customize')">
+                                <input type="radio" name="priceMode" id="priceModeCustomize" value="customize">
+                                <label for="priceModeCustomize">CustomizeMode - 自訂模式</label>
+                            </div>
+                            <div id="priceCustomizeParams" class="price-mode-params">
+                                <div class="price-form-group">
+                                    <label>調整次數 (最多 10 次)</label>
+                                    <input type="number" id="priceAdjustTimes" min="1" max="10" placeholder="載入中..." onchange="generatePriceStepInputs()">
+                                </div>
+                                <div class="price-form-group">
+                                    <label style="display: flex; align-items: center; cursor: pointer;">
+                                        <input type="checkbox" id="priceAutoGenerate" style="margin-right: 8px; width: auto;" onchange="handlePriceAutoGenerate()"> 自動生成 Step
+                                    </label>
+                                </div>
+                                <div id="priceManualStepsContainer" style="display: none; margin-top: 15px;">
+                                    <div style="font-weight: 600; margin-bottom: 10px; color: #667eea;">手動設定每次 Step</div>
+                                    <div id="priceStepInputs" class="price-params-grid"></div>
+                                </div>
+                                <div id="priceAutoStepsDisplay" style="display: none; margin-top: 15px;">
+                                    <div style="font-weight: 600; margin-bottom: 10px; color: #667eea;">自動生成的 Step</div>
+                                    <div id="priceAutoStepsList" style="padding: 15px; background: #f0f3ff; border-radius: 6px; line-height: 1.8;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="price-dialog-footer">
+                <button class="price-btn price-btn-cancel" onclick="closePriceDialog()">取消</button>
+                <button class="price-btn price-btn-submit" onclick="submitPriceForm()">開始計算</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 價金滾算結果顯示 -->
+    <div class="price-result-section" id="priceResultSection">
+        <div class="price-result-header">
+            <h2 style="color: #667eea; margin-bottom: 15px;">滾算結果</h2>
+            <button class="price-close-result-btn" onclick="closePriceResult()">×</button>
+        </div>
+        <table class="price-result-table" id="priceResultTable"></table>
+    </div>
+
+    <script src="{{ url_for('static', filename='LLMweb.js') }}"></script>
+    <script src="{{ url_for('static', filename='price_rolling.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,378 @@
+/* 價金滾算對話框樣式 */
+
+/* 按鈕樣式 */
+.price-rolling-btn {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: bold;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.price-rolling-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+}
+
+/* 對話框遮罩 */
+.price-dialog-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    animation: fadeIn 0.3s;
+}
+
+.price-dialog-overlay.active {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 對話框主體 - 可拖動 */
+.price-dialog {
+    background: white;
+    border-radius: 12px;
+    width: 600px;
+    max-width: 90vw;
+    max-height: 85vh;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    animation: slideDown 0.3s;
+    position: fixed;
+    cursor: move;
+}
+
+/* 對話框標題區 */
+.price-dialog-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 15px 20px;
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+    user-select: none;
+}
+
+.price-dialog-title {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.price-close-btn {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 20px;
+    transition: background 0.2s;
+}
+
+.price-close-btn:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+/* 對話框內容區 */
+.price-dialog-body {
+    padding: 20px;
+    max-height: calc(85vh - 140px);
+    overflow-y: auto;
+}
+
+.price-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #667eea;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #e8eaf6;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.price-basic-params {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.price-basic-params .price-form-group:last-child {
+    grid-column: 1 / -1;
+}
+
+.price-form-group {
+    margin-bottom: 0;
+    text-align: left;
+}
+
+.price-form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #555;
+    font-weight: 500;
+    font-size: 12px;
+}
+
+.price-form-group input[type="number"] {
+    width: 100%;
+    padding: 8px 10px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 13px;
+    transition: all 0.3s;
+    background: #fafafa;
+}
+
+.price-form-group input[type="number"]:focus {
+    outline: none;
+    border-color: #667eea;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.price-mode-section {
+    margin-bottom: 0;
+}
+
+.price-mode-options {
+    display: grid;
+    gap: 10px;
+}
+
+.price-mode-option {
+    display: flex;
+    align-items: center;
+    padding: 12px 14px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: #fafafa;
+}
+
+.price-mode-option:hover {
+    border-color: #667eea;
+    background: #f8f9ff;
+    transform: translateX(2px);
+}
+
+.price-mode-option.selected {
+    border-color: #667eea;
+    background: linear-gradient(135deg, #f0f3ff 0%, #e8eaf6 100%);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+.price-mode-option input[type="radio"] {
+    margin-right: 10px;
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+
+.price-mode-option label {
+    cursor: pointer;
+    flex: 1;
+    margin: 0;
+    font-weight: 500;
+    color: #333;
+    font-size: 13px;
+}
+
+.price-mode-params {
+    display: none;
+    margin-top: 10px;
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+    border: 2px solid #e8eaf6;
+    animation: slideIn 0.3s;
+}
+
+.price-mode-params.active {
+    display: block;
+}
+
+.price-mode-params .price-form-group {
+    margin-bottom: 12px;
+}
+
+.price-mode-params .price-form-group:last-child {
+    margin-bottom: 0;
+}
+
+.price-params-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.price-params-grid .price-form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+/* 對話框底部按鈕 */
+.price-dialog-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.price-btn {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.price-btn-cancel {
+    background: #e0e0e0;
+    color: #666;
+}
+
+.price-btn-cancel:hover {
+    background: #d0d0d0;
+}
+
+.price-btn-submit {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.price-btn-submit:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* 結果顯示區域 */
+.price-result-section {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    z-index: 2001;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow: auto;
+}
+
+.price-result-section.active {
+    display: block;
+}
+
+.price-result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.price-close-result-btn {
+    background: #e0e0e0;
+    border: none;
+    color: #666;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 20px;
+    transition: background 0.2s;
+}
+
+.price-close-result-btn:hover {
+    background: #d0d0d0;
+}
+
+.price-result-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.price-result-table th,
+.price-result-table td {
+    padding: 10px 12px;
+    text-align: center;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 13px;
+}
+
+.price-result-table th {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: 600;
+    text-align: center;
+}
+
+.price-result-table th:first-child {
+    border-radius: 8px 0 0 0;
+}
+
+.price-result-table th:last-child {
+    border-radius: 0 8px 0 0;
+}
+
+.price-result-table tr:last-child td {
+    border-bottom: none;
+}
+
+.price-result-table tbody tr:hover {
+    background: #f8f9ff;
+}
+
+.price-result-table td:first-child {
+    font-weight: 600;
+    color: #667eea;
+}
+
+/* 動畫 */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>專案法IRR計算網頁</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <!-- 主容器 -->
+    <div class="container">
+        <!-- 頁面標題區域 -->
+        <div class="header">
+            <h1>專案法IRR 投資報酬率計算器</h1>
+            <p>內部報酬率計算工具 - 專業版</p>
+        </div>
+
+        <!-- 主要內容區域 -->
+        <div class="content">
+            <!-- 輸入參數區域 -->
+            <div class="input-section">
+                <h2 class="section-title">收入與支出設定</h2>
+
+                <!-- 年度範圍設定 -->
+                <div class="input-group">
+                    <label class="input-label">年度範圍</label>
+                    <div class="year-input-container">
+                        <input type="number" id="start_year" placeholder="起始年度" value="2020">
+                        <span>~</span>
+                        <input type="number" id="end_year" placeholder="結束年度" value="2039">
+                    </div>
+                    <div class="help-text">設定投資計畫的年度範圍</div>
+                </div>
+
+                <!-- 設備費用計算區域 -->
+                <div class="input-group">
+                    <label class="input-label">設備費用計算 (初始投資)</label>
+                    <div class="equipment-grid">
+                        <div>
+                            <label>建置容量 (kW)</label>
+                            <input type="number" id="capacity" placeholder="例: 100" step="0.01" oninput="calculate_equipment_cost(); calculateInsuranceFeeAuto()">
+                        </div>
+                        <div>
+                            <label>每kW價格</label>
+                            <input type="number" id="price_per_kw" placeholder="例: 45000" step="0.01" oninput="calculate_equipment_cost(); calculateInsuranceFeeAuto()">
+                        </div>
+                        <div>
+                            <label>利潤率 (%)</label>
+                            <input type="number" id="profit_rate" placeholder="例: 15" step="0.01" min="0" max="99" oninput="calculate_equipment_cost()">
+                        </div>
+                        <div>
+                            <label>開發費</label>
+                            <input type="number" id="development_fee" placeholder="例: 50000" step="0.01" oninput="calculate_equipment_cost()">
+                        </div>
+                    </div>
+                    <!-- 計算結果顯示區域 -->
+                    <div class="equipment-result-box">
+                        <div class="equipment-formula">計算公式</div>
+                        <div class="equipment-formula-detail">
+                            報價總金額 = {[每kW價格 ÷ (1 - 利潤率%)] + 開發費} × 建置容量
+                        </div>
+                        <div class="equipment-result">
+                            計算結果: <span id="equipment_cost_result">請輸入參數</span>
+                        </div>
+                    </div>
+                    <div class="help-text">系統會自動計算設備總費用作為初始投資金額</div>
+                </div>
+
+                <!-- 電費收入設定區域 -->
+                <div class="input-group">
+                    <label class="input-label">發電度數 (kWh)</label>
+                    <div class="mode-selector">
+                        <label>
+                            <input type="radio" name="generation_mode" value="range" checked onchange="toggle_mode('generation')">
+                            指定年份範圍
+                        </label>
+                        <label>
+                            <input type="radio" name="generation_mode" value="kw_based" onchange="toggle_mode('generation')">
+                            以kW計算
+                        </label>
+                        <label>
+                            <input type="radio" name="generation_mode" value="decay" onchange="toggle_mode('generation')">
+                            案場收購推算
+                        </label>
+                        <label>
+                            <input type="radio" name="generation_mode" value="new_project" onchange="toggle_mode('generation')">
+                            舊案場發電推算
+                        </label>
+                    </div>
+                    <!-- 指定年份範圍輸入模式 -->
+                    <div id="generation_range" class="mode-content">
+                        <input type="number" id="generation_annual_amount" placeholder="每年度數" style="margin-bottom:10px;">
+                        <div class="range-slider-container">
+                            <label>適用年份範圍：</label>
+                            <div class="year-range-slider">
+                                <input type="range" id="generation_start_range" min="2025" max="2030" value="2025" oninput="updateRangeDisplay('generation')">
+                                <input type="range" id="generation_end_range" min="2025" max="2030" value="2030" oninput="updateRangeDisplay('generation')">
+                            </div>
+                            <div class="year-range-inputs">
+                                <input type="number" id="generation_start_year" placeholder="起始年" value="2025" min="2025" max="2030" oninput="updateRangeFromInput('generation')">
+                                <span>到</span>
+                                <input type="number" id="generation_end_year" placeholder="結束年" value="2030" min="2025" max="2030" oninput="updateRangeFromInput('generation')">
+                            </div>
+                        </div>
+                        <div class="help-text">輸入每年度數，並選擇適用的年份範圍</div>
+                    </div>
+                    <!-- 以kW計算輸入模式 -->
+                    <div id="generation_kw_based" class="mode-content hidden">
+                        <input type="number" id="generation_price_per_kw" placeholder="每KW發電度數" style="margin-bottom:10px;">
+                        <div class="range-slider-container">
+                            <label>攤平年份範圍：</label>
+                            <div class="year-range-slider">
+                                <input type="range" id="generation_kw_start_range" min="2025" max="2030" value="2025" oninput="updateRangeDisplay('generation_kw')">
+                                <input type="range" id="generation_kw_end_range" min="2025" max="2030" value="2030" oninput="updateRangeDisplay('generation_kw')">
+                            </div>
+                            <div class="year-range-inputs">
+                                <input type="number" id="generation_kw_start_year" placeholder="起始年" value="2025" min="2025" max="2030" oninput="updateRangeFromInput('generation_kw')">
+                                <span>到</span>
+                                <input type="number" id="generation_kw_end_year" placeholder="結束年" value="2030" min="2025" max="2030" oninput="updateRangeFromInput('generation_kw')">
+                            </div>
+                        </div>
+                        <div class="help-text">總度數 = 每kW發電度數 × 建置容量，在選定年份範圍內攤平</div>
+                    </div>
+                    <!-- 案場收購推算模式 -->
+                    <div id="generation_decay" class="mode-content hidden">
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                            <input type="number" id="generation_first_year_amount" placeholder="首年發電實際度數" style="flex: 1;">
+                            <input type="number" id="generation_decay_rate" placeholder="每年衰減率(%)" style="flex: 1;" step="0.01" value="0.4">
+                        </div>
+                        <div class="range-slider-container">
+                            <label>適用年份範圍：</label>
+                            <div class="year-range-slider">
+                                <input type="range" id="generation_decay_start_range" min="2025" max="2030" value="2025" oninput="updateRangeDisplay('generation_decay')">
+                                <input type="range" id="generation_decay_end_range" min="2025" max="2030" value="2030" oninput="updateRangeDisplay('generation_decay')">
+                            </div>
+                            <div class="year-range-inputs">
+                                <input type="number" id="generation_decay_start_year" placeholder="起始年" value="2025" min="2025" max="2030" oninput="updateRangeFromInput('generation_decay')">
+                                <span>到</span>
+                                <input type="number" id="generation_decay_end_year" placeholder="結束年" value="2030" min="2025" max="2030" oninput="updateRangeFromInput('generation_decay')">
+                            </div>
+                        </div>
+                        <div class="help-text">輸入首年發電度數與每年衰減率(%)，系統將自動計算後續年份發電量。例：衰減率填0.4代表每年衰減0.4%。</div>
+                    </div>
+                    <!--舊案場發電推算-->
+                    <div id="generation_new_project" class="mode-content hidden">
+                        <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap;">
+                            <input type="number" id="generation_new_first_year_est" placeholder="首年發電預估 " style="flex: 1; min-width: 150px;">
+                            <input type="number" id="generation_new_first_year_decay" placeholder="第一年衰退率(%)" style="flex: 1; min-width: 150px;" step="0.01">
+                            <input type="number" id="generation_new_remaining_years_decay" placeholder="餘年衰退率(%)" style="flex: 1; min-width: 150px;" step="0.01">
+                        </div>
+                        <div class="range-slider-container">
+                            <label>適用年份範圍：</label>
+                            <div class="year-range-slider">
+                                <input type="range" id="generation_new_start_range" min="2025" max="2030" value="2025" oninput="updateRangeDisplay('generation_new')">
+                                <input type="range" id="generation_new_end_range" min="2025" max="2030" value="2030" oninput="updateRangeDisplay('generation_new')">
+                            </div>
+                            <div class="year-range-inputs">
+                                <input type="number" id="generation_new_start_year" placeholder="起始年" value="2025" min="2025" max="2030" oninput="updateRangeFromInput('generation_new')">
+                                <span>到</span>
+                                <input type="number" id="generation_new_end_year" placeholder="結束年" value="2030" min="2025" max="2030" oninput="updateRangeFromInput('generation_new')">
+                            </div>
+                        </div>
+
+                        <div class="help-text"></div>
+                    </div>
+
+                
+                <div class="input-group">
+                    <label class="input-label">最終躉售費率 (元/度)</label>
+                    <input type="number" id="final_tariff" placeholder="請輸入最終躉售費率" step="0.0001">
+                </div>
+
+                <!-- 利息費用設定區域 -->
+                <div class="input-group">
+                    <label class="input-label">利息費用</label>
+
+                    <!-- 無利息選項 -->
+                    <div style="margin-bottom: 15px;">
+                        <label>
+                            <input type="checkbox" id="no_interest_checkbox" onchange="toggle_interest_mode()">
+                            無利息
+                        </label>
+                    </div>
+
+                    <!-- 銀行貸款參數 -->
+                    <div id="bank_loan_params" class="mode-content">
+                        <div style="display: flex; gap: 15px; margin-bottom: 10px; flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 120px;">
+                                <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">貸款成數 (%)</label>
+                                <input type="number" id="loan_ratio" placeholder="80" min="0" max="100" step="1">
+                            </div>
+                            <div style="flex: 1; min-width: 120px;">
+                                <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">銀行利率 (%)</label>
+                                <input type="number" id="bank_rate" placeholder="2.5" min="0" max="20" step="0.1">
+                            </div>
+                            <div style="flex: 1; min-width: 120px;">
+                                <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">攤還期數 (年)</label>
+                                <input type="number" id="repayment_period" placeholder="15" min="1" max="50" step="1">
+                            </div>
+                        </div>
+                        <div class="help-text">
+                            系統將自動計算每年的利息費用<br>
+                            第1年利息 = (設備成本 × 貸款成數) × 銀行利率<br>
+                            之後每年利息會隨著本金攤還而遞減
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 租金設定區域 -->
+                <div class="input-group">
+                    <label class="input-label">設備放置區域租金</label>
+                    <div style="display: flex; gap: 20px;">
+                        <div style="flex: 3;">
+                            <div class="mode-selector">
+                                <label>
+                                    <input type="radio" name="rent_mode" value="range" checked onchange="toggle_mode('rent')">
+                                    指定年份範圍
+                                </label>
+                                <label>
+                                    <input type="radio" name="rent_mode" value="kw_based" onchange="toggle_mode('rent')">
+                                    以kW計算
+                                </label>
+                                <label>
+                                    <input type="radio" name="rent_mode" value="area_based" onchange="toggle_mode('rent')">
+                                    以面積計算
+                                </label>
+                            </div>
+                            <!-- 指定年份範圍輸入模式 -->
+                            <div id="rent_range" class="mode-content">
+                                <input type="number" id="rent_annual_amount" placeholder="年租金" style="margin-bottom:10px;">
+                                <div class="range-slider-container">
+                                    <label>適用年份範圍：</label>
+                                    <div class="year-range-slider">
+                                        <input type="range" id="rent_start_range" min="2025" max="2030" value="2025" oninput="updateRangeDisplay('rent')">
+                                        <input type="range" id="rent_end_range" min="2025" max="2030" value="2030" oninput="updateRangeDisplay('rent')">
+                                    </div>
+                                    <div class="year-range-inputs">
+                                        <input type="number" id="rent_start_year" placeholder="起始年" value="2025" min="2025" max="2030" oninput="updateRangeFromInput('rent')">
+                                        <span>到</span>
+                                        <input type="number" id="rent_end_year" placeholder="結束年" value="2030" min="2025" max="2030" oninput="updateRangeFromInput('rent')">
+                                    </div>
+                                </div>
+                                <div class="help-text">輸入年租金，並選擇適用的年份範圍</div>
+                            </div>
+                            <!-- 以kW計算輸入模式 -->
+                            <div id="rent_kw_based" class="mode-content hidden">
+                                <input type="number" id="rent_price_per_kw" placeholder="每kW價格" style="margin-bottom:10px;">
+                                <div class="range-slider-container">
+                                    <label>攤平年份範圍：</label>
+                                    <div class="year-range-slider">
+                                        <input type="range" id="rent_kw_start_range" min="2025" max="2030" value="2025" oninput="updateRangeDisplay('rent_kw')">
+                                        <input type="range" id="rent_kw_end_range" min="2025" max="2030" value="2030" oninput="updateRangeDisplay('rent_kw')">
+                                    </div>
+                                    <div class="year-range-inputs">
+                                        <input type="number" id="rent_kw_start_year" placeholder="起始年" value="2025" min="2025" max="2030" oninput="updateRangeFromInput('rent_kw')">
+                                        <span>到</span>
+                                        <input type="number" id="rent_kw_end_year" placeholder="結束年" value="2030" min="2025" max="2030" oninput="updateRangeFromInput('rent_kw')">
+                                    </div>
+                                </div>
+                                <div class="help-text">總金額 = 每kW價格 × 建置容量，在選定年份範圍內攤平</div>
+                            </div>
+                            <!-- 以面積計算輸入模式 -->
+                            <div id="rent_area_based" class="mode-content hidden">
+                                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                                    <input type="number" id="rent_area_amount" placeholder="面積" style="flex: 1;">
+                                    <select id="rent_area_unit" style="flex: 1;">
+                                        <option value="hectare">公頃</option>
+                                        <option value="jia">甲</option>
+                                        <option value="ping">坪</option>
+                                        <option value="sq_meter">平方公尺</option>
+                                    </select>
+                                    <input type="number" id="rent_price_per_area" placeholder="每單位面積年租金" style="flex: 2;">
+                                </div>
+                                <div class="range-slider-container">
+                                    <label>租金收取年份範圍：</label>
+                                    <div class="year-range-slider">
+                                        <input type="range" id="rent_area_start_range" min="2025" max="2030" value="2025" oninput="updateRangeDisplay('rent_area')">
+                                        <input type="range" id="rent_area_end_range" min="2025" max="2030" value="2030" oninput="updateRangeDisplay('rent_area')">
+                                    </div>
+                                    <div class="year-range-inputs">
+                                        <input type="number" id="rent_area_start_year" placeholder="起始年" value="2025" min="2025" max="2030" oninput="updateRangeFromInput('rent_area')">
+                                        <span>到</span>
+                                        <input type="number" id="rent_area_end_year" placeholder="結束年" value="2030" min="2025" max="2030" oninput="updateRangeFromInput('rent_area')">
+                                    </div>
+                                </div>
+                                <div class="help-text">年租金 = 面積 × 每單位面積年租金，在選定年份範圍內收取</div>
+                            </div>
+                        </div>
+                        <!-- 面積單位換算器 -->
+                        <div class="unit-converter" style="flex: 1; border-left: 1px solid #ddd; padding-left: 20px;">
+                            <h4 style="margin-top: 0; margin-bottom: 10px; font-size: 1em;">面積單位換算</h4>
+                            <div class="converter-grid">
+                                <label>公頃</label>
+                                <input type="number" id="conv_hectare" oninput="convertArea('hectare')">
+                                <label>甲</label>
+                                <input type="number" id="conv_jia" oninput="convertArea('jia')">
+                                <label>坪</label>
+                                <input type="number" id="conv_ping" oninput="convertArea('ping')">
+                                <label>平方公尺</label>
+                                <input type="number" id="conv_sq_meter" oninput="convertArea('sq_meter')">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 運維費用設定區域 -->
+                <div class="input-group">
+                    <label class="input-label">運維費用</label>
+                    <div class="mode-selector">
+                        <label>
+                            <input type="radio" name="maintenance_mode" value="range" checked onchange="toggle_mode('maintenance')">
+                            指定年份範圍
+                        </label>
+                        <label>
+                            <input type="radio" name="maintenance_mode" value="kw_based" onchange="toggle_mode('maintenance')">
+                            以kW計算
+                        </label>
+                        <label>
+                            <input type="radio" name="maintenance_mode" value="electricity_based" onchange="toggle_mode('maintenance')">
+                            電費量%計算
+                        </label>
+                    </div>
+                    <!-- 指定年份範圍輸入模式 -->
+                    <div id="maintenance_range" class="mode-content">
+                        <input type="number" id="maintenance_annual_amount" placeholder="年運維費" style="margin-bottom:10px;">
+                        <div class="range-slider-container">
+                            <label>適用年份範圍：</label>
+                            <div class="year-range-slider">
+                                <input type="range" id="maintenance_start_range" min="2025" max="2030" value="2025" oninput="updateRangeDisplay('maintenance')">
+                                <input type="range" id="maintenance_end_range" min="2025" max="2030" value="2030" oninput="updateRangeDisplay('maintenance')">
+                            </div>
+                            <div class="year-range-inputs">
+                                <input type="number" id="maintenance_start_year" placeholder="起始年" value="2025" min="2025" max="2030" oninput="updateRangeFromInput('maintenance')">
+                                <span>到</span>
+                                <input type="number" id="maintenance_end_year" placeholder="結束年" value="2030" min="2025" max="2030" oninput="updateRangeFromInput('maintenance')">
+                            </div>
+                        </div>
+                        <div class="help-text">輸入年運維費，並選擇適用的年份範圍</div>
+                    </div>
+                    <!-- 以KW計算輸入模式 -->
+                    <div id="maintenance_kw_based" class="mode-content hidden">
+                        <input type="number" id="maintenance_price_per_kw" placeholder="每KW價格" style="margin-bottom:10px;">
+                        <div class="range-slider-container">
+                            <label>攤平年份範圍：</label>
+                            <div class="year-range-slider">
+                                <input type="range" id="maintenance_kw_start_range" min="2025" max="2030" value="2025" oninput="updateRangeDisplay('maintenance_kw')">
+                                <input type="range" id="maintenance_kw_end_range" min="2025" max="2030" value="2030" oninput="updateRangeDisplay('maintenance_kw')">
+                            </div>
+                            <div class="year-range-inputs">
+                                <input type="number" id="maintenance_kw_start_year" placeholder="起始年" value="2025" min="2025" max="2030" oninput="updateRangeFromInput('maintenance_kw')">
+                                <span>到</span>
+                                <input type="number" id="maintenance_kw_end_year" placeholder="結束年" value="2030" min="2025" max="2030" oninput="updateRangeFromInput('maintenance_kw')">
+                            </div>
+                        </div>
+                        <div class="help-text">總金額 = 每kW價格 × 建置容量，在選定年份範圍內攤平</div>
+                    </div>
+                    <!--以電費輸入-->
+                    <div id="maintenance_electricity_based" class="mode-content hidden">
+                        <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                            <label style="margin-right: 10px;">佔售電收入比例：</label>
+                            <input type="number" id="maintenance_elec_percent" placeholder="3%" step="0.1" style="flex: 1;">
+                            <span style="margin-left: 5px;">%</span>
+                        </div>
+                        <div class="range-slider-container">
+                            <label>適用年份範圍：</label>
+                            <div class="year-range-slider">
+                                <input type="range" id="maintenance_elec_start_range" min="2025" max="2030" value="2025" oninput="updateRangeDisplay('maintenance_elec')">
+                                <input type="range" id="maintenance_elec_end_range" min="2025" max="2030" value="2030" oninput="updateRangeDisplay('maintenance_elec')">
+                            </div>
+                            <div class="year-range-inputs">
+                                <input type="number" id="maintenance_elec_start_year" placeholder="起始年" value="2025" min="2025" max="2030" oninput="updateRangeFromInput('maintenance_elec')">
+                                <span>到</span>
+                                <input type="number" id="maintenance_elec_end_year" placeholder="結束年" value="2030" min="2025" max="2030" oninput="updateRangeFromInput('maintenance_elec')">
+                            </div>
+                        </div>
+                        <div class="help-text">費用 = 當年度售電收入 (發電量 × 費率) × 設定百分比</div>
+                    </div>
+                  
+
+                <!-- 保險費設定區域 -->
+                <div class="input-group">
+                    <label class="input-label">保險費 (自動計算)</label>
+
+                    <!-- 保險費率選擇 -->
+                    <div class="insurance-rate-container">
+                        <label>保險費率:</label>
+                        <select id="insurance_rate" onchange="calculateInsuranceFeeAuto()">
+                            <option value="0.003">0.3%</option>
+                            <option value="0.004">0.4%</option>
+                        </select>
+                    </div>
+
+                    <!-- 🔧 修復：添加 insurance_range 容器 div，讓 collectDataByMode 能找到 -->
+                    <div id="insurance_range" class="mode-content">
+                        <!-- 隱藏的annual_amount欄位，供collectDataByMode使用 -->
+                        <input type="hidden" id="insurance_annual_amount">
+
+                        <!-- 年份範圍選擇 -->
+                        <div class="range-slider-container">
+                            <label>保險費收取年份範圍：</label>
+                            <div class="year-range-slider">
+                                <input type="range" id="insurance_start_range" min="2020" max="2039" value="2025" oninput="updateRangeDisplay('insurance'); calculateInsuranceFeeAuto();">
+                                <input type="range" id="insurance_end_range" min="2020" max="2039" value="2039" oninput="updateRangeDisplay('insurance'); calculateInsuranceFeeAuto();">
+                            </div>
+                            <div class="year-range-inputs">
+                                <input type="number" id="insurance_start_year" placeholder="起始年" value="2025" min="2020" max="2039" oninput="updateRangeFromInput('insurance'); calculateInsuranceFeeAuto();">
+                                <span>到</span>
+                                <input type="number" id="insurance_end_year" placeholder="結束年" value="2039" min="2020" max="2039" oninput="updateRangeFromInput('insurance'); calculateInsuranceFeeAuto();">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 計算結果顯示區域 -->
+                    <div class="insurance-result-box">
+                        <div class="insurance-formula">計算公式</div>
+                        <div class="insurance-formula-detail">
+                            保險費 = 建置容量 (kW) × 每kW價格 × 保險費率 (0.3% 或 0.4%)
+                        </div>
+                        <div class="insurance-result">
+                            計算結果: <span id="insurance_calculation_result">請先輸入建置容量和每kW價格</span>
+                        </div>
+                    </div>
+
+                    <!-- 隱藏的yearly模式輸入框，供後端接收數據使用 -->
+                    <input type="hidden" id="insurance_yearly_input">
+
+                    <div class="help-text">系統會根據建置容量、每kW價格和保險費率自動計算保險費，並在指定年份範圍內收取</div>
+                </div>
+
+                <!-- 模組回收費設定區域 -->
+                <div class="input-group">
+                    <label class="input-label">模組回收費</label>
+                    <div class="mode-selector">
+                        <label>
+                            <input type="radio" name="recycling_mode" value="range" checked onchange="toggle_mode('recycling')">
+                            指定年份範圍
+                        </label>
+                        <label>
+                            <input type="radio" name="recycling_mode" value="kw_based" onchange="toggle_mode('recycling')">
+                            以kW計算
+                        </label>
+                    </div>
+                    <!-- 指定年份範圍輸入模式 -->
+                    <div id="recycling_range" class="mode-content">
+                        <input type="number" id="recycling_annual_amount" placeholder="年回收費" style="margin-bottom:10px;">
+                        <div class="range-slider-container">
+                            <label>適用年份範圍：</label>
+                            <div class="year-range-slider">
+                                <input type="range" id="recycling_start_range" min="2025" max="2030" value="2025" oninput="updateRangeDisplay('recycling')">
+                                <input type="range" id="recycling_end_range" min="2025" max="2030" value="2030" oninput="updateRangeDisplay('recycling')">
+                            </div>
+                            <div class="year-range-inputs">
+                                <input type="number" id="recycling_start_year" placeholder="起始年" value="2025" min="2025" max="2030" oninput="updateRangeFromInput('recycling')">
+                                <span>到</span>
+                                <input type="number" id="recycling_end_year" placeholder="結束年" value="2030" min="2025" max="2030" oninput="updateRangeFromInput('recycling')">
+                            </div>
+                        </div>
+                        <div class="help-text">輸入年回收費，並選擇適用的年份範圍</div>
+                    </div>
+                    <!-- 以KW計算輸入模式 -->
+                    <div id="recycling_kw_based" class="mode-content hidden">
+                        <input type="number" id="recycling_price_per_kw" placeholder="每KW價格" style="margin-bottom:10px;">
+                        <div class="range-slider-container">
+                            <label>攤平年份範圍：</label>
+                            <div class="year-range-slider">
+                                <input type="range" id="recycling_kw_start_range" min="2025" max="2030" value="2025" oninput="updateRangeDisplay('recycling_kw')">
+                                <input type="range" id="recycling_kw_end_range" min="2025" max="2030" value="2030" oninput="updateRangeDisplay('recycling_kw')">
+                            </div>
+                            <div class="year-range-inputs">
+                                <input type="number" id="recycling_kw_start_year" placeholder="起始年" value="2025" min="2025" max="2030" oninput="updateRangeFromInput('recycling_kw')">
+                                <span>到</span>
+                                <input type="number" id="recycling_kw_end_year" placeholder="結束年" value="2030" min="2025" max="2030" oninput="updateRangeFromInput('recycling_kw')">
+                            </div>
+                        </div>
+                        <div class="help-text">總金額 = 每kW價格 × 建置容量，在選定年份範圍內攤平</div>
+                    </div>
+                </div>
+
+                <!-- 所得稅率設定區域 -->
+                <div class="input-group">
+                    <label class="input-label">所得稅率</label>
+                    <input type="number" id="tax_rate" placeholder="例: 20" min="0" max="100" step="0.1" value="20">
+                    <div class="help-text">輸入所得稅率百分比（例：20 代表20%）</div>
+                </div>
+
+                <!-- 自定義欄位設定區域 -->
+                <div class="input-group">
+                    <label class="input-label">自定義欄位</label>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <input type="text" id="custom_label" placeholder="自定義欄位名稱 (可輸入中文)">
+                        <label style="font-size: 0.95em;">
+                            <input type="checkbox" id="custom_show" checked>
+                            顯示於結果表格
+                        </label>
+                    </div>
+                    <div class="mode-selector">
+                        <label>
+                            <input type="radio" name="custom_mode" value="range" checked onchange="toggle_mode('custom')">
+                            指定年份範圍
+                        </label>
+                        <label>
+                            <input type="radio" name="custom_mode" value="kw_based" onchange="toggle_mode('custom')">
+                            以kW計算
+                        </label>
+                    </div>
+                    <!-- 指定年份範圍輸入模式 -->
+                    <div id="custom_range" class="mode-content">
+                        <input type="number" id="custom_annual_amount" placeholder="年金額" style="margin-bottom:10px;">
+                        <div class="range-slider-container">
+                            <label>適用年份範圍：</label>
+                            <div class="year-range-slider">
+                                <input type="range" id="custom_start_range" min="2025" max="2030" value="2025" oninput="updateRangeDisplay('custom')">
+                                <input type="range" id="custom_end_range" min="2025" max="2030" value="2030" oninput="updateRangeDisplay('custom')">
+                            </div>
+                            <div class="year-range-inputs">
+                                <input type="number" id="custom_start_year" placeholder="起始年" value="2025" min="2025" max="2030" oninput="updateRangeFromInput('custom')">
+                                <span>到</span>
+                                <input type="number" id="custom_end_year" placeholder="結束年" value="2030" min="2025" max="2030" oninput="updateRangeFromInput('custom')">
+                            </div>
+                        </div>
+                        <div class="help-text">輸入年金額，並選擇適用的年份範圍</div>
+                    </div>
+                    <!-- 以KW計算輸入模式 -->
+                    <div id="custom_kw_based" class="mode-content hidden">
+                        <input type="number" id="custom_price_per_kw" placeholder="每KW價格" style="margin-bottom:10px;">
+                        <div class="range-slider-container">
+                            <label>攤平年份範圍：</label>
+                            <div class="year-range-slider">
+                                <input type="range" id="custom_kw_start_range" min="2025" max="2030" value="2025" oninput="updateRangeDisplay('custom_kw')">
+                                <input type="range" id="custom_kw_end_range" min="2025" max="2030" value="2030" oninput="updateRangeDisplay('custom_kw')">
+                            </div>
+                            <div class="year-range-inputs">
+                                <input type="number" id="custom_kw_start_year" placeholder="起始年" value="2025" min="2025" max="2030" oninput="updateRangeFromInput('custom_kw')">
+                                <span>到</span>
+                                <input type="number" id="custom_kw_end_year" placeholder="結束年" value="2030" min="2025" max="2030" oninput="updateRangeFromInput('custom_kw')">
+                            </div>
+                        </div>
+                        <div class="help-text">總金額 = 每kW價格 × 建置容量，在選定年份範圍內攤平</div>
+                    </div>
+                </div>
+
+                <!-- 現金流量表參數設定區域 -->
+                <!-- 顯示/隱藏各費用欄位 -->
+                <div class="input-group">
+                    <label class="input-label"> 現金流量表參數</label>
+                    <div style="display: flex; gap: 15px; margin-bottom: 10px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 150px;">
+                            <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">股利比率 (%)</label>
+                            <input type="number" id="dividend_ratio" placeholder="例: 50" min="0" max="100" step="0.1">
+                        </div>
+                        <div style="flex: 1; min-width: 150px;">
+                            <label style="display: block; margin-bottom: 5px; font-size: 0.9em;">年底減資攤提期數 (年)</label>
+                            <input type="number" id="capital_reduction_period" placeholder="例: 5" min="1" max="50" step="1">
+                        </div>
+                    </div>
+                    <div class="help-text">
+                        股利比率：現金股利 = 稅後淨利 × 股利比率<br>
+                        年底減資攤提期數：年底減資會在最後N年平均分攤
+                    </div>
+                </div>
+
+                <!-- 計算按鈕 -->
+                <button class="calculate-btn" onclick="calculate_irr_main()">計算 IRR</button>
+            </div>
+
+            <!-- 計算結果顯示區域 -->
+            <div class="result-section">
+                <h2 class="section-title">計算結果</h2>
+                <div id="result_container">
+                    <div class="result-display">
+                        <div class="success">IRR 計算器已準備就緒</div>
+                        <p style="text-align: center; margin-top: 15px;">請填入相關數據後點擊計算按鈕</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入JavaScript文件 -->
+    <script src="{{ url_for('static', filename='api_client.js') }}"></script>
+    <script src="{{ url_for('static', filename='irr_ui.js') }}"></script>
+
+    <!--  Button to LLM Page -->
+    <a href="{{ url_for('llm_assistant') }}" class="fab">
+        <span>&#x1F916;</span> <!-- Robot emoji -->
+    </a>
+</body>
+</html>
