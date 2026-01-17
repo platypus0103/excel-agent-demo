@@ -58,13 +58,15 @@ class FinanceTool:
                 excel_dir = os.path.join(parent_dir, 'Excel')
 
                 # 搜尋 Excel 資料夾中的 .xlsx 或 .xls 檔案
+                # 排除暫存檔（以 ~$ 開頭的檔案）
                 if os.path.exists(excel_dir):
-                    excel_files = [f for f in os.listdir(excel_dir) if f.endswith(('.xlsx', '.xls'))]
+                    excel_files = [f for f in os.listdir(excel_dir) 
+                                   if f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
                     if excel_files:
                         self.excel_file = os.path.join(excel_dir, excel_files[0])
                         print(f"自動找到 Excel 檔案: {self.excel_file}")
                     else:
-                        raise Exception("Excel 資料夾中沒有找到 Excel 檔案")
+                        raise Exception("Excel 資料夾中沒有找到 Excel 檔案（排除暫存檔）")
                 else:
                     raise Exception("Excel 資料夾不存在")
 
