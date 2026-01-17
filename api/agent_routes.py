@@ -86,19 +86,26 @@ def agent_chat():
                 # 嘗試尋找 Excel 資料夾中的任何檔案
                 excel_dir = os.path.join(parent_dir, 'Excel')
                 if os.path.exists(excel_dir):
-                    excel_files = [f for f in os.listdir(excel_dir) if f.endswith(('.xlsx', '.xls'))]
+                    excel_files = [f for f in os.listdir(excel_dir) if f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
                     if excel_files:
                         fallback_file = os.path.join(excel_dir, excel_files[0])
                         agent.tool_manager.set_finance_excel_file(fallback_file, sheet_name)
                         print(f"使用備用 Excel 檔案: {fallback_file}")
 
-        # 調用 AI Agent 的 chat 方法
-        agent_response = agent.chat(user_query)
-
-        # 檢查是否有使用 Excel 工具
-        excel_tools = ['write_excel_cell', 'delete_excel_cell', 'read_excel_cell',
-                      'add_excel_sheet', 'delete_excel_sheet']
-        excel_modified = any(tool in agent.last_used_tools for tool in excel_tools)
+        # 檢查是否為滾算相關請求，直接調用工具處理
+        import re
+        if re.search(r'滾算|價金|price.*rolling|IRR|設備成本|計算|分析|模擬|cashmode|ratiomode|conditional|customize|執行', user_query, re.IGNORECASE):
+            print("檢測到滾算相關請求，使用 llm_service 處理...")
+            from services.llm_service import process_user_query
+            agent_response = process_user_query(user_query)
+            excel_modified = True  # 滾算會產生 Excel 記錄
+        else:
+            # 其他請求調用 AI Agent 的 chat 方法
+            agent_response = agent.chat(user_query)
+            # 檢查是否有使用 Excel 工具
+            excel_tools = ['write_excel_cell', 'delete_excel_cell', 'read_excel_cell',
+                          'add_excel_sheet', 'delete_excel_sheet']
+            excel_modified = any(tool in agent.last_used_tools for tool in excel_tools)
 
         print(f"Agent 回應成功 (Excel modified: {excel_modified})")
         return jsonify({
