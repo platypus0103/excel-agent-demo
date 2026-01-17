@@ -47,29 +47,41 @@ def process_user_query(query, simulation_amount=0, excel_path=None, rolling_mode
         # 直接使用 execute_price_rolling 工具（會自動輸出 Excel 記錄）
         return _execute_price_rolling_with_params(rolling_mode, rolling_params, excel_path)
     
-    # 情況 2: 從查詢中檢測滾算相關關鍵字
-    elif re.search(r'滾算|價金|price.*rolling', query, re.IGNORECASE):
-        print(f"檢測到滾算相關請求，使用預設參數...")
+    # 情況 2: 從查詢中檢測滾算相關關鍵字（擴展匹配範圍）
+    elif re.search(r'滾算|價金|price.*rolling|IRR|設備成本|計算|分析|模擬|cashmode|ratiomode|conditional|customize|執行', query, re.IGNORECASE):
+        print(f"檢測到滾算相關請求，使用 execute_price_rolling 工具...")
         
         # 解析查詢中的基本參數
         params = _parse_query_for_rolling_params(query, simulation_amount)
         mode = params.pop("mode", "cash")
         
-        return _execute_price_rolling_with_params(mode, params, excel_path)
+        # 使用 execute_price_rolling 工具（會輸出 Excel 記錄）
+        return _execute_equipment_cost_tool(mode, params, excel_path)
     
-    # 情況 3: 其他查詢（暫不支援）
+    # 情況 3: 其他查詢 - 提供更友善的回應
     else:
-        return f"""### 請使用價金滾算功能
+        return f"""### 💡 您好！我是價金滾算分析助手
 
-請點擊「價金滾算」按鈕，選擇模式並輸入參數後開始計算。
+我可以幫您進行以下分析：
 
-**支援的模式：**
-- **CashMode** - 固定金額調整
-- **RatioMode** - 比例調整  
-- **ConditionalMode** - 條件調整
-- **CustomizeMode** - 自訂調整
+**📊 快速開始：**
+- 輸入「計算 IRR」或「分析價金」開始滾算分析
+- 或點擊上方「**價金滾算**」按鈕，選擇模式並輸入參數
 
-工具會自動將結果記錄到 Excel 檔案。
+**🔧 支援的模式：**
+| 模式 | 說明 | 使用場景 |
+|------|------|---------|
+| **CashMode** | 固定金額調整 | 每次降價固定金額 |
+| **RatioMode** | 比例調整 | 按百分比遞減 |
+| **ConditionalMode** | 條件調整 | 不同價格區間不同步伐 |
+| **CustomizeMode** | 自訂調整 | 手動指定每次降價 |
+
+**📝 範例輸入：**
+- 「用 CashMode 計算，邊界 20000，步伐 2000」
+- 「幫我分析 IRR」
+- 「執行價金滾算」
+
+工具會自動讀取 Excel 數據並計算 IRR！
 """
 
 
@@ -115,6 +127,168 @@ def _parse_query_for_rolling_params(query, simulation_amount):
 
 
 # ========== 輔助函數：價金滾算相關 ==========
+
+def _execute_calculate_price_rolling(mode, params, excel_path):
+    """
+    使用純計算模式執行價金滾算（不輸出 Excel 記錄）
+    用於聊天框輸入時的快速回應
+    """
+    print(f"執行純計算價金滾算...")
+    print(f"  模式: {mode}")
+    print(f"  參數: {params}")
+    
+    # 準備工具參數
+    tool_params = {
+        "mode": mode.capitalize() + "Mode" if not mode.endswith("Mode") else mode,
+        "boundary": params.get("boundary", 20000),
+        "step": params.get("step", 1000),
+        "profit_rate": params.get("profit_rate", 0.2)
+    }
+    
+    # 調用 calculate_price_rolling 工具（純計算，不輸出檔案）
+    result = tool_manager.execute_tool("calculate_price_rolling", tool_params)
+    
+    if result.get("success"):
+        return _format_calculate_result(result)
+    else:
+        return f"### ❌ 計算失敗\n\n**錯誤訊息:** {result.get('message', '未知錯誤')}\n\n請嘗試點擊「價金滾算」按鈕，使用完整的參數輸入表單。"
+
+
+def _format_calculate_result(result):
+    """
+    格式化純計算結果為 Markdown
+    """
+    mode = result.get("mode", "CashMode")
+    base_irr = result.get("base_irr", {})
+    params = result.get("used_parameters", {})
+    results = result.get("results_summary", {})
+    data_rows = results.get("data", [])
+    
+    # 構建回應
+    response = f"""## 📊 價金滾算分析結果 ({mode})
+
+### 原始 Excel IRR (對照基準)
+- **專案法 IRR**: {base_irr.get('project_irr', 'N/A')}%
+- **成本法 IRR**: {base_irr.get('cost_method_irr', 'N/A')}%
+- **權益法 IRR**: {base_irr.get('equity_method_irr', 'N/A')}%
+
+### 使用參數
+- **初始價金 / kW**: {params.get('equipment_cost', 'N/A')}
+- **信邦利潤率**: {params.get('profit_rate', 'N/A')}
+- **開發費**: {params.get('development_fee', 'N/A')}
+- **邊界**: {params.get('boundary', 'N/A')}
+- **步伐**: {params.get('step', 'N/A')}
+
+### 滾算結果
+| 價金/kW | 信邦利潤/kW | 最終價金/kW | 專案法 IRR | 成本法 IRR | 權益法 IRR |
+| --- | --- | --- | --- | --- | --- |
+"""
+    
+    for row in data_rows:
+        price = row[0]
+        profit = row[1]
+        final = row[2]
+        p_irr = f"{row[3]}%" if row[3] != 'N/A' else 'N/A'
+        c_irr = f"{row[4]}%" if row[4] != 'N/A' else 'N/A'
+        e_irr = f"{row[5]}%" if row[5] != 'N/A' else 'N/A'
+        response += f"| {price} | {profit} | {final} | {p_irr} | {c_irr} | {e_irr} |\n"
+    
+    response += "\n---\n💡 **提示**: 若需保存記錄到 Excel，請點擊「執行滾算紀錄」按鈕。"
+    
+    return response
+
+
+def _execute_equipment_cost_tool(mode, params, excel_path):
+    """
+    使用 execute_price_rolling 工具執行價金滾算
+    這個工具會自動輸出 Excel 記錄到 'Excel final' 資料夾
+    """
+    print(f"執行 execute_price_rolling 工具（equipment_cost_tool）...")
+    print(f"  模式: {mode}")
+    print(f"  參數: {params}")
+    
+    # 準備工具參數
+    tool_params = {
+        "mode": mode.lower() if mode.lower() in ["cash", "ratio", "conditional", "customize"] else "cash",
+        "boundary": params.get("boundary", 20000),
+        "step": params.get("step", 1000),
+    }
+    
+    # 添加可選參數
+    if params.get("profit_rate"):
+        tool_params["profit_rate"] = params["profit_rate"]
+    if params.get("development_fee"):
+        tool_params["development_fee"] = params["development_fee"]
+    
+    print(f"  工具參數: {tool_params}")
+    
+    # 調用 execute_price_rolling 工具
+    result = tool_manager.execute_tool("execute_price_rolling", tool_params)
+    
+    if result.get("success"):
+        return _format_equipment_cost_result(result)
+    else:
+        return f"### ❌ 執行失敗\n\n**錯誤訊息:** {result.get('message', '未知錯誤')}\n\n請嘗試點擊「價金滾算」按鈕，使用完整的參數輸入表單。"
+
+
+def _format_equipment_cost_result(result):
+    """
+    格式化 execute_price_rolling 的結果為 Markdown
+    """
+    summary = result.get("summary", {})
+    output_file = result.get("output_file", "")
+    result_data = result.get("result", {})
+    mode = result_data.get("mode", "cash")
+    
+    # 獲取滾算結果
+    irr_results = result_data.get("irr_results", [])
+    adjustment_record = result_data.get("adjustment_record", [])
+    profit_record = result_data.get("profit_record", [])
+    cost_structure_adjusted = result_data.get("cost_structure_adjusted", [])
+    
+    response = f"""## ✅ 價金滾算完成
+
+### 📁 Excel 記錄已輸出
+- **檔案位置**: `{output_file}`
+
+### 滾算摘要
+| 項目 | 數值 |
+|------|------|
+| 初始設備成本 | {summary.get('initial_cost', 'N/A')} 元/kWp |
+| 最終設備成本 | {summary.get('final_cost', 'N/A')} 元/kWp |
+| 調整次數 | {summary.get('adjustment_count', 'N/A')} 次 |
+| 總降幅 | {summary.get('total_reduction', 'N/A')} 元/kWp |
+| 滾算模式 | {mode} |
+
+### 滾算結果（含 IRR）
+| 價金/kW | 信邦利潤/kW | 最終價金/kW | 專案法 IRR | 成本法 IRR | 權益法 IRR |
+| --- | --- | --- | --- | --- | --- |
+"""
+    
+    # 顯示所有滾算結果
+    for i, price in enumerate(adjustment_record):
+        profit = profit_record[i] if i < len(profit_record) else 'N/A'
+        final = cost_structure_adjusted[i] if i < len(cost_structure_adjusted) else 'N/A'
+        
+        if i < len(irr_results):
+            irr = irr_results[i]
+            # IRR 已經是百分比形式，不需要再乘以 100
+            p_irr_val = irr.get('project_irr')
+            c_irr_val = irr.get('cost_method_irr')
+            e_irr_val = irr.get('equity_method_irr')
+            
+            p_irr = f"{p_irr_val:.2f}%" if p_irr_val is not None else 'N/A'
+            c_irr = f"{c_irr_val:.2f}%" if c_irr_val is not None else 'N/A'
+            e_irr = f"{e_irr_val:.2f}%" if e_irr_val is not None else 'N/A'
+        else:
+            p_irr = c_irr = e_irr = 'N/A'
+        
+        response += f"| {price} | {profit} | {final} | {p_irr} | {c_irr} | {e_irr} |\n"
+    
+    response += f"\n---\n📂 **完整結果已保存至**: `{output_file}`"
+    
+    return response
+
 
 def _execute_price_rolling_with_params(rolling_mode, rolling_params, excel_path):
     """

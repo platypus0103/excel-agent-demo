@@ -369,7 +369,13 @@ class FinanceTool:
                 "equity_method_irr": self._round_irr(result['equity_method_irr'])
             }
         except Exception as e:
+            print(f"⚠️ calculate_scenario_irr 錯誤 (equipment_cost={equipment_cost}): {str(e)}")
+            import traceback
+            traceback.print_exc()
             return {
+                "project_irr": None,
+                "cost_method_irr": None,
+                "equity_method_irr": None,
                 "error": str(e)
             }
 

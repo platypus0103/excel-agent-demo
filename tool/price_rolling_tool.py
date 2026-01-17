@@ -167,7 +167,9 @@ class PriceRollingTool:
             columns = ["price_per_kw", "profit_per_kw", "final_price_per_kw", "project_irr", "cost_method_irr", "equity_method_irr"]
             data_rows = []
             
-            for price, profit, final_cost in zip(adjustment_record, profit_list, final_cost_list):
+            print(f"開始計算 {len(adjustment_record)} 個價金的 IRR...")
+            
+            for i, (price, profit, final_cost) in enumerate(zip(adjustment_record, profit_list, final_cost_list)):
                 # 計算該價金下的 IRR
                 irr_result = self.finance_tool.calculate_scenario_irr(
                     equipment_cost=price, 
@@ -176,13 +178,17 @@ class PriceRollingTool:
                     sheet_name=sheet_name
                 )
                 
+                # 檢查是否有錯誤
+                if irr_result.get('error'):
+                    print(f"  第 {i+1} 筆 (價金={price}) IRR 計算錯誤: {irr_result.get('error')}")
+                
                 row = [
                     price,
                     profit,
                     final_cost,
-                    irr_result.get('project_irr', 'N/A'),
-                    irr_result.get('cost_method_irr', 'N/A'),
-                    irr_result.get('equity_method_irr', 'N/A')
+                    irr_result.get('project_irr') if irr_result.get('project_irr') is not None else 'N/A',
+                    irr_result.get('cost_method_irr') if irr_result.get('cost_method_irr') is not None else 'N/A',
+                    irr_result.get('equity_method_irr') if irr_result.get('equity_method_irr') is not None else 'N/A'
                 ]
                 data_rows.append(row)
                 
