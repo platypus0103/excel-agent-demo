@@ -30,8 +30,9 @@ class FinanceTool:
             sheet_name: 工作表名稱，如果為 None 則使用第一個工作表
         """
         self.excel_file = excel_file
-        if sheet_name is not None:
-            self.sheet_name = sheet_name
+        # 【重要】當更換檔案時，必須重設 sheet_name
+        # 這樣才能自動使用新檔案的第一個工作表，而不是保留舊的工作表名稱
+        self.sheet_name = None  # 如果是 None，則 _load_excel_data 會自動使用第一個工作表
         self.data = None  # 重置計算結果，因為檔案已更換
 
     def _round_decimal(self, value):
@@ -141,6 +142,7 @@ class FinanceTool:
         first_year_electricity_generation_income = first_year_electricity_generation * excel_data['rate_of_sell']
         temp = first_year_electricity_generation
         electricity_generation_income_list = [first_year_electricity_generation_income]
+        electricity_generation=[first_year_electricity_generation]
 
         # 計算各項支出
         annual_rent = excel_data['rent']/Decimal(str(excel_data['rent_years'])) if excel_data['rent_years'] > 0 else Decimal('0')
@@ -193,6 +195,13 @@ class FinanceTool:
         loan_amount = total_equipment_cost * excel_data['loan_rate']
         pay_back = loan_amount / Decimal(str(excel_data['loan_amoritization_years'])) if excel_data['loan_amoritization_years'] > 0 else Decimal('0')
         remaining_loan = loan_amount
+        # pay_back_list: 長度為 total_years，超過貸款攤還年限後填 0
+        pay_back_list = []
+        for year in range(1, total_years + 1):
+            if year <= excel_data['loan_amoritization_years']:
+                pay_back_list.append(pay_back)
+            else:
+                pay_back_list.append(Decimal('0'))
 
         for year in range(1, total_years + 1):
             interest = remaining_loan * excel_data['interest_rate'] if remaining_loan > Decimal('0') else Decimal('0')
@@ -205,6 +214,7 @@ class FinanceTool:
             if year > 1:
                 temp = temp - (excel_data['electricity_generation'] * excel_data['every_year_decade'])
                 electricity_generation_income_list.append(temp * excel_data['rate_of_sell'])
+                electricity_generation.append(temp)
 
         # 計算現金流
         cash_flows = [-total_equipment_cost]
@@ -258,7 +268,9 @@ class FinanceTool:
         cost_method_initial_investment = (total_equipment_cost*(Decimal('1') - excel_data['loan_rate']))
         cost_method_cash_flows = [-cost_method_initial_investment]
         reduction_at_the_end = (cost_method_initial_investment/Decimal(str(excel_data['reduction_amoritization_years'])))
-
+        dividend_list=np.zeros(total_years)
+        for year in range(-1,-excel_data['reduction_amoritization_years']-1,-1):#用來填值 不是用來計算
+            dividend_list[year]=reduction_at_the_end
         for year in range(1, total_years):
             dividend = net_profit_after_tax[year-1]*excel_data['dividend_rate']
             cost_method_cash_flows.append(dividend)
@@ -296,6 +308,8 @@ class FinanceTool:
             'recycle_list': recycle_list,
             'interest_list': interest_list,
             'depreciation_list': depreciation_list,
+            'pay_back_list': pay_back_list,  # 貸款還款列表
+            'dividend_list': dividend_list,  # 年底減資列表
             'cash_flows': cash_flows,
             'net_profit_after_tax': net_profit_after_tax,
             'cost_method_cash_flows': cost_method_cash_flows,
@@ -358,7 +372,7 @@ class FinanceTool:
             
             # 執行計算
             result = self._calculate_from_data(excel_data)
-            
+
             # 恢復工作表設定
             if sheet_name and original_sheet != sheet_name:
                 self.sheet_name = original_sheet
@@ -366,7 +380,24 @@ class FinanceTool:
             return {
                 "project_irr": self._round_irr(result['project_irr']),
                 "cost_method_irr": self._round_irr(result['cost_method_irr']),
-                "equity_method_irr": self._round_irr(result['equity_method_irr'])
+                "equity_method_irr": self._round_irr(result['equity_method_irr']),
+                # 金流明細資料（每年）
+                "cash_flow_details": {
+                    "rent_list": [float(x) for x in result['rent_list']],
+                    "maintenance_list": [float(x) for x in result['maintenance_list']],
+                    "insurance_list": [float(x) for x in result['insurance_list']],
+                    "recycle_list": [float(x) for x in result['recycle_list']],
+                    "interest_list": [float(x) for x in result['interest_list']],
+                    "depreciation_list": [float(x) for x in result['depreciation_list']],
+                    "pay_back_list": [float(x) for x in result['pay_back_list']],  # 貸款還款
+                    "dividend_list": [float(x) for x in result['dividend_list']],  # 年底減資
+                    "electricity_generation_income_list": [float(x) for x in result['electricity_generation_income_list']],
+                    "net_profit_after_tax": [float(x) for x in result['net_profit_after_tax']],
+                    "cash_flows": [float(x) for x in result['cash_flows']],
+                    "cost_method_cash_flows": [float(x) for x in result['cost_method_cash_flows']],
+                    "equity_method_cash_flows": [float(x) for x in result['equity_method_cash_flows']],
+                    "total_years": result['total_years']
+                }
             }
         except Exception as e:
             print(f"⚠️ calculate_scenario_irr 錯誤 (equipment_cost={equipment_cost}): {str(e)}")

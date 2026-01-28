@@ -580,6 +580,23 @@ function removeLastMessage() {
     }
 }
 
+// 匯出當前聊天室的 Excel 表格
+function exportCurrentExcel() {
+    // 獲取當前案場信息
+    const currentCase = getCurrentCaseInfo();
+
+    if (!currentCase || !currentCase.case_name) {
+        alert('請先上傳 Excel 檔案！');
+        return;
+    }
+
+    // 構建下載 URL，包含案場名稱和原始檔名以確保路徑正確
+    const downloadUrl = `/api/download_excel?case_name=${encodeURIComponent(currentCase.case_name)}&original_filename=${encodeURIComponent(currentCase.original_filename || '')}`;
+
+    // 直接使用瀏覽器下載（保留原始檔案格式，包括公式）
+    window.location.href = downloadUrl;
+}
+
 // 點擊遮罩層關閉對話框
 document.addEventListener('DOMContentLoaded', function() {
     // 綁定價金滾算按鈕

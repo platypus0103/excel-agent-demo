@@ -384,14 +384,19 @@ document.addEventListener('DOMContentLoaded', function() {
             // 刪除前端案場資料
             delete cases[caseId];
 
+            // 判斷是否需要切換到其他案場
+            let newActiveCaseId = activeCaseId;
             if (activeCaseId === caseId) {
+                // 刪除的是當前案場，需要切換到其他案場
                 const remainingCases = Object.keys(cases);
-                activeCaseId = remainingCases[0];
+                newActiveCaseId = remainingCases[0];
+                // 重要：先將 activeCaseId 設為 null，避免 switchActiveCase 提前 return
+                activeCaseId = null;
             }
 
             saveCases();
             renderCaseList();
-            switchActiveCase(activeCaseId);
+            switchActiveCase(newActiveCaseId);
         }
     }
 
@@ -514,7 +519,7 @@ document.addEventListener('DOMContentLoaded', function() {
         window.currentCase = {
             id: caseId,
             name: cases[caseId].name,
-            original_filename: cases[caseId].originalFilename || '',
+            original_filename: cases[caseId].excelOriginalFileName || cases[caseId].originalFilename || '',
             sheet_name: cases[caseId].sheetName || null
         };
 
@@ -832,6 +837,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if(data.original_filename){
                 cases[activeCaseId].excelOriginalFileName = data.original_filename;  // 儲存原始檔名
                 saveCases();
+
+                // 同步更新 window.currentCase
+                if (window.currentCase && window.currentCase.id === activeCaseId) {
+                    window.currentCase.original_filename = data.original_filename;
+                }
             }
 
             // 更新上傳成功訊息

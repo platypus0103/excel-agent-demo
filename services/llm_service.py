@@ -3,10 +3,71 @@ LLM 服務模組 - 簡化版
 直接使用工具執行價金滾算，工具會自動輸出 Excel 滾算記錄
 """
 import re
+from datetime import datetime
 from tool.tool_manager import ToolManager
 
 # 初始化工具管理器
 tool_manager = ToolManager()
+
+# ========== 滾算參數快取 ==========
+# 用於儲存每個案件（以 excel_path 為 key）的最後一次滾算參數
+# 當使用者執行「執行滾算紀錄」時，會使用這裡的快取參數
+_last_rolling_cache = {}
+
+
+def _store_rolling_cache(excel_path: str, mode: str, params: dict):
+    """
+    儲存滾算參數到快取
+
+    Args:
+        excel_path: Excel 檔案路徑（作為快取的 key）
+        mode: 滾算模式
+        params: 滾算參數
+    """
+    cache_key = excel_path or "default"
+    _last_rolling_cache[cache_key] = {
+        "mode": mode,
+        "params": params.copy() if params else {},
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    print(f"[快取] 已儲存滾算參數: key={cache_key}, mode={mode}")
+    print(f"[快取] 參數內容: {params}")
+
+
+def _get_rolling_cache(excel_path: str) -> dict:
+    """
+    從快取取得滾算參數
+
+    Args:
+        excel_path: Excel 檔案路徑（作為快取的 key）
+
+    Returns:
+        dict: 快取的滾算參數，若無快取則返回 None
+    """
+    cache_key = excel_path or "default"
+    cached = _last_rolling_cache.get(cache_key)
+    if cached:
+        print(f"[快取] 找到快取: key={cache_key}, mode={cached['mode']}, 時間={cached['timestamp']}")
+    else:
+        print(f"[快取] 無快取: key={cache_key}")
+    return cached
+
+
+def _clear_rolling_cache(excel_path: str = None):
+    """
+    清除滾算參數快取
+
+    Args:
+        excel_path: 指定要清除的 key，若為 None 則清除全部
+    """
+    if excel_path:
+        cache_key = excel_path or "default"
+        if cache_key in _last_rolling_cache:
+            del _last_rolling_cache[cache_key]
+            print(f"[快取] 已清除: key={cache_key}")
+    else:
+        _last_rolling_cache.clear()
+        print("[快取] 已清除全部快取")
 
 
 def initialize_agent(sheet_name):
@@ -16,7 +77,7 @@ def initialize_agent(sheet_name):
     print(f"Initializing Agent for sheet: {sheet_name}")
 
 
-def process_user_query(query, simulation_amount=0, excel_path=None, rolling_mode=None, rolling_params=None):
+def process_user_query(query, simulation_amount=0, excel_path=None, rolling_mode=None, rolling_params=None, sheet_name=None):
     """
     處理使用者查詢。
     簡化流程：
@@ -27,15 +88,23 @@ def process_user_query(query, simulation_amount=0, excel_path=None, rolling_mode
     Args:
         query (str): 使用者查詢
         simulation_amount (float): 模擬金額（來自網頁輸入）
-        excel_path (str, optional): 使用者上傳的 Excel 檔案路徑
+        excel_path (str, optional): 使用者上傳的 Excel 檔案路徑（當前聊天室的 Excel）
         rolling_mode (str, optional): 價金滾算模式（CashMode, RatioMode, ConditionalMode, CustomizeMode）
         rolling_params (dict, optional): 價金滾算參數（從網頁傳來）
+        sheet_name (str, optional): Excel 工作表名稱
     """
 
     print(f"\n========== 處理使用者請求 ==========")
     print(f"查詢: {query}")
+    print(f"Excel 路徑: {excel_path}")
+    print(f"工作表: {sheet_name}")
     print(f"網頁指定模式: {rolling_mode}")
     print(f"網頁滾算參數: {rolling_params}")
+
+    # 如果有提供 excel_path，更新 tool_manager 的設定
+    if excel_path:
+        tool_manager.set_finance_excel_file(excel_path, sheet_name)
+        print(f"已設定 tool_manager Excel 路徑: {excel_path}")
     
     # ========== 直接使用網頁提供的模式和參數調用工具 ==========
     
@@ -43,20 +112,73 @@ def process_user_query(query, simulation_amount=0, excel_path=None, rolling_mode
     if rolling_mode and rolling_params:
         print(f"使用網頁參數直接調用滾算工具...")
         print(f"  模式: {rolling_mode}")
-        
+
         # 直接使用 execute_price_rolling 工具（會自動輸出 Excel 記錄）
-        return _execute_price_rolling_with_params(rolling_mode, rolling_params, excel_path)
+        return _execute_price_rolling_with_params(rolling_mode, rolling_params, excel_path, sheet_name)
     
-    # 情況 2: 從查詢中檢測滾算相關關鍵字（擴展匹配範圍）
-    elif re.search(r'滾算|價金|price.*rolling|IRR|設備成本|計算|分析|模擬|cashmode|ratiomode|conditional|customize|執行', query, re.IGNORECASE):
-        print(f"檢測到滾算相關請求，使用 execute_price_rolling 工具...")
-        
-        # 解析查詢中的基本參數
-        params = _parse_query_for_rolling_params(query, simulation_amount)
-        mode = params.pop("mode", "cash")
-        
-        # 使用 execute_price_rolling 工具（會輸出 Excel 記錄）
-        return _execute_equipment_cost_tool(mode, params, excel_path)
+    # 情況 2a: 用戶要求儲存滾算紀錄到 Excel
+    elif re.search(r'執行滾算紀錄|儲存滾算|保存滾算|寫入excel|存檔', query, re.IGNORECASE):
+        print(f"檢測到儲存滾算紀錄請求，執行 execute_price_rolling...")
+
+        # 嘗試從快取取得上次的滾算參數
+        cached = _get_rolling_cache(excel_path)
+
+        if cached:
+            # 使用快取的參數
+            mode = cached["mode"]
+            params = cached["params"]
+            print(f"使用快取的滾算參數: mode={mode}, params={params}")
+        else:
+            # 無快取，提示用戶先執行滾算
+            return """### ⚠️ 尚無滾算紀錄
+
+您尚未執行價金滾算，無法儲存紀錄。
+
+**請先執行以下步驟：**
+1. 點擊上方的 **「價金滾算」** 按鈕
+2. 選擇滾算模式並輸入參數
+3. 執行滾算計算
+4. 再輸入「執行滾算紀錄」來儲存結果
+
+---
+💡 **提示**: 滾算紀錄會使用您上一次執行的滾算參數。"""
+
+        # 使用 execute_price_rolling 工具寫入 Excel
+        result = _execute_equipment_cost_tool(mode, params, excel_path, sheet_name)
+
+        if "執行失敗" not in result:
+            # 取得快取中的參數摘要
+            mode_display = {
+                "cash": "CashMode（固定金額）",
+                "ratio": "RatioMode（比例調整）",
+                "conditional": "ConditionalMode（條件調整）",
+                "customize": "CustomizeMode（自訂調整）"
+            }.get(mode, mode)
+
+            boundary = params.get("boundary", "N/A")
+            step = params.get("step", "N/A")
+
+            return f"""### ✅ 儲存完畢
+
+滾算紀錄已成功寫入 Excel 檔案。
+
+**使用的滾算參數：**
+- **模式**: {mode_display}
+- **邊界**: {boundary}
+- **步伐**: {step}
+- **儲存時間**: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}"""
+        else:
+            return result
+
+    # 情況 2b: 其他滾算相關關鍵字 - 提示使用對話框
+    elif re.search(r'滾算|價金|price.*rolling|IRR|設備成本|計算|分析|模擬|cashmode|ratiomode|conditional|customize', query, re.IGNORECASE):
+        print(f"檢測到滾算相關請求，提示用戶使用對話框...")
+
+        return """### 📊 價金滾算
+
+請點擊上方的 **「價金滾算」** 按鈕來執行滾算計算。
+
+若要將結果儲存至 Excel，請在聊天框輸入「執行滾算紀錄」。"""
     
     # 情況 3: 其他查詢 - 提供更友善的回應
     else:
@@ -198,7 +320,7 @@ def _format_calculate_result(result):
     return response
 
 
-def _execute_equipment_cost_tool(mode, params, excel_path):
+def _execute_equipment_cost_tool(mode, params, excel_path, sheet_name=None):
     """
     使用 execute_price_rolling 工具執行價金滾算
     這個工具會自動輸出 Excel 記錄到 'Excel final' 資料夾
@@ -206,20 +328,29 @@ def _execute_equipment_cost_tool(mode, params, excel_path):
     print(f"執行 execute_price_rolling 工具（equipment_cost_tool）...")
     print(f"  模式: {mode}")
     print(f"  參數: {params}")
-    
+    print(f"  Excel 路徑: {excel_path}")
+
     # 準備工具參數
     tool_params = {
         "mode": mode.lower() if mode.lower() in ["cash", "ratio", "conditional", "customize"] else "cash",
         "boundary": params.get("boundary", 20000),
         "step": params.get("step", 1000),
     }
-    
+
+    # 【重要】添加 excel_file 參數，確保使用正確的檔案
+    if excel_path:
+        tool_params["excel_file"] = excel_path
+
+    # 添加工作表名稱
+    if sheet_name:
+        tool_params["sheet_name"] = sheet_name
+
     # 添加可選參數
     if params.get("profit_rate"):
         tool_params["profit_rate"] = params["profit_rate"]
     if params.get("development_fee"):
         tool_params["development_fee"] = params["development_fee"]
-    
+
     print(f"  工具參數: {tool_params}")
     
     # 調用 execute_price_rolling 工具
@@ -290,7 +421,7 @@ def _format_equipment_cost_result(result):
     return response
 
 
-def _execute_price_rolling_with_params(rolling_mode, rolling_params, excel_path):
+def _execute_price_rolling_with_params(rolling_mode, rolling_params, excel_path, sheet_name=None):
     """
     使用網頁提供的參數執行完整的價金滾算流程
     工具會自動輸出 Excel 滾算記錄
@@ -298,14 +429,26 @@ def _execute_price_rolling_with_params(rolling_mode, rolling_params, excel_path)
     print(f"執行價金滾算並輸出 Excel 記錄...")
     print(f"  模式: {rolling_mode}")
     print(f"  參數: {rolling_params}")
-    
+    print(f"  Excel 路徑: {excel_path}")
+    print(f"  工作表: {sheet_name}")
+
     # 準備工具參數
     tool_params = _convert_web_params_to_tool_params(rolling_mode, rolling_params)
-    
+
+    # 【重要】添加 excel_file 參數，確保使用正確的檔案
+    if excel_path:
+        tool_params["excel_file"] = excel_path
+
+    # 添加工作表名稱（如果有提供且 rolling_params 中沒有）
+    if sheet_name and "sheet_name" not in tool_params:
+        tool_params["sheet_name"] = sheet_name
+
     # 調用 execute_price_rolling 工具（會自動輸出 Excel 記錄）
     result = tool_manager.execute_tool("execute_price_rolling", tool_params)
-    
+
     if result.get("success"):
+        # 【快取】成功執行後，儲存參數到快取供「執行滾算紀錄」使用
+        _store_rolling_cache(excel_path, tool_params.get("mode", "cash"), tool_params)
         return _format_rolling_result_with_file(result)
     else:
         return f"### 執行價金滾算時發生錯誤\n\n- **錯誤訊息:** {result.get('message', '未知錯誤')}"

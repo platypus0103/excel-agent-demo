@@ -22,13 +22,12 @@ class EquipmentCostTool:
         self.excel_folder = "Excel"
         self.excel_final_folder = "Excel final"
         self.output_file_name = "滾算後記錄.xlsx"
-        self.finance_tool = None  # 財務工具實例
 
     def _find_excel_file(self, directory: str) -> Optional[str]:
         """在指定目錄中找到第一個 Excel 檔案"""
         if not os.path.exists(directory):
             return None
-        
+
         for file in os.listdir(directory):
             if file.endswith(('.xlsx', '.xls')) and not file.startswith('~$'):
                 return os.path.join(directory, file)
@@ -61,17 +60,20 @@ class EquipmentCostTool:
         try:
             wb = load_workbook(file_path, data_only=True)
             sheet = wb.active
-            
+
             # 根據提供的 Excel 結構讀取數據
+            # 欄位對應：B欄為參數數值、C欄為額外數值、D欄為支提年限
             data = {
-                "project_name": sheet["B2"].value or "淡江大學-財務模擬案場",                "plant_lifetime": self._safe_int_convert(sheet["B3"].value, 20),  # 電站壽命                "capacity": self._safe_float_convert(sheet["B4"].value, 436.1),#建置量(kWp)
+                "project_name": sheet["B2"].value,
+                "plant_lifetime": self._safe_int_convert(sheet["B3"].value, 20),  # 電站壽命
+                "capacity": self._safe_float_convert(sheet["B4"].value, 436.1),#建置量(kWp)
                 "start_year": self._safe_int_convert(sheet["B5"].value, 2020),#起始年度
                 "end_year": self._safe_int_convert(sheet["D5"].value, 2039),#結束年度
                 "annual_generation": self._safe_float_convert(sheet["B10"].value, 0),#年度AC併網總發電量
                 "annual_ac_generation": self._safe_float_convert(sheet["C10"].value, 0),  # 年度AC併網總發電量
                 "electricity_revenue_years": self._safe_int_convert(sheet["D10"].value, 0),  # 電費收入年限
                 "first_year_decline_rate": self._safe_float_convert(sheet["C11"].value, 0),  # 首年衰退率
-                "fit_rate": self._safe_float_convert(sheet["C12"].value, 0),#次年衰退率               
+                "fit_rate": self._safe_float_convert(sheet["C12"].value, 0),#次年衰退率
                 "fit_price_c13": self._safe_float_convert(sheet["C13"].value, 0),  # 躉售費率(FIT)從C13讀取
                 "equipment_cost": self._safe_int_convert(sheet["C16"].value, 0),  # 每kWp設備成本
                 "equipment_amortization_years": self._safe_int_convert(sheet["D16"].value, 0),  # 設備費用(價金)支提年限
@@ -95,13 +97,13 @@ class EquipmentCostTool:
                 "interest_amortization_years": self._safe_int_convert(sheet["D25"].value, 0),  # 利息費用支提年限
                 "tax_rate": self._safe_float_convert(sheet["C26"].value, 0),  # 所得稅率
                 "tax_amortization_years": self._safe_int_convert(sheet["D26"].value, 0),  # 所得稅支提年限
-                # 新增 C31~C34 數據讀取
+                # C31~C34 數據讀取
                 "c31_value": self._safe_float_convert(sheet["C31"].value, 0),  # 貸款成數占總設備費用比例
                 "c32_value": self._safe_float_convert(sheet["C32"].value, 0),  # 貸款還款攤還期數
                 "c33_value": self._safe_float_convert(sheet["C33"].value, 0),  # 現金股利股利比率
                 "c34_value": self._safe_float_convert(sheet["C34"].value, 0)   # 年底減資攤還期數
             }
-            
+
             wb.close()
             return data
             
@@ -111,19 +113,22 @@ class EquipmentCostTool:
     def _calculate_irr_for_prices(self, excel_file: str, adjustment_record: List[int], profit_rate: float, development_fee: int, sheet_name: str = None) -> List[Dict[str, float]]:
         """為每個價金計算IRR（參考price_rolling_tool實作）"""
         try:
-            # 初始化財務工具
-            if self.finance_tool is None:
-                self.finance_tool = FinanceTool()
-            
+            # 每次都創建新的 FinanceTool 實例，避免多聊天室之間的狀態污染
+            finance_tool = FinanceTool()
+
             # 設定Excel檔案
-            self.finance_tool.set_excel_file(excel_file, sheet_name)
-            
+            finance_tool.set_excel_file(excel_file, sheet_name)
+
+            print(f"[DEBUG] 使用Excel檔案: {excel_file}")
+            if sheet_name:
+                print(f"[DEBUG] 使用工作表: {sheet_name}")
+
             irr_results = []
-            
+
             for price in adjustment_record:
                 try:
                     # 使用財務工具計算IRR（參考price_rolling_tool的方式）
-                    irr_result = self.finance_tool.calculate_scenario_irr(
+                    irr_result = finance_tool.calculate_scenario_irr(
                         equipment_cost=price,
                         profit_rate=profit_rate,
                         development_cost=development_fee,
@@ -138,95 +143,42 @@ class EquipmentCostTool:
                         "cost_method_irr": None,
                         "equity_method_irr": None
                     })
-                    
+
             return irr_results
-            
+
         except Exception as e:
             print(f"初始化財務工具失敗: {str(e)}")
             # 如果初始化失敗，為所有價金返回空值
             return [{
                 "project_irr": None,
-                "cost_method_irr": None, 
+                "cost_method_irr": None,
                 "equity_method_irr": None
             } for _ in adjustment_record]
 
     def _prepare_output_file(self, source_file_path: str) -> str:
-        """準備輸出檔案，先複製滾算後記錄.xlsx檔案"""
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        base_name = "滾算後記錄"
-        output_path = os.path.join(self.excel_final_folder, f"{base_name}_{timestamp}.xlsx")
-        
-        # 確保目錄存在
+        """直接返回輸入檔案路徑，在原檔案上操作"""
+        # 確保 Excel final 資料夾存在（用於存放模板）
         if not os.path.exists(self.excel_final_folder):
             os.makedirs(self.excel_final_folder)
-        
-        # 要複製的目標檔案路徑
-        target_file = os.path.join(self.excel_final_folder, "滾算後記錄.xlsx")
-        
-        # 複製滾算後記錄.xlsx檔案到輸出位置
-        if os.path.exists(target_file):
-            try:
-                shutil.copy2(target_file, output_path)
-                print(f"已複製滾算後記錄.xlsx 到 {output_path}")
-            except PermissionError:
-                # 如果複製失敗，從原始檔案複製
-                print(f"無法複製滾算後記錄.xlsx(可能被鎖定)，將從原始檔案複製: {source_file_path}")
-                if os.path.exists(source_file_path):
-                    try:
-                        shutil.copy2(source_file_path, output_path)
-                        print(f"已從原始檔案複製到 {output_path}")
-                    except PermissionError:
-                        print(f"原始檔案也被鎖定，將創建新檔案: {output_path}")
-                        wb = Workbook()
-                        sheet = wb.active
-                        sheet.title = "滾算結果"
-                        wb.save(output_path)
-                        wb.close()
-                else:
-                    wb = Workbook()
-                    sheet = wb.active
-                    sheet.title = "滾算結果"
-                    wb.save(output_path)
-                    wb.close()
-        else:
-            # 如果滾算後記錄.xlsx不存在，從原始檔案複製
-            print(f"滾算後記錄.xlsx 不存在，將從原始檔案複製: {source_file_path}")
-            if os.path.exists(source_file_path):
-                try:
-                    shutil.copy2(source_file_path, output_path)
-                    print(f"已從原始檔案複製到 {output_path}")
-                except PermissionError:
-                    print(f"原始檔案被鎖定，將創建新檔案: {output_path}")
-                    wb = Workbook()
-                    sheet = wb.active
-                    sheet.title = "滾算結果"
-                    wb.save(output_path)
-                    wb.close()
-            else:
-                # 創建基本模板
-                wb = Workbook()
-                sheet = wb.active
-                sheet.title = "滾算結果"
-                wb.save(output_path)
-                wb.close()
-        
-        return output_path
 
-    def _get_next_sheet_number(self, wb) -> int:
-        """取得下一個可用的工作表編號"""
+        print(f"將直接在輸入檔案上進行滾算記錄: {source_file_path}")
+        return source_file_path
+
+    def _get_next_record_number(self, wb) -> int:
+        """取得下一個可用的滾算紀錄編號（統一編號系統）"""
         existing_numbers = []
         for sheet_name in wb.sheetnames:
-            if sheet_name.startswith("開始滾算紀錄"):
-                # 提取編號，支援"開始滾算紀錄1", "開始滾算紀錄2"等格式
-                number_part = sheet_name.replace("開始滾算紀錄", "")
+            # 檢查「滾算紀錄X」格式（不包含「滾算紀錄單」）
+            if sheet_name.startswith("滾算紀錄") and not sheet_name.startswith("滾算紀錄單"):
+                number_part = sheet_name.replace("滾算紀錄", "")
                 try:
                     existing_numbers.append(int(number_part))
                 except ValueError:
                     pass
-        
+
         # 返回下一個可用編號
         if not existing_numbers:
-            return 1  # 如果沒有任何開始滾算紀錄工作表，從1開始
+            return 1
         else:
             return max(existing_numbers) + 1
 
@@ -269,12 +221,67 @@ class EquipmentCostTool:
                         new_sheet.cell(row=8+i, column=summary_col+1, value=f"{project_irr:.2f}%")
             
             print(f"已在 {new_sheet.title} 工作表右側空白區域填入滾算結果摘要")
-            
+
         except Exception as e:
             print(f"填入複製工作表數據時發生錯誤: {str(e)}")
 
-    def _fill_copied_sheet_with_rolling_data(self, new_sheet, result, rolling_idx):
-        """為特定的滾算次數在複製工作表中填入數據，並從輸入公版填入基礎資料"""
+    def _clear_unwanted_rows(self, sheet, rows_to_clear=[57, 58, 59, 60, 61]):
+        """清除工作表中不需要的行內容（來自模板的多餘內容）
+
+        Args:
+            sheet: 要清除的工作表
+            rows_to_clear: 要清除的行號列表（默認為57-61行）
+        """
+        try:
+            max_col = sheet.max_column or 50  # 確保有足夠的列範圍
+            for row_num in rows_to_clear:
+                for col in range(1, max_col + 1):
+                    sheet.cell(row=row_num, column=col).value = None
+            print(f"已清除 {sheet.title} 工作表的第 {rows_to_clear[0]}-{rows_to_clear[-1]} 行內容")
+        except Exception as e:
+            print(f"清除不需要的行時發生錯誤: {str(e)}")
+
+    def _auto_adjust_column_widths(self, sheet, min_width=8, max_width=50):
+        """自動調整工作表的欄寬
+
+        Args:
+            sheet: 要調整的工作表
+            min_width: 最小欄寬（默認8）
+            max_width: 最大欄寬（默認50）
+        """
+        try:
+            from openpyxl.utils import get_column_letter
+
+            for col_idx in range(1, sheet.max_column + 1):
+                max_length = 0
+                column_letter = get_column_letter(col_idx)
+
+                for row_idx in range(1, min(sheet.max_row + 1, 120)):  # 只檢查前120行
+                    cell = sheet.cell(row=row_idx, column=col_idx)
+                    if cell.value:
+                        # 計算單元格內容的長度（考慮中文字符寬度）
+                        cell_value = str(cell.value)
+                        # 中文字符算2個字符寬度
+                        length = sum(2 if ord(c) > 127 else 1 for c in cell_value)
+                        max_length = max(max_length, length)
+
+                # 設置欄寬，添加一些緩衝
+                adjusted_width = max(min_width, min(max_length + 2, max_width))
+                sheet.column_dimensions[column_letter].width = adjusted_width
+
+            print(f"已自動調整 {sheet.title} 工作表的欄寬")
+        except Exception as e:
+            print(f"自動調整欄寬時發生錯誤: {str(e)}")
+
+    def _fill_record_sheet_with_data(self, new_sheet, result, rolling_idx, record_number):
+        """為滾算紀錄工作表填入數據（統一方法，用於所有滾算紀錄）
+
+        Args:
+            new_sheet: 要填入數據的工作表
+            result: 滾算結果數據
+            rolling_idx: 滾算索引（0=初始價金, 1=第1次滾算...）
+            record_number: 滾算紀錄編號（對應滾算紀錄單的編號）
+        """
         try:
             adjustment_record = result.get("adjustment_record", [])
             profit_record = result.get("profit_record", [])
@@ -283,9 +290,160 @@ class EquipmentCostTool:
             step = result.get("step", "")
             boundary = result.get("boundary", "")
             original_data = result.get("original_data", {})
-            # 獲取用戶輸入的開發費（優先使用用戶輸入值）
             user_development_fee = result.get("development_fee", original_data.get("development_fee", 0))
-            # 獲取用戶輸入的開發費（優先使用用戶輸入值）
+
+            # === 1. 從輸入公版填入基礎資料到對應位置 ===
+            project_name = original_data.get("project_name", "")
+            if project_name:
+                new_sheet.cell(row=2, column=3, value=project_name)  # C2
+
+            new_sheet.cell(row=3, column=3, value=original_data.get("plant_lifetime", 20))  # C3 電站壽命
+            new_sheet.cell(row=4, column=3, value=original_data.get("capacity", 436.1))  # C4 裝置容量
+            new_sheet.cell(row=5, column=3, value=original_data.get("start_year", 2020))  # C5 起始年度
+            new_sheet.cell(row=5, column=5, value=original_data.get("end_year", 2039))  # E5 結束年度
+
+            new_sheet.cell(row=10, column=4, value=original_data.get("annual_ac_generation", 0))  # D10 年度AC併網總發電量
+            new_sheet.cell(row=10, column=5, value=original_data.get("electricity_revenue_years", 0))  # E10 電費收入年限
+            new_sheet.cell(row=11, column=4, value=original_data.get("first_year_decline_rate", 0))  # D11 首年衰退率
+            new_sheet.cell(row=12, column=4, value=original_data.get("fit_rate", 0))  # D12 次年衰退率
+            new_sheet.cell(row=13, column=4, value=original_data.get("fit_price_c13", 0))  # D13 躉售費率
+
+            # C17~C26 填到 D17~D26
+            new_sheet.cell(row=18, column=4, value=user_development_fee)  # D18 開發費
+            new_sheet.cell(row=19, column=4, value=original_data.get("rent_calculation_method", 0))  # D19
+            new_sheet.cell(row=19, column=5, value=original_data.get("rent_calculation_amortization_years", 0))  # E19
+            new_sheet.cell(row=20, column=4, value=original_data.get("rent_method1_total", 0))  # D20
+            new_sheet.cell(row=20, column=5, value=original_data.get("rent_method1_amortization_years", 0))  # E20
+            new_sheet.cell(row=21, column=4, value=original_data.get("rent_method2_ratio", 0))  # D21
+            new_sheet.cell(row=21, column=5, value=original_data.get("rent_method2_amortization_years", 0))  # E21
+            new_sheet.cell(row=22, column=4, value=original_data.get("maintenance_cost", 0))  # D22 運維費用
+            new_sheet.cell(row=22, column=5, value=original_data.get("maintenance_amortization_years", 0))  # E22
+            new_sheet.cell(row=23, column=4, value=original_data.get("insurance_cost", 0))  # D23 保險費用
+            new_sheet.cell(row=23, column=5, value=original_data.get("insurance_amortization_years", 0))  # E23
+            new_sheet.cell(row=24, column=4, value=original_data.get("loan_amount", 0))  # D24
+            new_sheet.cell(row=24, column=5, value=original_data.get("recycle_amortization_years", 0))  # E24
+            new_sheet.cell(row=25, column=4, value=original_data.get("bank_interest_rate", 0))  # D25 銀行利率
+            new_sheet.cell(row=25, column=5, value=original_data.get("interest_amortization_years", 0))  # E25
+            new_sheet.cell(row=26, column=4, value=original_data.get("tax_rate", 0))  # D26 所得稅率
+            new_sheet.cell(row=26, column=5, value=original_data.get("tax_amortization_years", 0))  # E26
+
+            # C31~C34 填到 D31~D34
+            new_sheet.cell(row=31, column=4, value=original_data.get("c31_value", 0))  # D31
+            new_sheet.cell(row=32, column=4, value=original_data.get("c32_value", 0))  # D32
+            new_sheet.cell(row=33, column=4, value=original_data.get("c33_value", 0))  # D33
+            new_sheet.cell(row=34, column=4, value=original_data.get("c34_value", 0))  # D34
+
+            # === 2. 填入該次滾算的數據 ===
+            if rolling_idx < len(adjustment_record):
+                current_price = adjustment_record[rolling_idx]
+                irr_data = irr_results[rolling_idx] if rolling_idx < len(irr_results) else {"project_irr": None, "equity_method_irr": None}
+
+                # 獲取利潤率
+                current_profit_rate = original_data.get("profit_rate", 0.2)
+                if hasattr(self, 'current_profit_rate') and self.current_profit_rate is not None:
+                    current_profit_rate = self.current_profit_rate
+
+                # 填入設備成本和利潤率
+                new_sheet.cell(row=16, column=4, value=current_price)  # D16 設備成本
+                new_sheet.cell(row=16, column=5, value=original_data.get("equipment_amortization_years", 0))  # E16 支提年限
+                new_sheet.cell(row=17, column=4, value=current_profit_rate)  # D17 信邦利潤率
+
+                # === 3. 在右側空白區域填入滾算摘要 ===
+                summary_col = 13  # 列M
+                new_sheet.cell(row=4, column=summary_col, value=f"滾算紀錄編號: {record_number}")
+
+                if rolling_idx == 0:
+                    new_sheet.cell(row=5, column=summary_col, value="初始價金摘要")
+                else:
+                    new_sheet.cell(row=5, column=summary_col, value=f"第{rolling_idx}次滾算摘要")
+
+                new_sheet.cell(row=6, column=summary_col, value=f"價金: {current_price}")
+                new_sheet.cell(row=7, column=summary_col, value=f"專案IRR: {irr_data.get('project_irr', 'N/A')}")
+                new_sheet.cell(row=8, column=summary_col, value=f"權益法IRR: {irr_data.get('equity_method_irr', 'N/A')}")
+                new_sheet.cell(row=9, column=summary_col, value=f"利潤率: {current_profit_rate*100:.2f}%")
+
+                # 生成備註說明
+                mode_desc = {
+                    "cash": f"現金模式，每次減少 {step} 元",
+                    "ratio": f"比率模式，每次減少 {step*100}%",
+                    "conditional": "條件模式，依價金範圍調整步幅",
+                    "customize": "自訂模式，自動或手動配置步幅"
+                }.get(mode, f"{mode}模式")
+
+                if rolling_idx == 0:
+                    remark = f"初始價金 - {mode_desc}"
+                else:
+                    reduction = adjustment_record[rolling_idx-1] - current_price
+                    remark = f"第{rolling_idx}次滾算，減少 {reduction} 元 - {mode_desc}"
+
+                new_sheet.cell(row=10, column=summary_col, value=remark)
+
+                # === 4. 填入金流明細資料（以負值形式）===
+                cash_flow_details = irr_data.get("cash_flow_details", {})
+                if cash_flow_details:
+                    # D~W 對應 column 4~23 (共20欄)
+                    start_col = 4  # D欄
+                    max_cols = 20  # D到W共20欄
+                    total_years = cash_flow_details.get("total_years", 20)
+
+                    # 年份: D37~W37 (row 37) - 根據起始年和結束年填入
+                    start_year = original_data.get("start_year", 2020)
+                    for i in range(min(total_years, max_cols)):
+                        new_sheet.cell(row=37, column=start_col + i, value=start_year + i)
+
+                    # 租金費用: D45~W45 (row 45)
+                    rent_list = cash_flow_details.get("rent_list", [])
+                    for i, value in enumerate(rent_list[:max_cols]):
+                        new_sheet.cell(row=45, column=start_col + i, value=-abs(value) if value else 0)
+
+                    # 運維費用: D48~W48 (row 48)
+                    maintenance_list = cash_flow_details.get("maintenance_list", [])
+                    for i, value in enumerate(maintenance_list[:max_cols]):
+                        new_sheet.cell(row=48, column=start_col + i, value=-abs(value) if value else 0)
+
+                    # 保險費用: D49~W49 (row 49)
+                    insurance_list = cash_flow_details.get("insurance_list", [])
+                    for i, value in enumerate(insurance_list[:max_cols]):
+                        new_sheet.cell(row=49, column=start_col + i, value=-abs(value) if value else 0)
+
+                    # 回收費用: D50~W50 (row 50)
+                    recycle_list = cash_flow_details.get("recycle_list", [])
+                    for i, value in enumerate(recycle_list[:max_cols]):
+                        new_sheet.cell(row=50, column=start_col + i, value=-abs(value) if value else 0)
+
+                    # 利息費用: D75~W75 (row 75)
+                    interest_list = cash_flow_details.get("interest_list", [])
+                    for i, value in enumerate(interest_list[:max_cols]):
+                        new_sheet.cell(row=75, column=start_col + i, value=-abs(value) if value else 0)
+
+                    # 貸款還款: E98~W98 (row 98, 從E欄開始)
+                    pay_back_list = cash_flow_details.get("pay_back_list", [])
+                    pay_back_start_col = 5  # E欄
+                    for i, value in enumerate(pay_back_list[:max_cols - 1]):  # 少一欄因為從E開始
+                        new_sheet.cell(row=98, column=pay_back_start_col + i, value=-abs(value) if value else 0)
+
+                    # 年底減資: D101~W101 (row 101)
+                    dividend_list = cash_flow_details.get("dividend_list", [])
+                    for i, value in enumerate(dividend_list[:max_cols]):
+                        new_sheet.cell(row=101, column=start_col + i, value=-abs(value) if value else 0)
+
+                    print(f"已在 {new_sheet.title} 工作表填入金流明細資料")
+
+                print(f"已在 {new_sheet.title} 工作表填入滾算紀錄 {record_number} 的數據")
+
+        except Exception as e:
+            print(f"填入滾算紀錄工作表數據時發生錯誤: {str(e)}")
+
+    def _fill_copied_sheet_with_rolling_data(self, new_sheet, result, rolling_idx):
+        """【已棄用】為特定的滾算次數在複製工作表中填入數據，並從輸入公版填入基礎資料"""
+        try:
+            adjustment_record = result.get("adjustment_record", [])
+            profit_record = result.get("profit_record", [])
+            irr_results = result.get("irr_results", [])
+            mode = result.get("mode", "")
+            step = result.get("step", "")
+            boundary = result.get("boundary", "")
+            original_data = result.get("original_data", {})
             user_development_fee = result.get("development_fee", original_data.get("development_fee", 0))
             
             # === 1. 從輸入公版填入基礎資料到對應位置 ===
@@ -413,13 +571,66 @@ class EquipmentCostTool:
             print(f"填入複製工作表滾算數據時發生錯誤: {str(e)}")
 
     def _fill_original_sheet_with_initial_data(self, wb, result):
-        """為滾算紀錄1工作表填入初始價金的數據"""
+        """【已棄用】為滾算紀錄工作表填入初始價金的數據"""
         try:
-            if "滾算紀錄1" not in wb.sheetnames:
-                print("警告：找不到滾算紀錄1工作表")
-                return
-                
-            sheet = wb["滾算紀錄1"]
+            # 獲取下一個滾算紀錄編號（使用統一的編號方法）
+            base_record_number = self._get_next_record_number(wb)
+            sheet_name = f"滾算紀錄{base_record_number}"
+
+            # 創建或獲取工作表
+            if sheet_name not in wb.sheetnames:
+                # 嘗試從模板複製
+                template_copied = False
+
+                # 優先從輸入檔案中已有的「滾算紀錄1」複製
+                if "滾算紀錄1" in wb.sheetnames:
+                    sheet = wb.copy_worksheet(wb["滾算紀錄1"])
+                    sheet.title = sheet_name
+                    print(f"已從輸入檔案的「滾算紀錄1」複製為「{sheet_name}」")
+                    # 清除可能存在的不需要行（第57-61行）
+                    self._clear_unwanted_rows(sheet)
+                    template_copied = True
+                else:
+                    # 從 Excel final/滾算後記錄.xlsx 複製模板
+                    template_file = os.path.join(self.excel_final_folder, "滾算後記錄.xlsx")
+                    if os.path.exists(template_file):
+                        try:
+                            template_wb = load_workbook(template_file)
+                            if "滾算紀錄1" in template_wb.sheetnames:
+                                # 複製工作表內容
+                                template_sheet = template_wb["滾算紀錄1"]
+                                sheet = wb.create_sheet(sheet_name)
+
+                                # 複製所有單元格內容和格式
+                                for row in template_sheet.iter_rows():
+                                    for cell in row:
+                                        new_cell = sheet[cell.coordinate]
+                                        new_cell.value = cell.value
+                                        if cell.has_style:
+                                            new_cell.font = cell.font.copy()
+                                            new_cell.border = cell.border.copy()
+                                            new_cell.fill = cell.fill.copy()
+                                            new_cell.number_format = cell.number_format
+                                            new_cell.protection = cell.protection.copy()
+                                            new_cell.alignment = cell.alignment.copy()
+
+                                template_wb.close()
+                                print(f"已從模板檔案複製為「{sheet_name}」")
+                                # 清除模板中不需要的行（第57-61行）
+                                self._clear_unwanted_rows(sheet)
+                                template_copied = True
+                            else:
+                                template_wb.close()
+                        except Exception as e:
+                            print(f"從模板檔案複製失敗: {str(e)}")
+
+                # 如果沒有複製成功，創建空白工作表
+                if not template_copied:
+                    sheet = wb.create_sheet(sheet_name)
+                    print(f"已創建新工作表「{sheet_name}」（無模板）")
+            else:
+                sheet = wb[sheet_name]
+                print(f"工作表「{sheet_name}」已存在，將覆蓋數據")
             adjustment_record = result.get("adjustment_record", [])
             irr_results = result.get("irr_results", [])
             original_data = result.get("original_data", {})
@@ -540,27 +751,34 @@ class EquipmentCostTool:
         """將結果寫入滾算紀錄單(總紀錄)工作表，並複製滾算紀錄工作表"""
         max_retries = 3
         retry_delay = 1
-        
+
         for attempt in range(max_retries):
             try:
-                wb = load_workbook(output_path)
-                
-                # === 1. 寫入滾算紀錄單(總紀錄)工作表 - 保持原有功能 ===
+                # 使用 keep_links=True 保留外部連結，不使用 data_only 以保留公式
+                wb = load_workbook(output_path, keep_links=True)
+
+                # === 1. 寫入滾算紀錄單(總紀錄)工作表 ===
                 if "滾算紀錄單(總紀錄)" in wb.sheetnames:
                     sheet = wb["滾算紀錄單(總紀錄)"]
                 else:
                     # 如果沒有滾算紀錄單(總紀錄)，創建一個
                     sheet = wb.create_sheet("滾算紀錄單(總紀錄)")
-                    # 設定標題行
-                    headers = ["價金每KW", "專案法IRR", "權益法IRR", "信邦利潤率", "信邦利潤", "每kw信邦利潤", "開發費", "備註"]
+                    # 設定標題行（新增「編號」作為第一欄）
+                    headers = ["編號", "價金每KW", "專案法IRR", "權益法IRR", "信邦利潤率", "信邦利潤", "每kw信邦利潤", "開發費", "備註"]
                     for col, header in enumerate(headers, 1):
                         sheet.cell(row=1, column=col, value=header)
-                
-                # 找到下一個空行開始寫入
+
+                # 檢查是否需要添加「編號」欄位（針對已存在的工作表）
+                if sheet.cell(row=1, column=1).value != "編號":
+                    # 插入新的編號欄位，將現有資料往右移
+                    sheet.insert_cols(1)
+                    sheet.cell(row=1, column=1, value="編號")
+
+                # 找到下一個空行開始寫入（檢查編號欄和價金欄）
                 start_row = 2
-                while sheet.cell(row=start_row, column=1).value is not None:
+                while sheet.cell(row=start_row, column=1).value is not None or sheet.cell(row=start_row, column=2).value is not None:
                     start_row += 1
-                
+
                 # 寫入滾算結果，並為每次滾算創建對應的工作表
                 current_row = start_row
                 for result_index, result in enumerate(results):
@@ -570,42 +788,8 @@ class EquipmentCostTool:
                     mode = result.get("mode", "")
                     step = result.get("step", "")
                     boundary = result.get("boundary", "")
-                    # 使用用戶輸入的開發費（result層級），而非Excel原始數據
                     development_fee = result.get("development_fee", 0)
-                    
-                    # === 2. 為滾算紀錄1工作表填入初始價金數據 ===
-                    self._fill_original_sheet_with_initial_data(wb, result)
-                    
-                    # === 3. 新增功能：為每次滾算複製一個工作表（除了第0次初始價金） ===
-                    for rolling_idx in range(len(adjustment_record)):
-                        if rolling_idx == 0:
-                            # 第0次是初始價金，使用現有的滾算紀錄1，不需要複製
-                            continue
-                            
-                        # 為每次滾算創建工作表，工作表編號從1開始（對應第1次滾算）
-                        rolling_sheet_number = rolling_idx  # rolling_idx=1時對應開始滾算紀錄1
-                        new_sheet_name = f"開始滾算紀錄{rolling_sheet_number}"
-                        
-                        # 複製滾算紀錄工作表
-                        if "滾算紀錄1" in wb.sheetnames:
-                            source_sheet = wb["滾算紀錄1"]
-                            # 複製工作表
-                            new_sheet = wb.copy_worksheet(source_sheet)
-                            new_sheet.title = new_sheet_name
-                            print(f"已複製滾算紀錄1工作表為: {new_sheet_name}")
-                            
-                            # 為這個特定的滾算填入數據
-                            self._fill_copied_sheet_with_rolling_data(new_sheet, result, rolling_idx)
-                        else:
-                            print("警告：找不到滾算紀錄1工作表，無法複製")
-                    profit_record = result.get("profit_record", [])
-                    irr_results = result.get("irr_results", [])
-                    mode = result.get("mode", "")
-                    step = result.get("step", "")
-                    boundary = result.get("boundary", "")
-                    # 使用用戶輸入的開發費（result層級），而非Excel原始數據
-                    development_fee = result.get("development_fee", 0)
-                    
+
                     # 生成備註說明
                     mode_desc = {
                         "cash": f"現金模式，每次減少 {step} 元",
@@ -613,57 +797,128 @@ class EquipmentCostTool:
                         "conditional": "條件模式，依價金範圍調整步幅",
                         "customize": "自訂模式，自動或手動配置步幅"
                     }.get(mode, f"{mode}模式")
-                    
-                    # === 寫入滾算紀錄單(總紀錄)的結果 ===
+
+                    # === 為每次滾算寫入紀錄單並創建對應工作表 ===
                     for i, (price, profit) in enumerate(zip(adjustment_record, profit_record)):
+                        # 取得下一個可用的編號（用於滾算紀錄單和工作表）
+                        record_number = self._get_next_record_number(wb)
+
                         # 取得對應的IRR結果
                         irr_data = irr_results[i] if i < len(irr_results) else {"project_irr": None, "equity_method_irr": None}
-                        
+
                         if i == 0:
                             remark = f"初始價金 - {mode_desc}，邊界值 {boundary} 元"
                         else:
                             reduction = adjustment_record[i-1] - price
                             remark = f"第{i}次滾算，減少 {reduction} 元 - {mode_desc}"
-                        
-                        # 獲取利潤率（優先使用當次執行傳入的利潤率，其次使用Excel原始數據）
-                        # 從result中獲取動態利潤率，而不是使用固定的original_data
+
+                        # 獲取利潤率
                         current_profit_rate = result.get("original_data", {}).get("profit_rate", 0.2)
-                        # 檢查是否有外部傳入的利潤率參數覆蓋
                         if hasattr(self, 'current_profit_rate') and self.current_profit_rate is not None:
                             current_profit_rate = self.current_profit_rate
-                        
-                        # 獲取Excel建置容量和攤提年限
+
+                        # 獲取Excel建置容量
                         capacity = result.get("original_data", {}).get("capacity", 436.1)
-                        equipment_amortization_years = result.get("original_data", {}).get("equipment_amortization_years", 1)
-                        
-                        # 計算每kw信邦利潤：基礎利潤 - 每年開發費
-                        # 基礎利潤 = equipment_cost / (1 - profit_rate) - equipment_cost
-                        # development_fee是每年開發費，總開發費 = development_fee * equipment_amortization_years
+
+                        # 計算每kw信邦利潤
                         base_profit_per_kw = price / (1 - current_profit_rate) - price
-                        annual_development_cost = development_fee  # 每年開發費
-                        profit_per_kw = base_profit_per_kw - annual_development_cost  # 信邦每KW利潤(年)
-                        
-                        # 計算信邦利潤總額：信邦每KW利潤(年) × 建置容量
+                        annual_development_cost = development_fee
+                        profit_per_kw = base_profit_per_kw - annual_development_cost
                         calculated_profit = profit_per_kw * capacity
-                        
-                        # 按照滾算紀錄單格式填入
-                        sheet.cell(row=current_row, column=1, value=price)  # 價金每KW
-                        sheet.cell(row=current_row, column=2, value=irr_data.get("project_irr"))  # 專案法IRR
-                        sheet.cell(row=current_row, column=3, value=irr_data.get("equity_method_irr"))  # 權益法IRR
-                        
-                        # 設置利潤率，直接使用小數值並設置百分比格式（例如0.15顯示為15.00%）
-                        profit_rate_cell = sheet.cell(row=current_row, column=4, value=current_profit_rate) # 信邦利潤率
-                        profit_rate_cell.number_format = '0.00%'  # 設置為百分比格式，保留兩位小數
-                        
-                        sheet.cell(row=current_row, column=5, value=calculated_profit)  # 信邦利潤(總利潤)
-                        sheet.cell(row=current_row, column=6, value=profit_per_kw)      # 每kw信邦利潤
-                        sheet.cell(row=current_row, column=7, value=development_fee)  # 開發費
-                        sheet.cell(row=current_row, column=8, value=remark) # 備註
+
+                        # === 寫入滾算紀錄單（新增編號欄位） ===
+                        sheet.cell(row=current_row, column=1, value=record_number)  # 編號
+                        sheet.cell(row=current_row, column=2, value=price)  # 價金每KW
+                        sheet.cell(row=current_row, column=3, value=irr_data.get("project_irr"))  # 專案法IRR
+                        sheet.cell(row=current_row, column=4, value=irr_data.get("equity_method_irr"))  # 權益法IRR
+
+                        profit_rate_cell = sheet.cell(row=current_row, column=5, value=current_profit_rate)
+                        profit_rate_cell.number_format = '0.00%'
+
+                        sheet.cell(row=current_row, column=6, value=calculated_profit)  # 信邦利潤
+                        sheet.cell(row=current_row, column=7, value=profit_per_kw)      # 每kw信邦利潤
+                        sheet.cell(row=current_row, column=8, value=development_fee)   # 開發費
+                        sheet.cell(row=current_row, column=9, value=remark)            # 備註
+
+                        # === 創建對應編號的滾算紀錄工作表 ===
+                        new_sheet_name = f"滾算紀錄{record_number}"
+                        new_sheet = None
+                        template_copied = False
+
+                        # 方法1: 優先從輸入檔案中已有的模板工作表複製
+                        for template_name in ["輸入公版(輸入模擬)", "輸入公版", "滾算紀錄1"]:
+                            if template_name in wb.sheetnames:
+                                new_sheet = wb.copy_worksheet(wb[template_name])
+                                new_sheet.title = new_sheet_name
+                                print(f"已從「{template_name}」複製為「{new_sheet_name}」(編號 {record_number})")
+                                # 清除可能存在的不需要行（第57-61行）
+                                self._clear_unwanted_rows(new_sheet)
+                                template_copied = True
+                                break
+
+                        # 方法2: 如果輸入檔案沒有模板，從外部模板檔案複製
+                        if not template_copied:
+                            template_file = os.path.join(self.excel_final_folder, "滾算後記錄.xlsx")
+                            if os.path.exists(template_file):
+                                try:
+                                    template_wb = load_workbook(template_file)
+                                    # 嘗試從模板檔案中尋找合適的工作表
+                                    for template_name in ["輸入公版(輸入模擬)", "輸入公版", "滾算紀錄1"]:
+                                        if template_name in template_wb.sheetnames:
+                                            template_sheet = template_wb[template_name]
+                                            new_sheet = wb.create_sheet(new_sheet_name)
+
+                                            # 複製所有單元格內容和格式
+                                            for row in template_sheet.iter_rows():
+                                                for cell in row:
+                                                    new_cell = new_sheet[cell.coordinate]
+                                                    new_cell.value = cell.value
+                                                    if cell.has_style:
+                                                        new_cell.font = cell.font.copy()
+                                                        new_cell.border = cell.border.copy()
+                                                        new_cell.fill = cell.fill.copy()
+                                                        new_cell.number_format = cell.number_format
+                                                        new_cell.protection = cell.protection.copy()
+                                                        new_cell.alignment = cell.alignment.copy()
+
+                                            # 複製列寬
+                                            for col_letter, col_dim in template_sheet.column_dimensions.items():
+                                                new_sheet.column_dimensions[col_letter].width = col_dim.width
+
+                                            # 複製行高
+                                            for row_num, row_dim in template_sheet.row_dimensions.items():
+                                                new_sheet.row_dimensions[row_num].height = row_dim.height
+
+                                            template_wb.close()
+                                            print(f"已從模板檔案「{template_name}」複製為「{new_sheet_name}」(編號 {record_number})")
+                                            # 清除模板中不需要的行（第57-61行）
+                                            self._clear_unwanted_rows(new_sheet)
+                                            template_copied = True
+                                            break
+
+                                    if not template_copied:
+                                        template_wb.close()
+                                except Exception as e:
+                                    print(f"從模板檔案複製失敗: {str(e)}")
+
+                        # 方法3: 如果都沒有模板，創建空白工作表
+                        if not template_copied:
+                            new_sheet = wb.create_sheet(new_sheet_name)
+                            print(f"已建立新工作表「{new_sheet_name}」(編號 {record_number}，無模板)")
+
+                        # 填入該次滾算的數據
+                        if new_sheet:
+                            self._fill_record_sheet_with_data(new_sheet, result, i, record_number)
+
                         current_row += 1
-                    
-                    # 添加空行分隔不同的滾算結果
+
+                    # 添加空行分隔不同的滾算批次
                     current_row += 1
-                
+
+                # 為所有工作表自動調整欄寬
+                for sheet_name in wb.sheetnames:
+                    self._auto_adjust_column_widths(wb[sheet_name])
+
                 wb.save(output_path)
                 wb.close()
                 return  # 成功完成，退出重試循環
@@ -678,7 +933,7 @@ class EquipmentCostTool:
             except Exception as e:
                 raise Exception(f"寫入 Excel 檔案失敗: {str(e)}")
 
-    def execute_price_rolling(self, 
+    def execute_price_rolling(self,
                               mode: str = "cash",
                               boundary: int = 20000,
                               step: Union[int, float] = 1000,
@@ -686,6 +941,7 @@ class EquipmentCostTool:
                               development_fee: int = None,
                               adjustment_times: int = 10,
                               sheet_name: str = None,
+                              excel_file: str = None,
                               **kwargs) -> Dict[str, Any]:
         """
         執行價金滾算
@@ -697,19 +953,33 @@ class EquipmentCostTool:
             profit_rate: 信邦利潤率（如未指定，將從Excel檔案讀取）
             development_fee: 開發費用（如未指定，將從Excel檔案讀取）
             adjustment_times: 調整次數（自訂模式使用）
+            sheet_name: Excel工作表名稱（用於IRR計算）
+            excel_file: 【必需】Excel檔案路徑（絕對路徑或相對於Excel資料夾的檔案名）。對應當前聊天室使用的Excel檔案
             **kwargs: 其他模式特定參數
 
         Returns:
             執行結果
         """
         try:
-            # 1. 讀取 Excel 資料夾中的檔案
-            excel_file = self._find_excel_file(self.excel_folder)
-            if not excel_file:
+            # 1. 讀取 Excel 檔案（必須指定）
+            if excel_file is None:
                 return {
                     "success": False,
-                    "message": f"在 {self.excel_folder} 資料夾中找不到 Excel 檔案"
+                    "message": "必須指定Excel檔案路徑。請在調用時傳入 excel_file 參數，例如：excel_file='表 43_模擬輸入.xlsx'"
                 }
+
+            # 如果是相對路徑（只有檔案名），轉換為絕對路徑
+            if not os.path.isabs(excel_file):
+                excel_file = os.path.join(self.excel_folder, excel_file)
+
+            # 檢查指定的檔案是否存在
+            if not os.path.exists(excel_file):
+                return {
+                    "success": False,
+                    "message": f"指定的Excel檔案不存在: {excel_file}"
+                }
+
+            print(f"使用Excel檔案: {excel_file}")
 
             # 2. 讀取數據
             data = self._read_excel_data(excel_file)
@@ -827,7 +1097,7 @@ EQUIPMENT_COST_TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "execute_price_rolling",
-            "description": "【完整流程】執行設備成本價金滾算，包含完整流程：1) 從 Excel 資料夾讀取數據, 2) 執行價金滾算計算, 3) 計算每個價金的 IRR, 4) 將結果寫入 'Excel final/滾算後記錄_時間戳.xlsx'。此工具會自動保存結果檔案。如只需要計算分析不寫入檔案，請使用 calculate_price_rolling 工具。",
+            "description": "【完整流程】執行設備成本價金滾算，包含完整流程：1) 從指定的Excel檔案讀取數據, 2) 執行價金滾算計算, 3) 計算每個價金的 IRR, 4) 將結果直接寫入原Excel檔案（新增工作表）。此工具會在原Excel檔案中累積滾算記錄，每次執行會新增「滾算紀錄X」和「開始滾算紀錄X」等工作表。如只需要計算分析不寫入檔案，請使用 calculate_price_rolling 工具。",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -859,6 +1129,10 @@ EQUIPMENT_COST_TOOLS_SCHEMA = [
                     "sheet_name": {
                         "type": "string",
                         "description": "用於IRR計算的Excel工作表名稱（可選）"
+                    },
+                    "excel_file": {
+                        "type": "string",
+                        "description": "【必需】Excel檔案路徑（絕對路徑或相對於Excel資料夾的檔案名）。例如：'表 43_模擬輸入.xlsx' 或 'D:\\\\path\\\\to\\\\file.xlsx'。此參數對應當前聊天室使用的Excel檔案，必須明確指定，不會自動尋找。"
                     },
                     "maximum_value": {
                         "type": "integer",
@@ -892,7 +1166,7 @@ EQUIPMENT_COST_TOOLS_SCHEMA = [
                         "description": "自訂模式：手動指定的 steps 列表"
                     }
                 },
-                "required": ["mode"]
+                "required": ["mode", "excel_file"]
             }
         }
     }

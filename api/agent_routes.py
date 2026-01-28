@@ -1,7 +1,7 @@
 """
 AI Agent 藍圖 - 處理聊天請求
 """
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 import sys
 import os
@@ -97,7 +97,22 @@ def agent_chat():
         if re.search(r'滾算|價金|price.*rolling|IRR|設備成本|計算|分析|模擬|cashmode|ratiomode|conditional|customize|執行', user_query, re.IGNORECASE):
             print("檢測到滾算相關請求，使用 llm_service 處理...")
             from services.llm_service import process_user_query
-            agent_response = process_user_query(user_query)
+
+            # 構建當前聊天室的 Excel 路徑
+            current_excel_path = None
+            if case_name and original_filename:
+                current_excel_path = os.path.join(parent_dir, 'Excel', f"{case_name}_{original_filename}")
+                if not os.path.exists(current_excel_path):
+                    # 如果檔案不存在，嘗試尋找備用檔案
+                    excel_dir = os.path.join(parent_dir, 'Excel')
+                    if os.path.exists(excel_dir):
+                        excel_files = [f for f in os.listdir(excel_dir) if f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
+                        if excel_files:
+                            current_excel_path = os.path.join(excel_dir, excel_files[0])
+                            print(f"原檔案不存在，使用備用檔案: {current_excel_path}")
+
+            # 傳遞 excel_path 給 llm_service
+            agent_response = process_user_query(user_query, excel_path=current_excel_path, sheet_name=sheet_name)
             excel_modified = True  # 滾算會產生 Excel 記錄
         else:
             # 其他請求調用 AI Agent 的 chat 方法
@@ -457,6 +472,7 @@ def delete_excel():
 def _format_price_rolling_result(tool_result, mode):
     """
     格式化價金滾算結果為 Markdown
+    支援 execute_price_rolling（寫入Excel）和 calculate_price_rolling（純計算）兩種格式
 
     Args:
         tool_result: 工具返回的結果
@@ -477,64 +493,68 @@ def _format_price_rolling_result(tool_result, mode):
             return 'N/A'
         return f"{val}%"
 
-    # 顯示原始 IRR
-    base_irr = tool_result.get("base_irr", {})
-    response_parts.append("### 原始 Excel IRR (對照基準)")
-    response_parts.append(f"- **專案法 IRR**: {format_irr(base_irr.get('project_irr'))}")
-    response_parts.append(f"- **成本法 IRR**: {format_irr(base_irr.get('cost_method_irr'))}")
-    response_parts.append(f"- **權益法 IRR**: {format_irr(base_irr.get('equity_method_irr'))}\n")
+    # 檢查是 execute_price_rolling 還是 calculate_price_rolling 的結果
+    if "result" in tool_result:
+        # execute_price_rolling 格式 - 從 result 字段提取數據
+        result_data = tool_result.get("result", {})
+        summary = tool_result.get("summary", {})
 
-    # 顯示使用的參數
+        response_parts.append("### 滾算摘要")
+        response_parts.append(f"- **初始價金**: {summary.get('initial_cost', 'N/A')} 元/kW")
+        response_parts.append(f"- **最終價金**: {summary.get('final_cost', 'N/A')} 元/kW")
+        response_parts.append(f"- **總降幅**: {summary.get('total_reduction', 'N/A')} 元/kW\n")
+
+        # 顯示結果表格
+        adjustment_record = result_data.get("adjustment_record", [])
+        profit_record = result_data.get("profit_record", [])
+        irr_results = result_data.get("irr_results", [])
+
+        if adjustment_record:
+            response_parts.append("### 滾算明細")
+            response_parts.append("| 價金/kW | 信邦利潤/kW | 專案法 IRR | 成本法 IRR | 權益法 IRR |")
+            response_parts.append("| --- | --- | --- | --- | --- |")
+
+            for i, price in enumerate(adjustment_record):
+                profit = profit_record[i] if i < len(profit_record) else 'N/A'
+                irr_data = irr_results[i] if i < len(irr_results) else {}
+                project_irr = format_irr(irr_data.get('project_irr'))
+                cost_irr = format_irr(irr_data.get('cost_method_irr'))
+                equity_irr = format_irr(irr_data.get('equity_method_irr'))
+
+                response_parts.append(f"| {price} | {profit} | {project_irr} | {cost_irr} | {equity_irr} |")
+
+        return "\n".join(response_parts)
+
+    # calculate_price_rolling 格式 - 簡化顯示
     params = tool_result.get("used_parameters", {})
-    response_parts.append("### 使用參數")
-    response_parts.append(f"- **初始價金 / kW**: {params.get('equipment_cost', 'N/A')}")
-    response_parts.append(f"- **信邦利潤率**: {params.get('profit_rate', 'N/A')}")
-    response_parts.append(f"- **開發費**: {params.get('development_fee', 'N/A')}")
-    response_parts.append(f"- **邊界**: {params.get('boundary', 'N/A')}")
-
-    # 顯示模式特定參數
-    if mode == "CashMode" and params.get('step'):
-        response_parts.append(f"- **固定步伐**: {params.get('step')}")
-    elif mode == "RatioMode" and params.get('step'):
-        response_parts.append(f"- **調整比例**: {params.get('step')}")
-
-    response_parts.append("")  # 空行
-
-    # 顯示結果表格
     results = tool_result.get("results_summary", {})
-    columns = results.get("columns", [])
     data_rows = results.get("data", [])
 
-    response_parts.append("### 滾算結果")
+    # 滾算摘要
+    if data_rows:
+        initial_cost = data_rows[0][0] if data_rows else 'N/A'
+        final_cost = data_rows[-1][0] if data_rows else 'N/A'
+        total_reduction = initial_cost - final_cost if isinstance(initial_cost, (int, float)) and isinstance(final_cost, (int, float)) else 'N/A'
 
-    # 構造 Markdown 表格
-    header_map = {
-        "price_per_kw": "價金/kW",
-        "profit_per_kw": "信邦利潤/kW",
-        "final_price_per_kw": "最終價金/kW",
-        "project_irr": "專案法 IRR",
-        "cost_method_irr": "成本法 IRR",
-        "equity_method_irr": "權益法 IRR"
-    }
+        response_parts.append("### 滾算摘要")
+        response_parts.append(f"- **初始價金**: {initial_cost} 元/kW")
+        response_parts.append(f"- **最終價金**: {final_cost} 元/kW")
+        response_parts.append(f"- **總降幅**: {total_reduction} 元/kW\n")
 
-    headers = [header_map.get(col, col) for col in columns]
-    response_parts.append("| " + " | ".join(headers) + " |")
-    response_parts.append("| " + " | ".join(["---"] * len(headers)) + " |")
-
-    # IRR 列的索引
-    irr_columns = {"project_irr", "cost_method_irr", "equity_method_irr"}
+    # 顯示結果表格（移除次數列，只顯示需要的欄位）
+    response_parts.append("### 滾算明細")
+    response_parts.append("| 價金/kW | 信邦利潤/kW | 專案法 IRR | 成本法 IRR | 權益法 IRR |")
+    response_parts.append("| --- | --- | --- | --- | --- |")
 
     for row in data_rows:
-        formatted_row = []
-        for i, val in enumerate(row):
-            col_name = columns[i] if i < len(columns) else ""
-            # 如果是 IRR 列，加上 %
-            if col_name in irr_columns:
-                formatted_row.append(format_irr(val))
-            else:
-                formatted_row.append(str(val))
-        row_str = "| " + " | ".join(formatted_row) + " |"
-        response_parts.append(row_str)
+        # row 格式: [price_per_kw, profit_per_kw, final_price_per_kw, project_irr, cost_method_irr, equity_method_irr]
+        price = row[0] if len(row) > 0 else 'N/A'
+        profit = row[1] if len(row) > 1 else 'N/A'
+        project_irr = format_irr(row[3]) if len(row) > 3 else 'N/A'
+        cost_irr = format_irr(row[4]) if len(row) > 4 else 'N/A'
+        equity_irr = format_irr(row[5]) if len(row) > 5 else 'N/A'
+
+        response_parts.append(f"| {price} | {profit} | {project_irr} | {cost_irr} | {equity_irr} |")
 
     return "\n".join(response_parts)
 
@@ -595,26 +615,62 @@ def calculate_price_rolling():
         agent = get_agent()
 
         # 設定財務工具的 Excel 檔案
+        current_excel_path = None
+        excel_dir = os.path.join(parent_dir, 'Excel')
+
         if case_name and original_filename:
+            # 方法1: 使用完整的 case_name + original_filename
             excel_filename = f"{case_name}_{original_filename}"
-            excel_path = os.path.join(parent_dir, 'Excel', excel_filename)
+            current_excel_path = os.path.join(excel_dir, excel_filename)
 
-            if os.path.exists(excel_path):
-                agent.tool_manager.set_finance_excel_file(excel_path, sheet_name)
-                agent.tool_manager.price_rolling_tool.set_excel_file(excel_path, sheet_name)
-                print(f"已設定 Excel 檔案: {excel_path}")
-            else:
-                print(f"警告: Excel 檔案不存在: {excel_path}")
+            if not os.path.exists(current_excel_path):
+                print(f"警告: Excel 檔案不存在: {current_excel_path}")
+                current_excel_path = None
 
-        # 構造工具參數（所有模式統一處理）
+        # 方法2: 只有 case_name，搜尋以 case_name 開頭的檔案
+        if not current_excel_path and case_name and os.path.exists(excel_dir):
+            excel_files = [f for f in os.listdir(excel_dir)
+                          if f.startswith(f"{case_name}_") and f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
+            if excel_files:
+                current_excel_path = os.path.join(excel_dir, excel_files[0])
+                print(f"根據案場名稱找到 Excel 檔案: {current_excel_path}")
+
+        # 方法3: 備用 - 使用目錄中的第一個 Excel 檔案
+        if not current_excel_path and os.path.exists(excel_dir):
+            excel_files = [f for f in os.listdir(excel_dir) if f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
+            if excel_files:
+                current_excel_path = os.path.join(excel_dir, excel_files[0])
+                print(f"使用備用 Excel 檔案: {current_excel_path}")
+
+        # 設定工具的 Excel 檔案
+        if current_excel_path:
+            agent.tool_manager.set_finance_excel_file(current_excel_path, sheet_name)
+            agent.tool_manager.price_rolling_tool.set_excel_file(current_excel_path, sheet_name)
+            print(f"已設定 Excel 檔案: {current_excel_path}")
+        else:
+            print(f"錯誤: 找不到任何 Excel 檔案，case_name={case_name}, original_filename={original_filename}")
+            return jsonify({
+                "status": "error",
+                "error": "找不到 Excel 檔案。請先上傳 Excel 檔案再進行滾算。"
+            }), 400
+
+        # 轉換模式名稱：前端使用 CashMode/RatioMode 等，後端 execute_price_rolling 使用 cash/ratio 等
+        mode_mapping = {
+            "CashMode": "cash",
+            "RatioMode": "ratio",
+            "ConditionalMode": "conditional",
+            "CustomizeMode": "customize"
+        }
+        backend_mode = mode_mapping.get(mode, mode.lower())
+
+        # 構造工具參數（使用 calculate_price_rolling 工具，純計算不寫入 Excel）
+        # 注意：calculate_price_rolling 使用 CashMode/RatioMode 等格式，不是 cash/ratio
         tool_args = {
-            "mode": mode,
+            "mode": mode,  # 使用原始模式名稱 CashMode, RatioMode 等
             "boundary": boundary
         }
 
         # 添加共用參數
-        if equipment_cost is not None:
-            tool_args["equipment_cost"] = equipment_cost
         if profit_rate is not None:
             tool_args["profit_rate"] = profit_rate
         if development_fee is not None:
@@ -628,13 +684,13 @@ def calculate_price_rolling():
         if mode == "CashMode":
             step = data.get('step')
             if step is not None:
-                tool_args["step"] = step
+                tool_args["step"] = int(step)
                 query_desc += f" (步伐={step})"
 
         elif mode == "RatioMode":
             step = data.get('step')
             if step is not None:
-                tool_args["step"] = step
+                tool_args["step"] = float(step)
                 query_desc += f" (比例={step})"
 
         elif mode == "ConditionalMode":
@@ -644,6 +700,7 @@ def calculate_price_rolling():
             step2 = data.get('step2')
             step3 = data.get('step3')
 
+            # calculate_price_rolling 使用這些參數名稱
             if max_value is not None:
                 tool_args["max_value"] = max_value
             if min_value is not None:
@@ -670,11 +727,16 @@ def calculate_price_rolling():
 
         print(f"工具參數: {tool_args}")
 
-        # 直接調用工具
+        # 使用 calculate_price_rolling 工具（純計算，不寫入 Excel，讓用戶自己決定是否儲存）
         tool_result = agent.tool_manager.execute_tool("calculate_price_rolling", tool_args)
 
         # 格式化結果
         if tool_result.get("success"):
+            # 【快取】成功執行後，儲存參數到快取供「執行滾算紀錄」使用
+            from services.llm_service import _store_rolling_cache
+            _store_rolling_cache(current_excel_path, backend_mode, tool_args)
+            print(f"[快取] 已儲存滾算參數到 llm_service 快取")
+
             agent_response = _format_price_rolling_result(tool_result, mode)
 
             if agent_response:
@@ -705,4 +767,72 @@ def calculate_price_rolling():
         return jsonify({
             "status": "error",
             "error": f"處理請求時發生錯誤: {str(e)}"
+        }), 500
+
+
+@agent_bp.route('/download_excel', methods=['GET'])
+def download_excel():
+    """
+    下載當前聊天室的 Excel 檔案
+    確保每個聊天室下載的是自己對應的 Excel 檔案
+    """
+    try:
+        # 獲取案場資訊
+        case_name = request.args.get('case_name', '')
+        original_filename = request.args.get('original_filename', '')
+
+        if not case_name:
+            return jsonify({
+                "status": "error",
+                "error": "缺少必要參數：case_name"
+            }), 400
+
+        excel_dir = os.path.join(parent_dir, 'Excel')
+        excel_path = None
+        excel_filename = None
+
+        print(f"[下載請求] 案場: {case_name}, 檔案: {original_filename}")
+
+        # 方法1: 使用完整的 case_name + original_filename
+        if original_filename:
+            excel_filename = f"{case_name}_{original_filename}"
+            excel_path = os.path.join(excel_dir, excel_filename)
+            if not os.path.exists(excel_path):
+                print(f"[下載] 完整路徑不存在: {excel_path}")
+                excel_path = None
+
+        # 方法2: 搜尋以 case_name 開頭的檔案
+        if not excel_path and os.path.exists(excel_dir):
+            excel_files = [f for f in os.listdir(excel_dir)
+                          if f.startswith(f"{case_name}_") and f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
+            if excel_files:
+                excel_filename = excel_files[0]
+                excel_path = os.path.join(excel_dir, excel_filename)
+                print(f"[下載] 根據案場名稱找到: {excel_path}")
+
+        # 檢查是否找到檔案
+        if not excel_path or not os.path.exists(excel_path):
+            print(f"[下載錯誤] 找不到任何符合的檔案，case_name={case_name}")
+            return jsonify({
+                "status": "error",
+                "error": f"找不到案場「{case_name}」的 Excel 檔案"
+            }), 404
+
+        print(f"[下載] 發送檔案: {excel_path}")
+
+        # 發送檔案
+        return send_file(
+            excel_path,
+            as_attachment=True,
+            download_name=excel_filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+    except Exception as e:
+        import traceback
+        print(f"🚨 下載 Excel 錯誤: {e}")
+        print(traceback.format_exc())
+        return jsonify({
+            "status": "error",
+            "error": f"下載失敗: {str(e)}"
         }), 500
