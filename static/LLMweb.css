@@ -69,8 +69,19 @@ body, html {
     cursor: pointer;
     border-radius: 4px;
     margin-bottom: 5px;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, border-color 0.2s;
     position: relative;
+    border-left: 4px solid transparent;
+}
+
+/* 單站案場 - 藍色邊框 */
+.case-item.single-site {
+    border-left-color: #3498db;
+}
+
+/* 多站案場 - 橘色邊框 */
+.case-item.multi-site {
+    border-left-color: #e67e22;
 }
 
 .case-item:hover, .case-item.active {
@@ -350,4 +361,377 @@ body, html {
     to {
         opacity: 1;
     }
+}
+
+/* 新增案場下拉選單 */
+.add-case-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.add-case-dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background-color: #fff;
+    min-width: 120px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-radius: 6px;
+    z-index: 1000;
+    overflow: hidden;
+    margin-top: 5px;
+}
+
+.add-case-dropdown-content.show {
+    display: block;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.add-case-dropdown-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 15px;
+    cursor: pointer;
+    color: #2c3e50;
+    font-size: 14px;
+    transition: background-color 0.2s;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+}
+
+.add-case-dropdown-item:hover {
+    background-color: #f0f0f0;
+}
+
+.add-case-dropdown-item .site-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+
+.add-case-dropdown-item .site-indicator.single {
+    background-color: #3498db;
+}
+
+.add-case-dropdown-item .site-indicator.multi {
+    background-color: #e67e22;
+}
+
+/* 案場類型切換選單 */
+.case-type-menu {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 100%;
+    background-color: #fff;
+    min-width: 140px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    border-radius: 6px;
+    z-index: 1001;
+    overflow: hidden;
+    margin-top: 5px;
+}
+
+.case-type-menu.show {
+    display: block;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.case-type-menu-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 15px;
+    cursor: pointer;
+    color: #2c3e50;
+    font-size: 13px;
+    transition: background-color 0.2s;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+}
+
+.case-type-menu-item:hover {
+    background-color: #f0f0f0;
+}
+
+.case-type-menu-item .site-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.case-type-menu-item .site-indicator.single {
+    background-color: #3498db;
+}
+
+.case-type-menu-item .site-indicator.multi {
+    background-color: #e67e22;
+}
+
+.case-type-menu-item.active {
+    background-color: #e8f4fc;
+    font-weight: 600;
+}
+
+.case-type-menu-header {
+    padding: 8px 15px;
+    font-size: 11px;
+    color: #7f8c8d;
+    border-bottom: 1px solid #ecf0f1;
+    font-weight: 600;
+}
+
+/* 匯入表格按鈕 - 與匯出表格相同綠色 */
+/* 已使用 price-rolling-btn 樣式，無需額外覆寫 */
+
+/* 匯入表格對話框 */
+.import-dialog-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
+}
+
+.import-dialog-overlay.show {
+    display: flex;
+}
+
+.import-dialog {
+    background: white;
+    border-radius: 12px;
+    width: 500px;
+    max-width: 90%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.import-dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #ecf0f1;
+}
+
+.import-dialog-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.import-close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #7f8c8d;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.import-close-btn:hover {
+    color: #e74c3c;
+}
+
+.import-dialog-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    min-height: 300px;
+    max-height: 400px;
+}
+
+.import-case-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.import-loading {
+    text-align: center;
+    color: #7f8c8d;
+    padding: 40px;
+}
+
+/* 案場項目 */
+.import-case-item {
+    border: 1px solid #ecf0f1;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.import-case-header {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px;
+    background: #f8f9fa;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.import-case-header:hover {
+    background: #ecf0f1;
+}
+
+.import-case-toggle {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+    font-size: 12px;
+    color: #7f8c8d;
+    transition: transform 0.2s;
+}
+
+.import-case-item.expanded .import-case-toggle {
+    transform: rotate(90deg);
+}
+
+.import-case-name {
+    flex: 1;
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.import-case-type {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 10px;
+}
+
+.import-case-type.single {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.import-case-type.multi {
+    background: #fff3e0;
+    color: #e65100;
+}
+
+.import-sheet-count {
+    font-size: 12px;
+    color: #7f8c8d;
+    margin-left: 10px;
+}
+
+/* Sheet 列表 */
+.import-sheet-list {
+    display: none;
+    padding: 10px 15px 15px 45px;
+    background: white;
+    border-top: 1px solid #ecf0f1;
+}
+
+.import-case-item.expanded .import-sheet-list {
+    display: block;
+}
+
+.import-sheet-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.import-sheet-item:hover {
+    background: #f8f9fa;
+}
+
+.import-sheet-item input[type="checkbox"] {
+    margin-right: 10px;
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.import-sheet-item label {
+    flex: 1;
+    cursor: pointer;
+    color: #34495e;
+}
+
+.import-sheet-item.selected {
+    background: #e8f5e9;
+}
+
+/* 對話框底部 */
+.import-dialog-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-top: 1px solid #ecf0f1;
+    background: #f8f9fa;
+}
+
+#importSelectedCount {
+    font-size: 14px;
+    color: #7f8c8d;
+}
+
+.import-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    margin-left: 10px;
+}
+
+.import-btn-cancel {
+    background: #ecf0f1;
+    color: #7f8c8d;
+}
+
+.import-btn-cancel:hover {
+    background: #bdc3c7;
+}
+
+.import-btn-submit {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+}
+
+.import-btn-submit:hover {
+    background: linear-gradient(135deg, #20c997 0%, #28a745 100%);
+}
+
+.import-btn-submit:disabled {
+    background: #d5d5d5;
+    cursor: not-allowed;
+}
+
+/* 無案場提示 */
+.import-empty-message {
+    text-align: center;
+    color: #7f8c8d;
+    padding: 40px 20px;
+}
+
+.import-empty-message .icon {
+    font-size: 48px;
+    margin-bottom: 15px;
 }

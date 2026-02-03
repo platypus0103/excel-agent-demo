@@ -40,7 +40,19 @@
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <h3>試算表列表</h3>
-                <button id="addCaseBtn" class="add-case-btn">+</button>
+                <div class="add-case-dropdown">
+                    <button id="addCaseBtn" class="add-case-btn">+</button>
+                    <div id="addCaseDropdown" class="add-case-dropdown-content">
+                        <button class="add-case-dropdown-item" data-site-type="single">
+                            <span class="site-indicator single"></span>
+                            單站
+                        </button>
+                        <button class="add-case-dropdown-item" data-site-type="multi">
+                            <span class="site-indicator multi"></span>
+                            多站
+                        </button>
+                    </div>
+                </div>
             </div>
             <ul id="caseList" class="case-list">
                 <!-- 項目將由 JS 動態載入 -->
@@ -53,6 +65,7 @@
                     <input type="file" id="fileInput" accept=".xlsx, .xls">
                     <button id="importBtn" style="display: none;">匯入 Excel</button>
                     <button id="priceRollingBtn" class="price-rolling-btn">價金滾算</button>
+                    <button id="importSheetsBtn" class="price-rolling-btn">匯入表格</button>
                     <button id="exportExcelBtn" class="price-rolling-btn" onclick="exportCurrentExcel()">匯出表格</button>
                     <span id="excel-status">請選擇 Excel 檔案</span>
                 </div>
@@ -212,6 +225,29 @@
             <button class="price-close-result-btn" onclick="closePriceResult()">×</button>
         </div>
         <table class="price-result-table" id="priceResultTable"></table>
+    </div>
+
+    <!-- 匯入表格對話框 -->
+    <div class="import-dialog-overlay" id="importDialogOverlay">
+        <div class="import-dialog" id="importDialog">
+            <div class="import-dialog-header">
+                <div class="import-dialog-title">選擇要匯入的 Sheet</div>
+                <button class="import-close-btn" onclick="closeImportDialog()">×</button>
+            </div>
+            <div class="import-dialog-body">
+                <div id="importCaseList" class="import-case-list">
+                    <!-- 案場列表將由 JS 動態載入 -->
+                    <div class="import-loading">載入中...</div>
+                </div>
+            </div>
+            <div class="import-dialog-footer">
+                <span id="importSelectedCount">已選擇 0 個 Sheet</span>
+                <div>
+                    <button class="import-btn import-btn-cancel" onclick="closeImportDialog()">取消</button>
+                    <button class="import-btn import-btn-submit" onclick="executeImportSheets()">匯入</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="{{ url_for('static', filename='LLMweb.js') }}"></script>

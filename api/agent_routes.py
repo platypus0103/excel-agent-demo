@@ -836,3 +836,243 @@ def download_excel():
             "status": "error",
             "error": f"下載失敗: {str(e)}"
         }), 500
+
+
+@agent_bp.route('/list_case_sheets', methods=['GET'])
+def list_case_sheets():
+    """
+    列出所有案場及其 Excel 檔案中的 sheets
+    用於匯入表格功能
+    """
+    try:
+        import openpyxl
+
+        excel_dir = os.path.join(parent_dir, 'Excel')
+        cases_data = []
+
+        if not os.path.exists(excel_dir):
+            return jsonify({
+                "status": "success",
+                "cases": []
+            })
+
+        # 掃描 Excel 目錄中的所有檔案
+        excel_files = [f for f in os.listdir(excel_dir)
+                      if f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
+
+        for filename in excel_files:
+            file_path = os.path.join(excel_dir, filename)
+
+            try:
+                # 解析檔名，格式為 {case_name}_{original_filename}
+                # 例如：表 1_公版.xlsx
+                parts = filename.rsplit('_', 1)
+                if len(parts) == 2:
+                    case_name = parts[0]
+                    original_filename = parts[1]
+                else:
+                    case_name = filename.rsplit('.', 1)[0]
+                    original_filename = filename
+
+                # 讀取 Excel 檔案的所有 sheet 名稱
+                workbook = openpyxl.load_workbook(file_path, read_only=True)
+                sheet_names = workbook.sheetnames
+                workbook.close()
+
+                cases_data.append({
+                    "case_name": case_name,
+                    "filename": filename,
+                    "original_filename": original_filename,
+                    "sheets": sheet_names,
+                    "site_type": "single"  # 預設為單站，前端會根據 localStorage 更新
+                })
+
+                print(f"[list_case_sheets] {case_name}: {len(sheet_names)} sheets")
+
+            except Exception as e:
+                print(f"[list_case_sheets] 讀取 {filename} 失敗: {e}")
+                continue
+
+        return jsonify({
+            "status": "success",
+            "cases": cases_data
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"🚨 列出案場 sheets 錯誤: {e}")
+        print(traceback.format_exc())
+        return jsonify({
+            "status": "error",
+            "error": f"列出案場失敗: {str(e)}"
+        }), 500
+
+
+@agent_bp.route('/import_sheets', methods=['POST'])
+def import_sheets():
+    """
+    將選定的 sheets 匯入到目標案場的 Excel 檔案中
+    完整複製包含公式
+    """
+    try:
+        import openpyxl
+        from openpyxl.utils import get_column_letter
+        from copy import copy
+
+        data = request.json
+        target_case_name = data.get('target_case_name')
+        target_filename = data.get('target_filename')  # 可能為 None
+        sheets_to_import = data.get('sheets_to_import', [])
+
+        print(f"\n[import_sheets] 目標案場: {target_case_name}")
+        print(f"[import_sheets] 目標檔案: {target_filename}")
+        print(f"[import_sheets] 要匯入的 sheets: {sheets_to_import}")
+
+        if not target_case_name:
+            return jsonify({"status": "error", "error": "缺少目標案場名稱"}), 400
+
+        if not sheets_to_import:
+            return jsonify({"status": "error", "error": "請選擇至少一個 sheet"}), 400
+
+        excel_dir = os.path.join(parent_dir, 'Excel')
+
+        # 確定目標檔案路徑
+        target_path = None
+        new_filename = None
+
+        if target_filename:
+            # 有指定檔名
+            full_filename = f"{target_case_name}_{target_filename}"
+            target_path = os.path.join(excel_dir, full_filename)
+            new_filename = target_filename
+
+        if not target_path or not os.path.exists(target_path):
+            # 搜尋以 target_case_name 開頭的檔案
+            if os.path.exists(excel_dir):
+                excel_files = [f for f in os.listdir(excel_dir)
+                              if f.startswith(f"{target_case_name}_") and f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
+                if excel_files:
+                    target_path = os.path.join(excel_dir, excel_files[0])
+                    # 從檔名提取 original_filename
+                    new_filename = excel_files[0].replace(f"{target_case_name}_", "", 1)
+
+        # 如果還是找不到，創建新檔案
+        if not target_path or not os.path.exists(target_path):
+            new_filename = "整合表格.xlsx"
+            target_path = os.path.join(excel_dir, f"{target_case_name}_{new_filename}")
+            # 創建空白 Excel 檔案
+            wb = openpyxl.Workbook()
+            wb.save(target_path)
+            wb.close()
+            print(f"[import_sheets] 創建新檔案: {target_path}")
+
+        # 開啟目標檔案
+        target_wb = openpyxl.load_workbook(target_path)
+        print(f"[import_sheets] 開啟目標檔案: {target_path}")
+
+        imported_count = 0
+
+        for sheet_info in sheets_to_import:
+            source_case_name = sheet_info.get('case_name')
+            source_sheet_name = sheet_info.get('sheet_name')
+            source_filename = sheet_info.get('filename')
+
+            # 找到來源檔案
+            source_path = os.path.join(excel_dir, source_filename)
+
+            if not os.path.exists(source_path):
+                print(f"[import_sheets] 來源檔案不存在: {source_path}")
+                continue
+
+            try:
+                # 開啟來源檔案（不使用 data_only，保留公式）
+                source_wb = openpyxl.load_workbook(source_path)
+
+                if source_sheet_name not in source_wb.sheetnames:
+                    print(f"[import_sheets] 來源 sheet 不存在: {source_sheet_name}")
+                    source_wb.close()
+                    continue
+
+                source_sheet = source_wb[source_sheet_name]
+
+                # 新 sheet 名稱：案場名稱_原sheet名稱
+                new_sheet_name = f"{source_case_name}_{source_sheet_name}"
+
+                # 確保名稱不重複（Excel sheet 名稱最多 31 字元）
+                if len(new_sheet_name) > 31:
+                    new_sheet_name = new_sheet_name[:31]
+
+                # 如果已存在同名 sheet，加上編號
+                base_name = new_sheet_name
+                counter = 1
+                while new_sheet_name in target_wb.sheetnames:
+                    suffix = f"_{counter}"
+                    max_base_len = 31 - len(suffix)
+                    new_sheet_name = base_name[:max_base_len] + suffix
+                    counter += 1
+
+                # 創建新 sheet
+                target_sheet = target_wb.create_sheet(title=new_sheet_name)
+
+                # 複製儲存格內容、公式和樣式
+                for row in source_sheet.iter_rows():
+                    for cell in row:
+                        new_cell = target_sheet.cell(row=cell.row, column=cell.column)
+
+                        # 複製值或公式
+                        if cell.data_type == 'f':
+                            # 公式
+                            new_cell.value = cell.value
+                        else:
+                            new_cell.value = cell.value
+
+                        # 複製樣式
+                        if cell.has_style:
+                            new_cell.font = copy(cell.font)
+                            new_cell.border = copy(cell.border)
+                            new_cell.fill = copy(cell.fill)
+                            new_cell.number_format = cell.number_format
+                            new_cell.protection = copy(cell.protection)
+                            new_cell.alignment = copy(cell.alignment)
+
+                # 複製欄寬
+                for col_letter, col_dim in source_sheet.column_dimensions.items():
+                    target_sheet.column_dimensions[col_letter].width = col_dim.width
+
+                # 複製列高
+                for row_num, row_dim in source_sheet.row_dimensions.items():
+                    target_sheet.row_dimensions[row_num].height = row_dim.height
+
+                # 複製合併儲存格
+                for merged_range in source_sheet.merged_cells.ranges:
+                    target_sheet.merge_cells(str(merged_range))
+
+                source_wb.close()
+                imported_count += 1
+                print(f"[import_sheets] 成功匯入: {source_case_name}/{source_sheet_name} -> {new_sheet_name}")
+
+            except Exception as e:
+                print(f"[import_sheets] 匯入 {source_case_name}/{source_sheet_name} 失敗: {e}")
+                continue
+
+        # 儲存目標檔案
+        target_wb.save(target_path)
+        target_wb.close()
+
+        print(f"[import_sheets] 完成，共匯入 {imported_count} 個 sheets")
+
+        return jsonify({
+            "status": "success",
+            "message": f"成功匯入 {imported_count} 個 sheets",
+            "imported_count": imported_count,
+            "new_filename": new_filename
+        })
+
+    except Exception as e:
+        import traceback
+        print(f"🚨 匯入 sheets 錯誤: {e}")
+        print(traceback.format_exc())
+        return jsonify({
+            "status": "error",
+            "error": f"匯入失敗: {str(e)}"
+        }), 500
