@@ -225,21 +225,6 @@ class EquipmentCostTool:
         except Exception as e:
             print(f"填入複製工作表數據時發生錯誤: {str(e)}")
 
-    def _clear_unwanted_rows(self, sheet, rows_to_clear=[57, 58, 59, 60, 61]):
-        """清除工作表中不需要的行內容（來自模板的多餘內容）
-
-        Args:
-            sheet: 要清除的工作表
-            rows_to_clear: 要清除的行號列表（默認為57-61行）
-        """
-        try:
-            max_col = sheet.max_column or 50  # 確保有足夠的列範圍
-            for row_num in rows_to_clear:
-                for col in range(1, max_col + 1):
-                    sheet.cell(row=row_num, column=col).value = None
-            print(f"已清除 {sheet.title} 工作表的第 {rows_to_clear[0]}-{rows_to_clear[-1]} 行內容")
-        except Exception as e:
-            print(f"清除不需要的行時發生錯誤: {str(e)}")
 
     def _auto_adjust_column_widths(self, sheet, min_width=8, max_width=50):
         """自動調整工作表的欄寬
@@ -411,21 +396,21 @@ class EquipmentCostTool:
                     for i, value in enumerate(recycle_list[:max_cols]):
                         new_sheet.cell(row=50, column=start_col + i, value=-abs(value) if value else 0)
 
-                    # 利息費用: D75~W75 (row 75)
+                    # 利息費用: D70~W70 (row 70)
                     interest_list = cash_flow_details.get("interest_list", [])
                     for i, value in enumerate(interest_list[:max_cols]):
-                        new_sheet.cell(row=75, column=start_col + i, value=-abs(value) if value else 0)
+                        new_sheet.cell(row=70, column=start_col + i, value=-abs(value) if value else 0)
 
-                    # 貸款還款: E98~W98 (row 98, 從E欄開始)
+                    # 貸款還款: E93~W93 (row 93, 從E欄開始)
                     pay_back_list = cash_flow_details.get("pay_back_list", [])
                     pay_back_start_col = 5  # E欄
                     for i, value in enumerate(pay_back_list[:max_cols - 1]):  # 少一欄因為從E開始
-                        new_sheet.cell(row=98, column=pay_back_start_col + i, value=-abs(value) if value else 0)
+                        new_sheet.cell(row=93, column=pay_back_start_col + i, value=-abs(value) if value else 0)
 
-                    # 年底減資: D101~W101 (row 101)
+                    # 年底減資: D96~W96 (row 96)
                     dividend_list = cash_flow_details.get("dividend_list", [])
                     for i, value in enumerate(dividend_list[:max_cols]):
-                        new_sheet.cell(row=101, column=start_col + i, value=-abs(value) if value else 0)
+                        new_sheet.cell(row=96, column=start_col + i, value=-abs(value) if value else 0)
 
                     print(f"已在 {new_sheet.title} 工作表填入金流明細資料")
 
@@ -587,8 +572,6 @@ class EquipmentCostTool:
                     sheet = wb.copy_worksheet(wb["滾算紀錄1"])
                     sheet.title = sheet_name
                     print(f"已從輸入檔案的「滾算紀錄1」複製為「{sheet_name}」")
-                    # 清除可能存在的不需要行（第57-61行）
-                    self._clear_unwanted_rows(sheet)
                     template_copied = True
                 else:
                     # 從 Excel final/滾算後記錄.xlsx 複製模板
@@ -616,8 +599,6 @@ class EquipmentCostTool:
 
                                 template_wb.close()
                                 print(f"已從模板檔案複製為「{sheet_name}」")
-                                # 清除模板中不需要的行（第57-61行）
-                                self._clear_unwanted_rows(sheet)
                                 template_copied = True
                             else:
                                 template_wb.close()
@@ -851,8 +832,6 @@ class EquipmentCostTool:
                                 new_sheet = wb.copy_worksheet(wb[template_name])
                                 new_sheet.title = new_sheet_name
                                 print(f"已從「{template_name}」複製為「{new_sheet_name}」(編號 {record_number})")
-                                # 清除可能存在的不需要行（第57-61行）
-                                self._clear_unwanted_rows(new_sheet)
                                 template_copied = True
                                 break
 
@@ -885,14 +864,13 @@ class EquipmentCostTool:
                                             for col_letter, col_dim in template_sheet.column_dimensions.items():
                                                 new_sheet.column_dimensions[col_letter].width = col_dim.width
 
-                                            # 複製行高
+                                            # 複製行高與隱藏狀態
                                             for row_num, row_dim in template_sheet.row_dimensions.items():
                                                 new_sheet.row_dimensions[row_num].height = row_dim.height
+                                                new_sheet.row_dimensions[row_num].hidden = row_dim.hidden
 
                                             template_wb.close()
                                             print(f"已從模板檔案「{template_name}」複製為「{new_sheet_name}」(編號 {record_number})")
-                                            # 清除模板中不需要的行（第57-61行）
-                                            self._clear_unwanted_rows(new_sheet)
                                             template_copied = True
                                             break
 
@@ -1051,7 +1029,14 @@ class EquipmentCostTool:
             # 5. 計算IRR
             print("正在計算IRR...")
             irr_results = self._calculate_irr_for_prices(excel_file, adjustment_record, profit_rate, development_fee, sheet_name)
-            
+
+            # 檢查是否有 IRR 計算失敗
+            for irr_data in irr_results:
+                if (irr_data.get('project_irr') is None or
+                        irr_data.get('cost_method_irr') is None or
+                        irr_data.get('equity_method_irr') is None):
+                    return {"success": False, "message": "公版數值異常導致IRR計算錯誤"}
+
             # 6. 準備結果數據
             result = {
                 "mode": mode,

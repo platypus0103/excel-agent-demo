@@ -178,17 +178,19 @@ class PriceRollingTool:
                     sheet_name=sheet_name
                 )
                 
-                # 檢查是否有錯誤
-                if irr_result.get('error'):
-                    print(f"  第 {i+1} 筆 (價金={price}) IRR 計算錯誤: {irr_result.get('error')}")
-                
+                # 檢查是否有 IRR 計算失敗
+                if (irr_result.get('project_irr') is None or
+                        irr_result.get('cost_method_irr') is None or
+                        irr_result.get('equity_method_irr') is None):
+                    return {"success": False, "message": "公版數值異常導致IRR計算錯誤"}
+
                 row = [
                     price,
                     profit,
                     final_cost,
-                    irr_result.get('project_irr') if irr_result.get('project_irr') is not None else 'N/A',
-                    irr_result.get('cost_method_irr') if irr_result.get('cost_method_irr') is not None else 'N/A',
-                    irr_result.get('equity_method_irr') if irr_result.get('equity_method_irr') is not None else 'N/A'
+                    irr_result.get('project_irr'),
+                    irr_result.get('cost_method_irr'),
+                    irr_result.get('equity_method_irr')
                 ]
                 data_rows.append(row)
                 

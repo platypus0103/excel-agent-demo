@@ -1,74 +1,15 @@
 // 價金滾算 JavaScript 邏輯
 
-// 載入 Excel 預設值
-async function loadExcelDefaults() {
-    try {
-        const response = await fetch('/api/get_excel_defaults');
-        const data = await response.json();
-        
-        if (data.status === 'success') {
-            const defaults = data.defaults;
-            
-            // 設定基本參數預設值
-            document.getElementById('priceEquipmentCost').value = defaults.equipment_cost || 30000;
-            document.getElementById('priceProfitRate').value = defaults.profit_rate || 0.2;
-            document.getElementById('priceDevelopmentFee').value = defaults.development_fee || 0;
-            document.getElementById('priceBoundary').value = defaults.boundary || 20000;
-            
-            // 設定各模式參數預設值
-            document.getElementById('priceCashStep').value = defaults.cash_step || 2000;
-            document.getElementById('priceRatioStep').value = defaults.ratio_step || 0.05;
-            
-            // 條件模式預設值
-            document.getElementById('priceMaxValue').value = defaults.max_value || 50000;
-            document.getElementById('priceMinValue').value = defaults.min_value || 30000;
-            document.getElementById('priceCondStep1').value = defaults.cond_step_1 || 2000;
-            document.getElementById('priceCondStep2').value = defaults.cond_step_2 || 1000;
-            document.getElementById('priceCondStep3').value = defaults.cond_step_3 || 500;
-            
-            // 自訂模式預設值
-            document.getElementById('priceAdjustTimes').value = defaults.adjust_times || 5;
-            
-            console.log('Excel 預設值載入成功:', defaults);
-        } else {
-            console.warn('載入 Excel 預設值失敗:', data.message);
-            // 使用備用預設值
-            setFallbackDefaults();
-        }
-    } catch (error) {
-        console.error('載入 Excel 預設值時發生錯誤:', error);
-        // 使用備用預設值
-        setFallbackDefaults();
-    }
-}
-
-// 設定備用預設值
-function setFallbackDefaults() {
-    document.getElementById('priceEquipmentCost').value = 30000;
-    document.getElementById('priceProfitRate').value = 0.2;
-    document.getElementById('priceDevelopmentFee').value = 0;
-    document.getElementById('priceBoundary').value = 20000;
-    document.getElementById('priceCashStep').value = 2000;
-    document.getElementById('priceRatioStep').value = 0.05;
-    document.getElementById('priceMaxValue').value = 50000;
-    document.getElementById('priceMinValue').value = 30000;
-    document.getElementById('priceCondStep1').value = 2000;
-    document.getElementById('priceCondStep2').value = 1000;
-    document.getElementById('priceCondStep3').value = 500;
-    document.getElementById('priceAdjustTimes').value = 5;
-}
-
-// 頁面載入時初始化
+// 頁面載入時初始化（無預填值）
 document.addEventListener('DOMContentLoaded', function() {
-    loadExcelDefaults();
+    // 不預填任何數值，讓使用者自行輸入
 });
 
 // 打開對話框
 function openPriceDialog() {
     document.getElementById('priceDialogOverlay').classList.add('active');
     initializePriceDialogDrag();
-    // 每次打開對話框時重新載入預設值
-    loadExcelDefaults();
+    // 不預填任何數值
 }
 
 // 關閉對話框
@@ -593,7 +534,7 @@ function exportCurrentExcel() {
     // 構建下載 URL，包含案場名稱和原始檔名以確保路徑正確
     const downloadUrl = `/api/download_excel?case_name=${encodeURIComponent(currentCase.case_name)}&original_filename=${encodeURIComponent(currentCase.original_filename || '')}`;
 
-    // 直接使用瀏覽器下載（保留原始檔案格式，包括公式）
+    // 直接下載服務器上的原始 Excel 檔案（保留公式）
     window.location.href = downloadUrl;
 }
 

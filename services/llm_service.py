@@ -130,18 +130,16 @@ def process_user_query(query, simulation_amount=0, excel_path=None, rolling_mode
             print(f"使用快取的滾算參數: mode={mode}, params={params}")
         else:
             # 無快取，提示用戶先執行滾算
-            return """### ⚠️ 尚無滾算紀錄
+            return """尚無滾算紀錄
 
 您尚未執行價金滾算，無法儲存紀錄。
 
-**請先執行以下步驟：**
-1. 點擊上方的 **「價金滾算」** 按鈕
+請先執行以下步驟：
+1. 點擊上方的「價金滾算」按鈕
 2. 選擇滾算模式並輸入參數
 3. 執行滾算計算
 4. 再輸入「執行滾算紀錄」來儲存結果
-
----
-💡 **提示**: 滾算紀錄會使用您上一次執行的滾算參數。"""
+提示: 滾算紀錄會使用您上一次執行的滾算參數。"""
 
         # 使用 execute_price_rolling 工具寫入 Excel
         result = _execute_equipment_cost_tool(mode, params, excel_path, sheet_name)
@@ -158,7 +156,7 @@ def process_user_query(query, simulation_amount=0, excel_path=None, rolling_mode
             boundary = params.get("boundary", "N/A")
             step = params.get("step", "N/A")
 
-            return f"""### ✅ 儲存完畢
+            return f"""### 儲存完畢
 
 滾算紀錄已成功寫入 Excel 檔案。
 
@@ -174,36 +172,27 @@ def process_user_query(query, simulation_amount=0, excel_path=None, rolling_mode
     elif re.search(r'滾算|價金|price.*rolling|IRR|設備成本|計算|分析|模擬|cashmode|ratiomode|conditional|customize', query, re.IGNORECASE):
         print(f"檢測到滾算相關請求，提示用戶使用對話框...")
 
-        return """### 📊 價金滾算
-
-請點擊上方的 **「價金滾算」** 按鈕來執行滾算計算。
+        return """請點擊上方的「價金滾算」按鈕來執行滾算計算。
 
 若要將結果儲存至 Excel，請在聊天框輸入「執行滾算紀錄」。"""
-    
+
     # 情況 3: 其他查詢 - 提供更友善的回應
     else:
-        return f"""### 💡 您好！我是價金滾算分析助手
+        return """您好，我是財務分析助手。
 
-我可以幫您進行以下分析：
+功能說明：
+- 價金滾算：請點擊上方的「價金滾算」按鈕來執行滾算計算
+- 匯入表格：點選上方「匯入表格」可以插入其他案場的資訊
+- 匯出表格：若想匯出結果，可以點擊上方的「匯出表格」
+- 修改數據：輸入「修改 [工作表名稱] 的 [欄位名稱] [年份] 改成 [數值]」
 
-**📊 快速開始：**
-- 輸入「計算 IRR」或「分析價金」開始滾算分析
-- 或點擊上方「**價金滾算**」按鈕，選擇模式並輸入參數
-
-**🔧 支援的模式：**
-| 模式 | 說明 | 使用場景 |
-|------|------|---------|
-| **CashMode** | 固定金額調整 | 每次降價固定金額 |
-| **RatioMode** | 比例調整 | 按百分比遞減 |
-| **ConditionalMode** | 條件調整 | 不同價格區間不同步伐 |
-| **CustomizeMode** | 自訂調整 | 手動指定每次降價 |
-
-**📝 範例輸入：**
-- 「用 CashMode 計算，邊界 20000，步伐 2000」
-- 「幫我分析 IRR」
-- 「執行價金滾算」
-
-工具會自動讀取 Excel 數據並計算 IRR！
+支援的滾算模式：
+| 模式 | 說明 |
+|------|------|
+| CashMode | 固定金額調整 |
+| RatioMode | 比例調整 |
+| ConditionalMode | 條件調整 |
+| CustomizeMode | 自訂調整 |
 """
 
 
@@ -273,7 +262,7 @@ def _execute_calculate_price_rolling(mode, params, excel_path):
     if result.get("success"):
         return _format_calculate_result(result)
     else:
-        return f"### ❌ 計算失敗\n\n**錯誤訊息:** {result.get('message', '未知錯誤')}\n\n請嘗試點擊「價金滾算」按鈕，使用完整的參數輸入表單。"
+        return f"### 計算失敗\n\n錯誤訊息: {result.get('message', '未知錯誤')}\n\n請嘗試點擊「價金滾算」按鈕，使用完整的參數輸入表單。"
 
 
 def _format_calculate_result(result):
@@ -287,7 +276,7 @@ def _format_calculate_result(result):
     data_rows = results.get("data", [])
     
     # 構建回應
-    response = f"""## 📊 價金滾算分析結果 ({mode})
+    response = f"""## 價金滾算分析結果 ({mode})
 
 ### 原始 Excel IRR (對照基準)
 - **專案法 IRR**: {base_irr.get('project_irr', 'N/A')}%
@@ -315,7 +304,7 @@ def _format_calculate_result(result):
         e_irr = f"{row[5]}%" if row[5] != 'N/A' else 'N/A'
         response += f"| {price} | {profit} | {final} | {p_irr} | {c_irr} | {e_irr} |\n"
     
-    response += "\n---\n💡 **提示**: 若需保存記錄到 Excel，請點擊「執行滾算紀錄」按鈕。"
+    response += "\n---\n提示: 若需保存記錄到 Excel，請輸入「執行滾算紀錄」。"
     
     return response
 
@@ -359,7 +348,7 @@ def _execute_equipment_cost_tool(mode, params, excel_path, sheet_name=None):
     if result.get("success"):
         return _format_equipment_cost_result(result)
     else:
-        return f"### ❌ 執行失敗\n\n**錯誤訊息:** {result.get('message', '未知錯誤')}\n\n請嘗試點擊「價金滾算」按鈕，使用完整的參數輸入表單。"
+        return f"### 執行失敗\n\n錯誤訊息: {result.get('message', '未知錯誤')}\n\n請嘗試點擊「價金滾算」按鈕，使用完整的參數輸入表單。"
 
 
 def _format_equipment_cost_result(result):
@@ -377,9 +366,9 @@ def _format_equipment_cost_result(result):
     profit_record = result_data.get("profit_record", [])
     cost_structure_adjusted = result_data.get("cost_structure_adjusted", [])
     
-    response = f"""## ✅ 價金滾算完成
+    response = f"""## 價金滾算完成
 
-### 📁 Excel 記錄已輸出
+### Excel 記錄已輸出
 - **檔案位置**: `{output_file}`
 
 ### 滾算摘要
@@ -530,21 +519,21 @@ def _format_rolling_result_with_file(result):
     result_data = result.get("result", {})
     
     report = f"""
-### ✅ **價金滾算完成**
+### 價金滾算完成
 
-**執行模式:** {result_data.get('mode', 'N/A')}
-
----
-
-#### **滾算摘要**
-- **初始價金:** ${summary.get('initial_cost', 0):,.0f} / kW
-- **最終價金:** ${summary.get('final_cost', 0):,.0f} / kW
-- **調整次數:** {summary.get('adjustment_count', 0)} 次
-- **總降幅:** ${summary.get('total_reduction', 0):,.0f}
+執行模式: {result_data.get('mode', 'N/A')}
 
 ---
 
-#### **📁 Excel 滾算記錄已輸出**
+#### 滾算摘要
+- 初始價金: ${summary.get('initial_cost', 0):,.0f} / kW
+- 最終價金: ${summary.get('final_cost', 0):,.0f} / kW
+- 調整次數: {summary.get('adjustment_count', 0)} 次
+- 總降幅: ${summary.get('total_reduction', 0):,.0f}
+
+---
+
+#### Excel 滾算記錄已輸出
 結果已保存至: `{output_file}`
 
 ---

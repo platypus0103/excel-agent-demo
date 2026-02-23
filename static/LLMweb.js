@@ -588,7 +588,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const typeText = newType === 'multi' ? '多站' : '單站';
         const message = {
             role: 'bot',
-            text: `✅ 案場類型已切換為「${typeText}」`
+            text: `案場類型已切換為「${typeText}」`
         };
         caseData.messages.push(message);
         renderChat();
@@ -766,7 +766,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const loadingElement = document.getElementById(loadingId);
             if (loadingElement) loadingElement.remove();
 
-            const errorMessage = { role: 'bot', text: `❌ 發生錯誤: ${error.message}` };
+            const errorMessage = { role: 'bot', text: `發生錯誤: ${error.message}` };
             cases[activeCaseId].messages.push(errorMessage);
             appendMessage(errorMessage.role, errorMessage.text);
             saveCases();
@@ -809,7 +809,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         // 顯示更新提示訊息
                         const updateMessage = {
                             role: 'bot',
-                            text: '📊 Excel 表格已自動更新'
+                            text: 'Excel 表格已自動更新'
                         };
                         cases[activeCaseId].messages.push(updateMessage);
                         appendMessage(updateMessage.role, updateMessage.text);
@@ -825,7 +825,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!error.message.includes('404')) {
                     const errorMsg = {
                         role: 'bot',
-                        text: `⚠️ Excel 更新失敗: ${error.message}`
+                        text: `Excel 更新失敗: ${error.message}`
                     };
                     cases[activeCaseId].messages.push(errorMsg);
                     appendMessage(errorMsg.role, errorMsg.text);
@@ -864,16 +864,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     createSimpleTable(luckysheetData);
                 }
                 
-                // 添加成功訊息到聊天
-                const successMessage = { 
-                    role: 'bot', 
-                    text: `✅ 已在前端預覽 Excel 檔案：${file.name}。\n\n⚠️ 注意：要讓 AI Agent 讀取數據，請確認伺服器端目錄下已有此檔案，或將檔案放置於後端專案資料夾中。`
-                };
-                cases[activeCaseId].messages.push(successMessage);
-                
-                // 更新 UI
+                // 更新 UI（不顯示前端預覽訊息，等上傳完成後再顯示）
                 renderCaseList();
-                renderChat();
                 saveCases();
                 
                 console.log('Excel 檔案處理完成');
@@ -885,7 +877,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // 添加錯誤訊息到聊天
                 const errorMessage = { 
                     role: 'bot', 
-                    text: `❌ Excel 檔案載入失敗：${error.message}`
+                    text: `Excel 檔案載入失敗：${error.message}`
                 };
                 cases[activeCaseId].messages.push(errorMessage);
                 renderChat();
@@ -902,14 +894,6 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.append('case_id', activeCaseId);
         formData.append('case_name', cases[activeCaseId].name);  // 傳送前端顯示名稱
         formData.append('original_filename', file.name);
-
-        // 顯示上傳中訊息
-        const uploadingMessage = {
-            role: 'bot',
-            text: `📤 正在上傳 Excel 檔案到伺服器：${file.name}...`
-        };
-        cases[activeCaseId].messages.push(uploadingMessage);
-        renderChat();
 
         fetch('/api/upload_excel', {
             method: 'POST',
@@ -936,10 +920,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
 
-            // 更新上傳成功訊息
+            // 上傳成功訊息（包含功能說明）
             const successMessage = {
                 role: 'bot',
-                text: `✅ Excel 檔案已上傳到伺服器：${data.original_filename}\n\n現在 AI Agent 可以讀取這個檔案了！`
+                text: `Excel 檔案已上傳到伺服器：${data.original_filename}\n\n` +
+                      `功能說明：\n` +
+                      `- 價金滾算：請點擊上方的「價金滾算」按鈕來執行滾算計算\n` +
+                      `- 匯入表格：點選上方「匯入表格」可以插入其他案場的資訊\n` +
+                      `- 匯出表格：若想匯出結果，可以點擊上方的「匯出表格」`
             };
             cases[activeCaseId].messages.push(successMessage);
             renderChat();
@@ -950,7 +938,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const errorMessage = {
                 role: 'bot',
-                text: `❌ 檔案上傳到伺服器失敗：${error.message}\n\n檔案只在前端預覽，AI Agent 無法讀取。`
+                text: `檔案上傳到伺服器失敗：${error.message}`
             };
             cases[activeCaseId].messages.push(errorMessage);
             renderChat();
@@ -1116,15 +1104,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleFileChange(event) {
         const file = event.target.files[0];
         if (file && activeCaseId) {
-            // 顯示載入提示
-            const loadingMessage = { 
-                role: 'bot', 
-                text: `🔄 正在載入 Excel 檔案：${file.name}...`
-            };
-            cases[activeCaseId].messages.push(loadingMessage);
-            renderChat();
-            
-            // 處理檔案
+            // 處理檔案（不顯示載入提示）
             handleExcelFile(file);
         }
         // 重置檔案輸入
@@ -1553,10 +1533,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
 
                 // 顯示成功訊息（使用保存的資訊）
-                const sheetList = importedSheets.map(s => `• ${s.case_name}_${s.sheet_name}`).join('\n');
+                const sheetList = importedSheets.map(s => `- ${s.case_name}_${s.sheet_name}`).join('\n');
                 const successMessage = {
                     role: 'bot',
-                    text: `✅ 成功匯入 ${importedCount} 個 Sheet\n\n匯入的 Sheet：\n${sheetList}`
+                    text: `成功匯入 ${importedCount} 個 Sheet\n\n匯入的 Sheet：\n${sheetList}`
                 };
                 cases[activeCaseId].messages.push(successMessage);
                 saveCases();

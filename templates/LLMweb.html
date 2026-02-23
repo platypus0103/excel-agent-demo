@@ -109,22 +109,22 @@
                     <div class="price-basic-params">
                         <div class="price-form-group">
                             <label>初始價金 / kW *</label>
-                            <input type="number" id="priceEquipmentCost" required placeholder="載入中...">
+                            <input type="number" id="priceEquipmentCost" required placeholder="">
                         </div>
 
                         <div class="price-form-group">
                             <label>信邦利潤率 *</label>
-                            <input type="number" id="priceProfitRate" step="0.01" min="0" max="1" required placeholder="載入中...">
+                            <input type="number" id="priceProfitRate" step="0.01" min="0" max="1" required placeholder="">
                         </div>
 
                         <div class="price-form-group">
                             <label>開發費 (每年)</label>
-                            <input type="number" id="priceDevelopmentFee" min="0" placeholder="載入中...">
+                            <input type="number" id="priceDevelopmentFee" min="0" placeholder="">
                         </div>
 
                         <div class="price-form-group">
                             <label>邊界價格 *</label>
-                            <input type="number" id="priceBoundary" required placeholder="載入中...">
+                            <input type="number" id="priceBoundary" required placeholder="">
                         </div>
                     </div>
 
@@ -139,7 +139,7 @@
                             <div id="priceCashParams" class="price-mode-params">
                                 <div class="price-form-group">
                                     <label>每次調整 Step (固定金額)</label>
-                                    <input type="number" id="priceCashStep" placeholder="載入中...">
+                                    <input type="number" id="priceCashStep" placeholder="">
                                 </div>
                             </div>
 
@@ -150,7 +150,7 @@
                             <div id="priceRatioParams" class="price-mode-params">
                                 <div class="price-form-group">
                                     <label>調整比例 (0-1)</label>
-                                    <input type="number" id="priceRatioStep" step="0.01" min="0" max="1" placeholder="載入中...">
+                                    <input type="number" id="priceRatioStep" step="0.01" min="0" max="1" placeholder="">
                                 </div>
                             </div>
 
@@ -162,23 +162,23 @@
                                 <div class="price-params-grid">
                                     <div class="price-form-group">
                                         <label>最大價格值</label>
-                                        <input type="number" id="priceMaxValue" placeholder="載入中...">
+                                        <input type="number" id="priceMaxValue" placeholder="">
                                     </div>
                                     <div class="price-form-group">
                                         <label>最小價格值</label>
-                                        <input type="number" id="priceMinValue" placeholder="載入中...">
+                                        <input type="number" id="priceMinValue" placeholder="">
                                     </div>
                                     <div class="price-form-group">
                                         <label>Step 1 (價金 > 最大值)</label>
-                                        <input type="number" id="priceCondStep1" placeholder="載入中...">
+                                        <input type="number" id="priceCondStep1" placeholder="">
                                     </div>
                                     <div class="price-form-group">
                                         <label>Step 2 (最小值 ≤ 價金 ≤ 最大值)</label>
-                                        <input type="number" id="priceCondStep2" placeholder="載入中...">
+                                        <input type="number" id="priceCondStep2" placeholder="">
                                     </div>
                                     <div class="price-form-group">
                                         <label>Step 3 (價金 < 最小值)</label>
-                                        <input type="number" id="priceCondStep3" placeholder="載入中...">
+                                        <input type="number" id="priceCondStep3" placeholder="">
                                     </div>
                                 </div>
                             </div>
@@ -190,7 +190,7 @@
                             <div id="priceCustomizeParams" class="price-mode-params">
                                 <div class="price-form-group">
                                     <label>調整次數 (最多 10 次)</label>
-                                    <input type="number" id="priceAdjustTimes" min="1" max="10" placeholder="載入中..." onchange="generatePriceStepInputs()">
+                                    <input type="number" id="priceAdjustTimes" min="1" max="10" placeholder="" onchange="generatePriceStepInputs()">
                                 </div>
                                 <div class="price-form-group">
                                     <label style="display: flex; align-items: center; cursor: pointer;">

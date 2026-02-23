@@ -37,6 +37,11 @@ class ToolManager:
             function=self.excel_tool.delete_cell,
             schema=EXCEL_TOOLS_SCHEMA[2]
         )
+        self.register_tool(
+            name="edit_sheet_by_field",
+            function=self.excel_tool.edit_by_field_and_year,
+            schema=EXCEL_TOOLS_SCHEMA[3]
+        )
 
         # 創建財務工具實例
         self.finance_tool = FinanceTool()
@@ -175,9 +180,13 @@ class ToolManager:
         """
         if hasattr(self, 'finance_tool'):
             self.finance_tool.set_excel_file(excel_file_path, sheet_name)
-            
+
         if hasattr(self, 'price_rolling_tool'):
             self.price_rolling_tool.set_excel_file(excel_file_path, sheet_name)
+
+        # 同時設定 Excel 編輯工具的檔案路徑
+        if hasattr(self, 'excel_tool'):
+            self.excel_tool.file_path = excel_file_path
 
         if sheet_name:
             print(f"財務工具 Excel 檔案已設定: {excel_file_path}, 工作表: {sheet_name}")
