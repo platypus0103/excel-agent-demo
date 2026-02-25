@@ -9,7 +9,28 @@ document.addEventListener('DOMContentLoaded', function() {
 function openPriceDialog() {
     document.getElementById('priceDialogOverlay').classList.add('active');
     initializePriceDialogDrag();
-    // 不預填任何數值
+
+    // 從 Excel 讀取 C16(初始價金)、C17(利潤率)、C18(開發費) 預填至表單
+    const caseInfo = getCurrentCaseInfo();
+    let url = '/api/get_excel_defaults';
+    if (caseInfo && caseInfo.case_name && caseInfo.original_filename) {
+        url += `?case_name=${encodeURIComponent(caseInfo.case_name)}&original_filename=${encodeURIComponent(caseInfo.original_filename)}`;
+    }
+
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success' && data.defaults) {
+                const d = data.defaults;
+                const costEl = document.getElementById('priceEquipmentCost');
+                const rateEl = document.getElementById('priceProfitRate');
+                const feeEl  = document.getElementById('priceDevelopmentFee');
+                if (costEl && d.equipment_cost != null) costEl.value = d.equipment_cost;
+                if (rateEl && d.profit_rate   != null) rateEl.value  = d.profit_rate;
+                if (feeEl  && d.development_fee != null) feeEl.value  = d.development_fee;
+            }
+        })
+        .catch(err => console.warn('無法讀取 Excel 預設值:', err));
 }
 
 // 關閉對話框
@@ -121,6 +142,13 @@ function selectPriceMode(mode) {
     }
 }
 
+// 防止價金滾算表單輸入負值（統一處理所有 price-dialog 內的 number 輸入）
+function clampNonNegative(input) {
+    if (parseFloat(input.value) < 0) {
+        input.value = 0;
+    }
+}
+
 // 生成自訂 Step 輸入框
 function generatePriceStepInputs() {
     const times = parseInt(document.getElementById('priceAdjustTimes').value);
@@ -147,7 +175,7 @@ function generatePriceStepInputs() {
         div.className = 'price-form-group';
         div.innerHTML = `
             <label>第 ${i} 次 Step</label>
-            <input type="number" id="priceManualStep${i}" class="price-manual-step-input" placeholder="輸入金額">
+            <input type="number" id="priceManualStep${i}" class="price-manual-step-input" min="0" placeholder="輸入金額" oninput="clampNonNegative(this)">
         `;
         container.appendChild(div);
     }
@@ -188,6 +216,12 @@ function submitPriceForm() {
     const developmentFeeInput = document.getElementById('priceDevelopmentFee').value;
     const developmentFee = developmentFeeInput && developmentFeeInput.trim() !== '' ? parseInt(developmentFeeInput) : null;
     const boundary = parseInt(document.getElementById('priceBoundary').value);
+
+    // 防止負值
+    if (equipmentCost < 0 || profitRate < 0 || boundary < 0 || (developmentFee !== null && developmentFee < 0)) {
+        alert('所有數值不得為負數！');
+        return;
+    }
 
     // 準備 API 請求數據
     const requestData = {
@@ -552,4 +586,12 @@ document.addEventListener('DOMContentLoaded', function() {
             closePriceDialog();
         }
     });
+
+    // 對話框內所有靜態 number input 統一防止輸入負值
+    const priceDialog = document.getElementById('priceDialog');
+    if (priceDialog) {
+        priceDialog.querySelectorAll('input[type="number"]').forEach(function(input) {
+            input.addEventListener('input', function() { clampNonNegative(this); });
+        });
+    }
 });

@@ -109,7 +109,7 @@
                     <div class="price-basic-params">
                         <div class="price-form-group">
                             <label>初始價金 / kW *</label>
-                            <input type="number" id="priceEquipmentCost" required placeholder="">
+                            <input type="number" id="priceEquipmentCost" min="0" required placeholder="">
                         </div>
 
                         <div class="price-form-group">
@@ -123,8 +123,8 @@
                         </div>
 
                         <div class="price-form-group">
-                            <label>邊界價格 *</label>
-                            <input type="number" id="priceBoundary" required placeholder="">
+                            <label>最低可接受價格 *</label>
+                            <input type="number" id="priceBoundary" min="0" required placeholder="">
                         </div>
                     </div>
 
@@ -139,7 +139,7 @@
                             <div id="priceCashParams" class="price-mode-params">
                                 <div class="price-form-group">
                                     <label>每次調整 Step (固定金額)</label>
-                                    <input type="number" id="priceCashStep" placeholder="">
+                                    <input type="number" id="priceCashStep" min="0" placeholder="">
                                 </div>
                             </div>
 
@@ -154,6 +154,7 @@
                                 </div>
                             </div>
 
+                            <!-- ConditionalMode 暫時隱藏，保留代碼供未來啟用
                             <div class="price-mode-option" onclick="selectPriceMode('conditional')">
                                 <input type="radio" name="priceMode" id="priceModeConditional" value="conditional">
                                 <label for="priceModeConditional">ConditionalMode - 條件模式</label>
@@ -162,26 +163,27 @@
                                 <div class="price-params-grid">
                                     <div class="price-form-group">
                                         <label>最大價格值</label>
-                                        <input type="number" id="priceMaxValue" placeholder="">
+                                        <input type="number" id="priceMaxValue" min="0" placeholder="">
                                     </div>
                                     <div class="price-form-group">
                                         <label>最小價格值</label>
-                                        <input type="number" id="priceMinValue" placeholder="">
+                                        <input type="number" id="priceMinValue" min="0" placeholder="">
                                     </div>
                                     <div class="price-form-group">
                                         <label>Step 1 (價金 > 最大值)</label>
-                                        <input type="number" id="priceCondStep1" placeholder="">
+                                        <input type="number" id="priceCondStep1" min="0" placeholder="">
                                     </div>
                                     <div class="price-form-group">
                                         <label>Step 2 (最小值 ≤ 價金 ≤ 最大值)</label>
-                                        <input type="number" id="priceCondStep2" placeholder="">
+                                        <input type="number" id="priceCondStep2" min="0" placeholder="">
                                     </div>
                                     <div class="price-form-group">
                                         <label>Step 3 (價金 < 最小值)</label>
-                                        <input type="number" id="priceCondStep3" placeholder="">
+                                        <input type="number" id="priceCondStep3" min="0" placeholder="">
                                     </div>
                                 </div>
                             </div>
+                            -->
 
                             <div class="price-mode-option" onclick="selectPriceMode('customize')">
                                 <input type="radio" name="priceMode" id="priceModeCustomize" value="customize">

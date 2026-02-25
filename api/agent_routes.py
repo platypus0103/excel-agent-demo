@@ -718,52 +718,63 @@ def get_history():
 
 @agent_bp.route('/get_excel_defaults', methods=['GET'])
 def get_excel_defaults():
-    """獲取 Excel 輸入公版的預設值"""
+    """獲取 Excel 輸入公版的預設值（C16 初始價金、C17 利潤率、C18 開發費）"""
     try:
         from tool.equipment_cost_tool import EquipmentCostTool
-        
+
         tool = EquipmentCostTool()
-        excel_file = tool._find_excel_file(tool.excel_folder)
-        
+
+        # 優先使用前端傳入的案場參數來找到對應 Excel 檔案
+        case_name = request.args.get('case_name', '')
+        original_filename = request.args.get('original_filename', '')
+        excel_dir = os.path.join(parent_dir, 'Excel')
+
+        excel_file = None
+        if case_name and original_filename:
+            full_filename = f"{case_name}_{original_filename}"
+            candidate = os.path.join(excel_dir, full_filename)
+            if os.path.exists(candidate):
+                excel_file = candidate
+
+        # 若找不到則退回自動搜尋
+        if not excel_file:
+            excel_file = tool._find_excel_file(tool.excel_folder)
+
         # 先設定基本預設值（備用值）
         defaults = {
             "equipment_cost": 30000,
             "profit_rate": 0.2,
-            "development_fee": 0,  # 預設為0，實際值從Excel讀取
-            # 其他可能用到的預設值
-            "boundary": 20000,  # 邊界價格的合理預設值
-            "cash_step": 2000,  # 現金模式步幅預設值
-            "ratio_step": 0.05,  # 比率模式步幅預設值
-            # 條件模式預設值
+            "development_fee": 0,
+            "boundary": 20000,
+            "cash_step": 2000,
+            "ratio_step": 0.05,
             "max_value": 50000,
             "min_value": 30000,
             "cond_step_1": 2000,
             "cond_step_2": 1000,
             "cond_step_3": 500,
-            # 自訂模式預設值
             "adjust_times": 5
         }
-        
+
         # 如果有 Excel 檔案，則用 Excel 中的實際值覆寫預設值
         if excel_file:
             try:
                 data = tool._read_excel_data(excel_file)
-                # 用Excel中的實際數值覆寫預設值
                 defaults.update({
                     "equipment_cost": data.get("equipment_cost", 30000),
                     "profit_rate": data.get("profit_rate", 0.2),
-                    "development_fee": data.get("development_fee", 0)  # 從Excel C18讀取開發費
+                    "development_fee": data.get("development_fee", 0)
                 })
                 print(f"已從Excel讀取預設值：equipment_cost={defaults['equipment_cost']}, profit_rate={defaults['profit_rate']}, development_fee={defaults['development_fee']}")
             except Exception as e:
                 print(f"警告：讀取 Excel 檔案失敗，使用備用預設值: {e}")
-        
+
         return jsonify({
             "status": "success",
             "defaults": defaults,
             "excel_file": excel_file
         })
-        
+
     except Exception as e:
         return jsonify({
             "status": "error",
