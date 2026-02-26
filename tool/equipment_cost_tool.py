@@ -20,8 +20,8 @@ class EquipmentCostTool:
     def __init__(self):
         """初始化設備成本工具"""
         self.excel_folder = "Excel"
-        self.excel_final_folder = "Excel final"
-        self.output_file_name = "滾算後記錄.xlsx"
+        self.excel_final_folder = "Excel Generic Template"
+        self.output_file_name = "excel公版.xlsx"
 
     def _find_excel_file(self, directory: str) -> Optional[str]:
         """在指定目錄中找到第一個 Excel 檔案"""
@@ -157,7 +157,7 @@ class EquipmentCostTool:
 
     def _prepare_output_file(self, source_file_path: str) -> str:
         """直接返回輸入檔案路徑，在原檔案上操作"""
-        # 確保 Excel final 資料夾存在（用於存放模板）
+        # 確保 Excel Generic Template 資料夾存在（用於存放模板）
         if not os.path.exists(self.excel_final_folder):
             os.makedirs(self.excel_final_folder)
 
@@ -574,8 +574,8 @@ class EquipmentCostTool:
                     print(f"已從輸入檔案的「滾算紀錄1」複製為「{sheet_name}」")
                     template_copied = True
                 else:
-                    # 從 Excel final/滾算後記錄.xlsx 複製模板
-                    template_file = os.path.join(self.excel_final_folder, "滾算後記錄.xlsx")
+                    # 從 Excel Generic Template/excel公版.xlsx 複製模板
+                    template_file = os.path.join(self.excel_final_folder, "excel公版.xlsx")
                     if os.path.exists(template_file):
                         try:
                             template_wb = load_workbook(template_file)
@@ -837,7 +837,7 @@ class EquipmentCostTool:
 
                         # 方法2: 如果輸入檔案沒有模板，從外部模板檔案複製
                         if not template_copied:
-                            template_file = os.path.join(self.excel_final_folder, "滾算後記錄.xlsx")
+                            template_file = os.path.join(self.excel_final_folder, "excel公版.xlsx")
                             if os.path.exists(template_file):
                                 try:
                                     template_wb = load_workbook(template_file)

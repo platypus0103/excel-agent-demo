@@ -555,6 +555,11 @@ function removeLastMessage() {
     }
 }
 
+// 下載 Excel Generic Template 中的公版（第三個工作表，含公式）
+function downloadTemplate() {
+    window.location.href = '/api/download_template';
+}
+
 // 匯出當前聊天室的 Excel 表格
 function exportCurrentExcel() {
     // 獲取當前案場信息

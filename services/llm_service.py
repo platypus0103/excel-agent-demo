@@ -312,7 +312,7 @@ def _format_calculate_result(result):
 def _execute_equipment_cost_tool(mode, params, excel_path, sheet_name=None):
     """
     使用 execute_price_rolling 工具執行價金滾算
-    這個工具會自動輸出 Excel 記錄到 'Excel final' 資料夾
+    這個工具會自動輸出 Excel 記錄到 'Excel Generic Template' 資料夾
     """
     print(f"執行 execute_price_rolling 工具（equipment_cost_tool）...")
     print(f"  模式: {mode}")

@@ -141,7 +141,7 @@ def _parse_edit_request(query: str, existing_params: dict = None) -> dict:
         'new_value': None,
         'is_expense': None,
         'section_type': None,
-        'year_value_map': None,  # 新增：支持非連續年份的年份-數值映射
+        'year_value_map': None,  # 年份-數值映射，用於非連續年份的修改需求
         'missing_params': []  # 缺少的參數列表
     }
 
@@ -364,7 +364,7 @@ def agent_chat():
             import os
             parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             excel_filename = f"{case_name}_{original_filename}"
-            excel_path = os.path.join(parent_dir, 'Excel', excel_filename)
+            excel_path = os.path.join(parent_dir, 'Excel User Data', excel_filename)
 
             # 檢查檔案是否存在
             if os.path.exists(excel_path):
@@ -373,7 +373,7 @@ def agent_chat():
             else:
                 print(f"警告: Excel 檔案不存在: {excel_path}")
                 # 嘗試尋找 Excel 資料夾中的任何檔案
-                excel_dir = os.path.join(parent_dir, 'Excel')
+                excel_dir = os.path.join(parent_dir, 'Excel User Data')
                 if os.path.exists(excel_dir):
                     excel_files = [f for f in os.listdir(excel_dir) if f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
                     if excel_files:
@@ -461,7 +461,7 @@ def agent_chat():
 
                 # 設定 Excel 檔案路徑
                 if case_name and original_filename:
-                    excel_path = os.path.join(parent_dir, 'Excel', f"{case_name}_{original_filename}")
+                    excel_path = os.path.join(parent_dir, 'Excel User Data', f"{case_name}_{original_filename}")
                     if os.path.exists(excel_path):
                         agent.tool_manager.excel_tool.file_path = excel_path
 
@@ -549,7 +549,7 @@ def agent_chat():
 
                 # 設定 Excel 檔案路徑
                 if case_name and original_filename:
-                    excel_path = os.path.join(parent_dir, 'Excel', f"{case_name}_{original_filename}")
+                    excel_path = os.path.join(parent_dir, 'Excel User Data', f"{case_name}_{original_filename}")
                     if os.path.exists(excel_path):
                         agent.tool_manager.excel_tool.file_path = excel_path
                         print(f"已設定 Excel 路徑: {excel_path}")
@@ -627,7 +627,7 @@ def agent_chat():
 
                 # 設定 Excel 檔案路徑
                 if case_name and original_filename:
-                    excel_path = os.path.join(parent_dir, 'Excel', f"{case_name}_{original_filename}")
+                    excel_path = os.path.join(parent_dir, 'Excel User Data', f"{case_name}_{original_filename}")
                     if os.path.exists(excel_path):
                         agent.tool_manager.excel_tool.file_path = excel_path
 
@@ -655,10 +655,10 @@ def agent_chat():
             # 構建當前聊天室的 Excel 路徑
             current_excel_path = None
             if case_name and original_filename:
-                current_excel_path = os.path.join(parent_dir, 'Excel', f"{case_name}_{original_filename}")
+                current_excel_path = os.path.join(parent_dir, 'Excel User Data', f"{case_name}_{original_filename}")
                 if not os.path.exists(current_excel_path):
                     # 如果檔案不存在，嘗試尋找備用檔案
-                    excel_dir = os.path.join(parent_dir, 'Excel')
+                    excel_dir = os.path.join(parent_dir, 'Excel User Data')
                     if os.path.exists(excel_dir):
                         excel_files = [f for f in os.listdir(excel_dir) if f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
                         if excel_files:
@@ -727,7 +727,7 @@ def get_excel_defaults():
         # 優先使用前端傳入的案場參數來找到對應 Excel 檔案
         case_name = request.args.get('case_name', '')
         original_filename = request.args.get('original_filename', '')
-        excel_dir = os.path.join(parent_dir, 'Excel')
+        excel_dir = os.path.join(parent_dir, 'Excel User Data')
 
         excel_file = None
         if case_name and original_filename:
@@ -811,7 +811,7 @@ def upload_excel():
         case_name = request.form.get('case_name', '')  # 前端顯示名稱（例如：表 1、財報）
 
         # 確保 Excel 目錄存在
-        excel_dir = os.path.join(parent_dir, 'Excel')
+        excel_dir = os.path.join(parent_dir, 'Excel User Data')
         if not os.path.exists(excel_dir):
             os.makedirs(excel_dir)
             print(f"創建 Excel 目錄: {excel_dir}")
@@ -843,7 +843,7 @@ def read_excel(case_id):
     讀取指定案場的 Excel 檔案並轉換為前端格式
     """
     try:
-        excel_dir = os.path.join(parent_dir, 'Excel')
+        excel_dir = os.path.join(parent_dir, 'Excel User Data')
 
         # 從查詢參數獲取前端名稱和原始檔名
         case_name = request.args.get('case_name', '')
@@ -874,43 +874,39 @@ def read_excel(case_id):
         if not excel_file or not os.path.exists(excel_file):
             return jsonify({"error": "找不到指定案場的 Excel 檔案"}), 404
 
-
-        # 使用 openpyxl 讀取 Excel
+        # 使用 openpyxl 讀取 Excel（data_only=True 取計算後的值）
         import openpyxl
-        from openpyxl.utils import get_column_letter
 
-        # 使用 data_only=True 讀取計算後的值（用於前端顯示）
-        # 原始 Excel 檔案中的公式會被保留，匯出時直接下載原始檔案
-        workbook = openpyxl.load_workbook(excel_file, data_only=True)
+        wb = openpyxl.load_workbook(excel_file, data_only=True)
         sheets_data = []
 
-        for sheet_index, sheet_name in enumerate(workbook.sheetnames):
-            sheet = workbook[sheet_name]
+        for sheet_index, sheet_name in enumerate(wb.sheetnames):
+            sheet = wb[sheet_name]
             celldata = []
 
-            # 讀取所有有值的儲存格
             for row in sheet.iter_rows():
                 for cell in row:
-                    if cell.value is not None and cell.value != '':
-                        cell_data = {
-                            'r': cell.row - 1,  # 轉換為 0-based
-                            'c': cell.column - 1,  # 轉換為 0-based
-                            'v': {
-                                'v': cell.value,
-                                'm': str(cell.value),
-                                'ct': {
-                                    'fa': 'General',
-                                    't': 'n' if isinstance(cell.value, (int, float)) else 's'
-                                }
-                            }
-                        }
-                        celldata.append(cell_data)
+                    if cell.value is None or cell.value == '':
+                        continue
 
-            # 計算表格大小
-            max_row = sheet.max_row if sheet.max_row else 20
+                    v_obj = {
+                        'v': cell.value,
+                        'm': str(cell.value),
+                        'ct': {
+                            'fa': 'General',
+                            't': 'n' if isinstance(cell.value, (int, float)) else 's'
+                        }
+                    }
+                    celldata.append({
+                        'r': cell.row - 1,
+                        'c': cell.column - 1,
+                        'v': v_obj
+                    })
+
+            max_row = sheet.max_row    if sheet.max_row    else 20
             max_col = sheet.max_column if sheet.max_column else 10
 
-            sheet_data = {
+            sheets_data.append({
                 'name': sheet_name,
                 'index': str(sheet_index),
                 'status': '1' if sheet_index == 0 else '0',
@@ -925,8 +921,7 @@ def read_excel(case_id):
                 'calcChain': [],
                 'hyperlink': {},
                 'dataVerification': {}
-            }
-            sheets_data.append(sheet_data)
+            })
 
         print(f"成功讀取 Excel: {excel_file}, 共 {len(sheets_data)} 個工作表")
 
@@ -958,7 +953,7 @@ def rename_excel():
         if not all([old_filename, new_filename]):
             return jsonify({"error": "缺少必要參數"}), 400
 
-        excel_dir = os.path.join(parent_dir, 'Excel')
+        excel_dir = os.path.join(parent_dir, 'Excel User Data')
 
         # 直接使用完整檔名（不再加上 case_id 前綴）
         old_path = os.path.join(excel_dir, old_filename)
@@ -1007,7 +1002,7 @@ def delete_excel():
         if not filename:
             return jsonify({"error": "缺少檔案名稱參數"}), 400
 
-        excel_dir = os.path.join(parent_dir, 'Excel')
+        excel_dir = os.path.join(parent_dir, 'Excel User Data')
         file_path = os.path.join(excel_dir, filename)
 
         print(f"檢查檔案: {file_path}")
@@ -1184,7 +1179,7 @@ def calculate_price_rolling():
 
         # 設定財務工具的 Excel 檔案
         current_excel_path = None
-        excel_dir = os.path.join(parent_dir, 'Excel')
+        excel_dir = os.path.join(parent_dir, 'Excel User Data')
 
         if case_name and original_filename:
             # 方法1: 使用完整的 case_name + original_filename
@@ -1300,19 +1295,18 @@ def calculate_price_rolling():
 
         # 格式化結果
         if tool_result.get("success"):
-            # 【快取】成功執行後，儲存參數到快取供確認保存使用
+            # 成功執行後，儲存滾算參數到快取，供後續確認保存時使用
             from services.llm_service import _store_rolling_cache
             _store_rolling_cache(current_excel_path, backend_mode, tool_args)
-            print(f"[快取] 已儲存滾算參數到 llm_service 快取")
 
-            # 【新增】存儲待確認保存的滾算結果
+            # 儲存待確認保存的滾算結果，等待使用者決定是否寫回 Excel
             if case_name:
                 _store_pending_rolling_save(case_name, backend_mode, tool_args, current_excel_path)
 
             agent_response = _format_price_rolling_result(tool_result, mode)
 
             if agent_response:
-                # 【新增】添加詢問是否保存的消息
+                # 詢問使用者是否確認將滾算結果寫回 Excel
                 agent_response += "\n\n---\n**是否要將此滾算結果儲存到 Excel？**\n請回覆「是」或「儲存」來保存，或直接進行下一步操作。"
 
                 print(f"{mode} 工具調用成功")
@@ -1364,7 +1358,7 @@ def save_excel():
         if not case_name:
             return jsonify({"status": "error", "error": "缺少案場名稱"}), 400
 
-        excel_dir = os.path.join(parent_dir, 'Excel')
+        excel_dir = os.path.join(parent_dir, 'Excel User Data')
         excel_path = None
 
         # 搜尋對應的 Excel 檔案
@@ -1461,7 +1455,7 @@ def download_excel():
                 "error": "缺少必要參數：case_name"
             }), 400
 
-        excel_dir = os.path.join(parent_dir, 'Excel')
+        excel_dir = os.path.join(parent_dir, 'Excel User Data')
         excel_path = None
         excel_filename = None
 
@@ -1512,6 +1506,74 @@ def download_excel():
         }), 500
 
 
+@agent_bp.route('/download_template', methods=['GET'])
+def download_template():
+    """
+    下載 Excel Generic Template/excel公版.xlsx 的第三個工作表（含公式），
+    供使用者取得標準計算公版。
+    """
+    try:
+        import io
+        import openpyxl
+        from openpyxl import Workbook
+        from copy import copy
+
+        template_path = os.path.join(parent_dir, 'Excel Generic Template', 'excel公版.xlsx')
+
+        if not os.path.exists(template_path):
+            return jsonify({'status': 'error', 'error': '找不到公版檔案'}), 404
+
+        # 以 data_only=False 開啟，保留所有公式字串
+        wb_src = openpyxl.load_workbook(template_path, data_only=False)
+
+        if len(wb_src.sheetnames) < 3:
+            return jsonify({'status': 'error', 'error': f'公版檔案只有 {len(wb_src.sheetnames)} 個工作表，無法取得第三個'}), 400
+
+        src_sheet = wb_src.worksheets[2]  # 第三個工作表（工作表1）
+
+        # 建立新 workbook，將來源工作表的儲存格逐一複製
+        wb_new = Workbook()
+        ws_new = wb_new.active
+        ws_new.title = src_sheet.title
+
+        for row in src_sheet.iter_rows():
+            for cell in row:
+                new_cell = ws_new.cell(row=cell.row, column=cell.column, value=cell.value)
+                if cell.has_style:
+                    new_cell.font        = copy(cell.font)
+                    new_cell.fill        = copy(cell.fill)
+                    new_cell.border      = copy(cell.border)
+                    new_cell.alignment   = copy(cell.alignment)
+                    new_cell.number_format = cell.number_format
+
+        # 複製欄寬與列高
+        for col_letter, col_dim in src_sheet.column_dimensions.items():
+            ws_new.column_dimensions[col_letter].width = col_dim.width
+        for row_num, row_dim in src_sheet.row_dimensions.items():
+            ws_new.row_dimensions[row_num].height = row_dim.height
+
+        # 複製合併儲存格
+        for merged_range in src_sheet.merged_cells.ranges:
+            ws_new.merge_cells(str(merged_range))
+
+        # 輸出為記憶體串流並回傳
+        output = io.BytesIO()
+        wb_new.save(output)
+        output.seek(0)
+
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name='excel公版.xlsx',
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+    except Exception as e:
+        import traceback
+        print(f"下載公版錯誤: {e}\n{traceback.format_exc()}")
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
+
 @agent_bp.route('/list_case_sheets', methods=['GET'])
 def list_case_sheets():
     """
@@ -1521,7 +1583,7 @@ def list_case_sheets():
     try:
         import openpyxl
 
-        excel_dir = os.path.join(parent_dir, 'Excel')
+        excel_dir = os.path.join(parent_dir, 'Excel User Data')
         cases_data = []
 
         if not os.path.exists(excel_dir):
@@ -1729,7 +1791,7 @@ def create_income_cashflow_section(target_wb, cases_info, agg_last_row):
     # ── 範本路徑 ──
     current_dir   = os.path.dirname(os.path.abspath(__file__))
     parent_dir    = os.path.dirname(current_dir)
-    template_path = os.path.join(parent_dir, 'Excel final', '滾算後記錄.xlsx')
+    template_path = os.path.join(parent_dir, 'Excel Generic Template', 'excel公版.xlsx')
     if not os.path.exists(template_path):
         print(f"[損益/現金流] 找不到範本: {template_path}")
         return
@@ -1899,7 +1961,7 @@ def import_sheets():
         if not sheets_to_import:
             return jsonify({"status": "error", "error": "請選擇至少一個 sheet"}), 400
 
-        excel_dir = os.path.join(parent_dir, 'Excel')
+        excel_dir = os.path.join(parent_dir, 'Excel User Data')
 
         # 確定目標檔案路徑
         target_path = None

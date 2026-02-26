@@ -67,6 +67,7 @@
                     <button id="priceRollingBtn" class="price-rolling-btn">價金滾算</button>
                     <button id="importSheetsBtn" class="price-rolling-btn">匯入表格</button>
                     <button id="exportExcelBtn" class="price-rolling-btn" onclick="exportCurrentExcel()">匯出表格</button>
+                    <button id="downloadTemplateBtn" class="price-rolling-btn" onclick="downloadTemplate()">公版下載</button>
                     <span id="excel-status">請選擇 Excel 檔案</span>
                 </div>
                 <div id="luckysheet-container">
@@ -252,7 +253,7 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='LLMweb.js') }}"></script>
-    <script src="{{ url_for('static', filename='price_rolling.js') }}"></script>
+    <script src="{{ url_for('static', filename='LLMweb.js') }}?v={{ range(1, 99999) | random }}"></script>
+    <script src="{{ url_for('static', filename='price_rolling.js') }}?v={{ range(1, 99999) | random }}"></script>
 </body>
 </html>

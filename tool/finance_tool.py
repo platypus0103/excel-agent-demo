@@ -56,7 +56,7 @@ class FinanceTool:
                 # 取得專案根目錄
                 current_dir = os.path.dirname(os.path.abspath(__file__))
                 parent_dir = os.path.dirname(current_dir)
-                excel_dir = os.path.join(parent_dir, 'Excel')
+                excel_dir = os.path.join(parent_dir, 'Excel User Data')
 
                 # 搜尋 Excel 資料夾中的 .xlsx 或 .xls 檔案
                 # 排除暫存檔（以 ~$ 開頭的檔案）

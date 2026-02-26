@@ -79,11 +79,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // 全域函數供按鈕呼叫
-    window.trySimpleInit = function() {
-        initSimpleLuckysheet();
-    };
-
     // 本地儲存
     function saveCases() {
         localStorage.setItem('llmWebCases', JSON.stringify(cases));
@@ -203,7 +198,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             console.log('開始創建 Luckysheet 實例...');
             luckysheet.create(options);
-            
+
             // 設定超時檢查
             setTimeout(() => {
                 if (!luckysheetInitialized) {
@@ -211,7 +206,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     showLuckysheetError();
                 }
             }, 10000); // 10秒超時
-            
+
         } catch (error) {
             console.error('Luckysheet 初始化失敗:', error);
             luckysheetInitialized = false;
@@ -251,7 +246,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             console.log('更新 Luckysheet 數據...');
-            // 使用更安全的數據更新方式
             if (luckysheet && luckysheet.setAllSheetData) {
                 luckysheet.setAllSheetData(data);
                 console.log('數據更新成功');
@@ -267,65 +261,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // 使用更簡單可靠的表格顯示作為備用方案
-    function createSimpleTable(data) {
-        const container = document.getElementById('luckysheet-container');
-        if (!container) return;
-        
-        container.innerHTML = `
-            <div style="padding: 10px; border: 1px solid #ddd; background: #f9f9f9; border-radius: 4px;">
-                <h4 style="margin: 0 0 10px 0; color: #333;">📊 Excel 內容預覽</h4>
-                <div id="simple-table-container" style="max-height: 500px; overflow: auto; background: white; border: 1px solid #ccc;"></div>
-                <p style="margin: 10px 0 0 0; font-size: 12px; color: #666;">
-                    ℹ️ 使用簡化模式顯示 Excel 內容。如需完整功能，請重新整理頁面。
-                </p>
-            </div>
-        `;
-        
-        if (data && data.length > 0) {
-            displayExcelAsTable(data);
-        }
-    }
-
-    function displayExcelAsTable(sheets) {
-        const tableContainer = document.getElementById('simple-table-container');
-        if (!tableContainer) return;
-        
-        let html = '';
-        
-        sheets.forEach((sheet, sheetIndex) => {
-            html += `<h5 style="margin: 10px; color: #2c3e50;">📋 ${sheet.name}</h5>`;
-            
-            if (sheet.celldata && sheet.celldata.length > 0) {
-                // 創建表格
-                const maxRow = Math.max(...sheet.celldata.map(cell => cell.r)) + 1;
-                const maxCol = Math.max(...sheet.celldata.map(cell => cell.c)) + 1;
-                
-                html += '<table style="border-collapse: collapse; width: 100%; margin-bottom: 20px;">';
-                
-                for (let r = 0; r < Math.min(maxRow, 100); r++) {
-                    html += '<tr>';
-                    for (let c = 0; c < Math.min(maxCol, 20); c++) {
-                        const cell = sheet.celldata.find(cell => cell.r === r && cell.c === c);
-                        const value = cell ? (cell.v.m || cell.v.v || '') : '';
-                        html += `<td style="border: 1px solid #ddd; padding: 4px 8px; font-size: 12px;">${value}</td>`;
-                    }
-                    html += '</tr>';
-                }
-                
-                html += '</table>';
-                
-                if (maxRow > 100 || maxCol > 20) {
-                    html += '<p style="color: #666; font-size: 11px; margin: 5px 10px;">⚠️ 內容過大，僅顯示前 100 行 20 列</p>';
-                }
-            } else {
-                html += '<p style="margin: 10px; color: #666;">此工作表無內容</p>';
-            }
-        });
-        
-        tableContainer.innerHTML = html;
-    }
-
     // 試算表管理
     function addNewCase(siteType = 'single') {
         const caseId = `case${caseCounter}`;  // 先取得 ID
@@ -334,7 +269,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         cases[caseId] = {
             name: caseName,
-            siteType: siteType,  // 新增：站點類型 ('single' 或 'multi')
+            siteType: siteType,  // 站點類型：'single'（單站）或 'multi'（多站）
             messages: [],
             excelData: null,
             hasExcel: false,
@@ -850,7 +785,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // 轉換為 Luckysheet 格式
                 const luckysheetData = convertToLuckysheet(workbook);
-                
+
                 // 保存到當前
                 cases[activeCaseId].excelData = luckysheetData;
                 cases[activeCaseId].hasExcel = true;
@@ -976,34 +911,29 @@ document.addEventListener('DOMContentLoaded', function() {
             const range = XLSX.utils.decode_range(worksheet['!ref']);
             const celldata = [];
             
-            // 優化單元格轉換 - 只處理有值的單元格
+            // 單元格轉換 - 處理有值或有公式的單元格
             for (let row = range.s.r; row <= range.e.r; row++) {
                 for (let col = range.s.c; col <= range.e.c; col++) {
                     const cellAddress = XLSX.utils.encode_cell({r: row, c: col});
                     const cell = worksheet[cellAddress];
-                    
-                    // 只處理有實際內容的單元格
-                    if (cell && cell.v !== undefined && cell.v !== null && cell.v !== '') {
-                        const cellValue = {
-                            r: row,
-                            c: col,
-                            v: {
-                                v: cell.v,
-                                ct: {
-                                    fa: "General",
-                                    t: cell.t === 'n' ? 'n' : 's'
-                                },
-                                m: cell.w || String(cell.v)
-                            }
-                        };
-                        
-                        // 處理數字格式
-                        if (cell.t === 'n' && cell.z) {
-                            cellValue.v.ct.fa = cell.z;
-                        }
-                        
-                        celldata.push(cellValue);
+
+                    if (!cell || cell.v === undefined || cell.v === null || cell.v === '') continue;
+
+                    const vObj = {
+                        v: cell.v,
+                        ct: {
+                            fa: "General",
+                            t: cell.t === 'n' ? 'n' : 's'
+                        },
+                        m: cell.w || String(cell.v)
+                    };
+
+                    // 處理數字格式
+                    if (cell.t === 'n' && cell.z) {
+                        vObj.ct.fa = cell.z;
                     }
+
+                    celldata.push({ r: row, c: col, v: vObj });
                 }
             }
             
@@ -1038,7 +968,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 事件綁定函數 - 統一管理所有事件
     function bindEvents() {
-        // 新增案場下拉選單
+        // 案場新增下拉選單（單站 / 多站）
         const addCaseDropdown = document.getElementById('addCaseDropdown');
         if (addCaseBtn && addCaseDropdown) {
             // 點擊 + 按鈕顯示/隱藏下拉選單
@@ -1139,14 +1069,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // 簡化版初始化 - 備用方案，使用完整的表格顯示
-    function initSimpleLuckysheet() {
-        console.log('使用簡化版表格顯示...');
-        createSimpleTable(null);
-        luckysheetInitialized = true;
-    }
-
-    // 創建完整的表格顯示，確保所有數據都能顯示
+    // Luckysheet 初始化失敗時的備用表格顯示
     function createSimpleTable(data) {
         const container = document.getElementById('luckysheet-container');
         if (!container) return;
@@ -1311,11 +1234,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         console.log(`完整顯示 Excel 內容: ${totalSheets} 個工作表，${totalCells} 個儲存格`);
     }
-
-    // 全域函數供按鈕呼叫
-    window.trySimpleInit = function() {
-        initSimpleLuckysheet();
-    };
 
     // ========== 匯入表格功能 ==========
 

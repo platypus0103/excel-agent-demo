@@ -59,15 +59,13 @@ class NewProjectData(BaseModel):
 
 class IncomeData(BaseModel):
     """收入數據 (發電度數 * 躉售費率)"""
-    # 【修改】 在 pattern 中加入了 new_project
     mode: str = Field(..., pattern="^(range|kw_based|decay|new_project)$", description="輸入模式: range, kw_based, decay, new_project")
     range_data: Optional[RangeData] = None
     kw_based_data: Optional[KWBasedData] = None
     decay_data: Optional[DecayData] = None
-    new_project_data: Optional[NewProjectData] = None  # 【新增】 新的數據欄位
+    new_project_data: Optional[NewProjectData] = None  # new_project 模式的輸入資料
     final_tariff: float = Field(..., ge=0, description="最終躉售費率 (元/度)")
 
-    # 【修改】 在 @field_validator 中加入了 'new_project_data'
     @field_validator('range_data', 'kw_based_data', 'decay_data', 'new_project_data')
     @classmethod
     def validate_mode_data(cls, v, info):
@@ -83,7 +81,6 @@ class IncomeData(BaseModel):
             raise ValueError('kw_based 模式下必須提供 kw_based_data')
         elif mode == 'decay' and field_name == 'decay_data' and v is None:
             raise ValueError('decay 模式下必須提供 decay_data')
-        # 【新增】 新模式的驗證邏輯
         elif mode == 'new_project' and field_name == 'new_project_data' and v is None:
             raise ValueError('new_project 模式下必須提供 new_project_data')
 
