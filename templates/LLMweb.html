@@ -88,7 +88,7 @@
 
 
                 <div class="chat-input">
-                    <input type="text" id="userInput" placeholder="輸入訊息...">
+                    <textarea id="userInput" placeholder="輸入訊息... (Enter 送出，Shift+Enter 換行)"></textarea>
                     <button>送出</button>
                 </div>
             </div>
@@ -150,8 +150,8 @@
                             </div>
                             <div id="priceRatioParams" class="price-mode-params">
                                 <div class="price-form-group">
-                                    <label>調整比例 (0-1)</label>
-                                    <input type="number" id="priceRatioStep" step="0.01" min="0" max="1" placeholder="">
+                                    <label>調整比例 (%)</label>
+                                    <input type="number" id="priceRatioStep" step="0.1" min="0" max="100" placeholder="">
                                 </div>
                             </div>
 

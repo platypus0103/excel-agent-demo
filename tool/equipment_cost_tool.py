@@ -396,11 +396,6 @@ class EquipmentCostTool:
                     for i, value in enumerate(recycle_list[:max_cols]):
                         new_sheet.cell(row=50, column=start_col + i, value=-abs(value) if value else 0)
 
-                    # 利息費用: D70~W70 (row 70)
-                    interest_list = cash_flow_details.get("interest_list", [])
-                    for i, value in enumerate(interest_list[:max_cols]):
-                        new_sheet.cell(row=70, column=start_col + i, value=-abs(value) if value else 0)
-
                     # 貸款還款: E93~W93 (row 93, 從E欄開始)
                     pay_back_list = cash_flow_details.get("pay_back_list", [])
                     pay_back_start_col = 5  # E欄

@@ -1695,7 +1695,7 @@ def create_aggregation_sheet(target_wb, cases_info):
     valid_cases = [c for c in cases_info if c.get('start_year') and c.get('end_year')]
     if not valid_cases:
         print("[彙整] 沒有有效的案場年份資料，跳過彙整")
-        return
+        return None, {}  # 回傳 (last_row, item_total_rows)
 
     overall_start = min(c['start_year'] for c in valid_cases)
     overall_end   = max(c['end_year']   for c in valid_cases)
@@ -1721,6 +1721,7 @@ def create_aggregation_sheet(target_wb, cases_info):
     fill_row(agg_ws, 4, 3, last_col, YEAR_ROW_COLOR, font_color="FFFFFF")
 
     current_row = 5
+    item_total_rows = {}  # 記錄每個項目「年總計」列的實際列號
 
     for item_idx, item in enumerate(ITEMS):
         item_name   = item["name"]
@@ -1768,20 +1769,40 @@ def create_aggregation_sheet(target_wb, cases_info):
             agg_ws.cell(row=current_row, column=col,
                         value=f"=SUM({col_letter}{case_start_row}:{col_letter}{case_end_row})")
         fill_row(agg_ws, current_row, 3, last_col, total_color)
+        item_total_rows[item_name] = current_row  # 記錄此項目年總計列號
         current_row += 1
+
+    # 自動調整欄寬（依內容長度計算，避免顯示 #####）
+    col_widths = {}
+    for row in agg_ws.iter_rows():
+        for cell in row:
+            if cell.value is None:
+                continue
+            val_str = str(cell.value) if not str(cell.value).startswith('=') else ""
+            if val_str:
+                col_widths[cell.column] = max(col_widths.get(cell.column, 0), len(val_str))
+    for col_num, width in col_widths.items():
+        agg_ws.column_dimensions[get_column_letter(col_num)].width = width + 4  # 加 4 作為留白
+    # 年份欄（D 欄起）的公式值無法靠字串長度判斷，確保至少 14 寬（足夠顯示千萬級數字）
+    for i in range(n_years):
+        col_letter = get_column_letter(4 + i)
+        current_width = agg_ws.column_dimensions[col_letter].width or 0
+        if current_width < 14:
+            agg_ws.column_dimensions[col_letter].width = 14
 
     print(f"[彙整] 已建立「{SHEET_NAME}」，年份 {overall_start}~{overall_end}，"
           f"{len(ITEMS)} 個項目，{len(valid_cases)} 個案場")
-    return current_row  # 回傳第一個空白列（供下方附加使用）
+    return current_row, item_total_rows  # 回傳第一個空白列 + 各項目年總計列號
 
 
-def create_income_cashflow_section(target_wb, cases_info, agg_last_row):
+def create_income_cashflow_section(target_wb, cases_info, agg_last_row, item_total_rows=None):
     """
     在彙整總表工作表的 agg_last_row 下方（空 6 列）附加：
       - 綜合損益表：範本 B37:W80，資料欄從 D(col4) 開始
       - 現金流量表：範本 B82:W109，資料欄從 E(col5) 開始
     完整複製範本的值（含公式）和樣式，不做任何清除或覆寫。
     超過 20 年時，以指定欄位為樣板向右擴充欄位樣式。
+    item_total_rows: 各項目在彙整總表上方「年總計」列號，用於填入綜合損益表公式。
     """
     import os, openpyxl
     from copy import copy
@@ -1895,6 +1916,107 @@ def create_income_cashflow_section(target_wb, cases_info, agg_last_row):
     copy_block(37, 80, 2, 23, 4, income_start, ext_template_col=4)
     income_end = income_start + (80 - 37)
 
+    # 用彙整總表上方各項目的年總計列填入綜合損益表資料欄
+    if item_total_rows:
+        row_off = income_start - 37  # 範本列號 → 彙整總表實際列號的偏移量
+
+        def t2a(tmpl_row):
+            """將範本列號轉換為彙整總表的實際列號"""
+            return tmpl_row + row_off
+
+        # ── 第一張綜合損益表（範本 37~58）──
+
+        # 一般項目：D 欄起引用上方總表年總計
+        FIRST_TABLE_ITEMS = [
+            {"name": "預估發電度數", "template_row": 40},
+            {"name": "預估收入",     "template_row": 41},
+            {"name": "租金",         "template_row": 45},
+            {"name": "運維",         "template_row": 48},
+            {"name": "保險",         "template_row": 49},
+            {"name": "模組回收費",   "template_row": 50},
+        ]
+        for item in FIRST_TABLE_ITEMS:
+            total_row = item_total_rows.get(item["name"])
+            if total_row is None:
+                continue
+            dst_row = t2a(item["template_row"])
+            for i in range(n_years):
+                col = 4 + i
+                col_letter = get_column_letter(col)
+                agg_ws.cell(row=dst_row, column=col, value=f"={col_letter}{total_row}")
+
+        # 設備費用（C44）：C 欄橫向加總上方總表設備折舊年總計，D 欄之後全填 0
+        equip_total_row = item_total_rows.get("設備折舊")
+        if equip_total_row is not None:
+            dst_row_43 = t2a(44)
+            first_col_letter = get_column_letter(4)
+            last_col_letter  = get_column_letter(3 + n_years)
+            agg_ws.cell(row=dst_row_43, column=3,
+                        value=f"=SUM({first_col_letter}{equip_total_row}:{last_col_letter}{equip_total_row})")
+
+        # 所得稅（row 54）：引用第二張綜合損益表的所得稅（row 77）
+        dst_row_54 = t2a(54)
+        dst_row_77 = t2a(77)
+        for i in range(n_years):
+            col = 4 + i
+            col_letter = get_column_letter(col)
+            agg_ws.cell(row=dst_row_54, column=col, value=f"={col_letter}{dst_row_77}")
+
+        # 現金流（row 55）：=SUM(D41:D54)
+        dst_row_55 = t2a(55)
+        dst_row_41 = t2a(41)
+        for i in range(n_years):
+            col = 4 + i
+            col_letter = get_column_letter(col)
+            agg_ws.cell(row=dst_row_55, column=col,
+                        value=f"=SUM({col_letter}{dst_row_41}:{col_letter}{dst_row_54})")
+
+        # ── 第二張綜合損益表（範本 60~80）──
+
+        # 一般項目（含設備折舊）：D 欄起引用上方總表年總計
+        SECOND_TABLE_ITEMS = [
+            {"name": "預估發電度數", "template_row": 63},
+            {"name": "預估收入",     "template_row": 64},
+            {"name": "設備折舊",     "template_row": 67},
+            {"name": "租金",         "template_row": 68},
+            {"name": "運維",         "template_row": 71},
+            {"name": "保險",         "template_row": 72},
+            {"name": "模組回收費",   "template_row": 73},
+        ]
+        for item in SECOND_TABLE_ITEMS:
+            total_row = item_total_rows.get(item["name"])
+            if total_row is None:
+                continue
+            dst_row = t2a(item["template_row"])
+            for i in range(n_years):
+                col = 4 + i
+                col_letter = get_column_letter(col)
+                agg_ws.cell(row=dst_row, column=col, value=f"={col_letter}{total_row}")
+
+        # 稅前淨利（row 76）：=SUM(D64:D75)
+        dst_row_76 = t2a(76)
+        dst_row_64 = t2a(64)
+        dst_row_75 = t2a(75)
+        for i in range(n_years):
+            col = 4 + i
+            col_letter = get_column_letter(col)
+            agg_ws.cell(row=dst_row_76, column=col,
+                        value=f"=SUM({col_letter}{dst_row_64}:{col_letter}{dst_row_75})")
+
+        # 所得稅（row 77）：=稅前淨利 * 0.2
+        for i in range(n_years):
+            col = 4 + i
+            col_letter = get_column_letter(col)
+            agg_ws.cell(row=dst_row_77, column=col, value=f"={col_letter}{dst_row_76}*0.2")
+
+        # 稅後淨利（row 78）：=稅前淨利 - 所得稅
+        dst_row_78 = t2a(78)
+        for i in range(n_years):
+            col = 4 + i
+            col_letter = get_column_letter(col)
+            agg_ws.cell(row=dst_row_78, column=col,
+                        value=f"={col_letter}{dst_row_76}-{col_letter}{dst_row_77}")
+
     # ── 現金流量表（B82:W109，資料從 E=col5，延伸樣板 E 欄）──
     cashflow_start = income_end + 1
     copy_block(82, 109, 2, 23, 5, cashflow_start, ext_template_col=5)
@@ -1928,6 +2050,13 @@ def create_income_cashflow_section(target_wb, cases_info, agg_last_row):
             agg_ws.cell(row=income_start + (t_row - base_t), column=new_col, value=seq_val)
         # 現金流量表 row 84
         agg_ws.cell(row=cashflow_start + (84 - 82), column=new_col, value=seq_val)
+
+    # 年份資料欄（D 欄起）確保最小欄寬 14，避免顯示 #####
+    for i in range(n_years):
+        col_letter = get_column_letter(4 + i)
+        current_width = agg_ws.column_dimensions[col_letter].width or 0
+        if current_width < 14:
+            agg_ws.column_dimensions[col_letter].width = 14
 
     template_wb.close()
     print(f"[損益/現金流] 綜合損益表 row {income_start}~{income_end}，"
@@ -2115,9 +2244,9 @@ def import_sheets():
         # 建立彙整總表（自動觸發）
         print(f"[import_sheets] cases_info 共 {len(cases_info)} 筆: {[c['display_name'] for c in cases_info]}")
         if imported_count > 0 and cases_info:
-            agg_last_row = create_aggregation_sheet(target_wb, cases_info)
+            agg_last_row, item_total_rows = create_aggregation_sheet(target_wb, cases_info)
             try:
-                create_income_cashflow_section(target_wb, cases_info, agg_last_row)
+                create_income_cashflow_section(target_wb, cases_info, agg_last_row, item_total_rows)
             except Exception as e:
                 import traceback
                 print(f"[損益/現金流] 建立失敗（不影響主流程）: {e}")

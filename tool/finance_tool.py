@@ -86,35 +86,55 @@ class FinanceTool:
             s1 = wb[self.sheet_name]
             print(f"正在讀取工作表: {self.sheet_name}")
 
+            def _si(cell_val, default):
+                """安全轉整數：None / '-' / 空字串等非數值一律回傳預設值"""
+                if cell_val is None:
+                    return default
+                try:
+                    return int(float(str(cell_val).strip()))
+                except (ValueError, TypeError):
+                    return default
+
+            def _sd(cell_val, default):
+                """安全轉 Decimal：None / '-' / 空字串等非數值一律回傳預設值"""
+                if cell_val is None:
+                    return default
+                try:
+                    return Decimal(str(float(str(cell_val).strip())))
+                except (ValueError, TypeError):
+                    return default
+
             # 讀取並轉換所有必要數據
             data = {
                 'project_name': s1['B2'].value,
-                'year_start': int(s1['B5'].value) if s1['B5'].value else None,
-                'year_end': int(s1['D5'].value) if s1['D5'].value else None,
-                'capacities': Decimal(str(s1['B4'].value)) if s1['B4'].value else None,
-                'electricity_generation': Decimal(str(s1['C10'].value)) if s1['C10'].value else None,
-                'first_year_decade': Decimal(str(s1['C11'].value)) if s1['C11'].value else None,
-                'every_year_decade': Decimal(str(s1['C12'].value)) if s1['C12'].value else None,
-                'rate_of_sell': Decimal(str(s1['C13'].value)) if s1['C13'].value else None,
-                'income_years': int(s1['D10'].value) if s1['D10'].value else None,
-                'equipment_cost': Decimal(str(s1['C16'].value)) if s1['C16'].value else None,
-                'equipment_years': int(s1['D16'].value) if s1['D16'].value else None,
-                'profit_rate': Decimal(str(s1['C17'].value)) if s1['C17'].value else None,
-                'development_cost': Decimal(str(s1['C18'].value)) if s1['C18'].value else None,
-                'rent': Decimal(str(s1['C20'].value)) if s1['C20'].value else Decimal('0'),
-                'rent_years': int(s1['D20'].value) if s1['D20'].value else 0,
-                'maintenance_cost': Decimal(str(s1['C22'].value)) if s1['C22'].value else Decimal('0'),
-                'maintenance_years': int(s1['D22'].value) if s1['D22'].value else 0,
-                'insurance_cost': Decimal(str(s1['C23'].value)) if s1['C23'].value else Decimal('0'),
-                'insurance_years': int(s1['D23'].value) if s1['D23'].value else 0,
-                'recycle_cost': Decimal(str(s1['C24'].value)) if s1['C24'].value else Decimal('0'),
-                'recycle_years': int(s1['D24'].value) if s1['D24'].value else 0,
-                'interest_rate': Decimal(str(s1['C25'].value)) if s1['C25'].value else None,
-                'income_tax': Decimal(str(s1['C26'].value)) if s1['C26'].value else None,
-                'loan_rate': Decimal(str(s1['C31'].value)) if s1['C31'].value else None,
-                'loan_amoritization_years': int(s1['C32'].value) if s1['C32'].value else None,
-                'dividend_rate': Decimal(str(s1['C33'].value)) if s1['C33'].value else None,
-                'reduction_amoritization_years': int(s1['C34'].value) if s1['C34'].value else None,
+                'year_start': _si(s1['B5'].value, None),
+                'year_end': _si(s1['D5'].value, None),
+                'capacities': _sd(s1['B4'].value, None),
+                'electricity_generation': _sd(s1['C10'].value, None),
+                'first_year_decade': _sd(s1['C11'].value, None),
+                'every_year_decade': _sd(s1['C12'].value, None),
+                'rate_of_sell': _sd(s1['C13'].value, None),
+                'income_years': _si(s1['D10'].value, None),
+                'equipment_cost': _sd(s1['C16'].value, None),
+                'equipment_years': _si(s1['D16'].value, None),
+                'profit_rate': _sd(s1['C17'].value, None),
+                'development_cost': _sd(s1['C18'].value, None),
+                'rent_mode': _si(s1['C19'].value, 1),
+                'rent': _sd(s1['C20'].value, Decimal('0')),
+                'rent_years': _si(s1['D20'].value, 0),
+                'rent_method2_ratio': _sd(s1['C21'].value, Decimal('0')),
+                'maintenance_cost': _sd(s1['C22'].value, Decimal('0')),
+                'maintenance_years': _si(s1['D22'].value, 0),
+                'insurance_cost': _sd(s1['C23'].value, Decimal('0')),
+                'insurance_years': _si(s1['D23'].value, 0),
+                'recycle_cost': _sd(s1['C24'].value, Decimal('0')),
+                'recycle_years': _si(s1['D24'].value, 0),
+                'interest_rate': _sd(s1['C25'].value, None),
+                'income_tax': _sd(s1['C26'].value, None),
+                'loan_rate': _sd(s1['C31'].value, None),
+                'loan_amoritization_years': _si(s1['C32'].value, None),
+                'dividend_rate': _sd(s1['C33'].value, None),
+                'reduction_amoritization_years': _si(s1['C34'].value, None),
             }
 
             return data
@@ -145,10 +165,19 @@ class FinanceTool:
         electricity_generation=[first_year_electricity_generation]
 
         # 計算各項支出
-        annual_rent = excel_data['rent']/Decimal(str(excel_data['rent_years'])) if excel_data['rent_years'] > 0 else Decimal('0')
+        annual_rent = excel_data['rent']  # C20 直接為每年租金金額，不再攤提
         annual_maintenance = excel_data['maintenance_cost']*excel_data['capacities'] if excel_data['maintenance_years'] > 0 else Decimal('0')
         annual_insurance = excel_data['equipment_cost']*excel_data['capacities']*excel_data['insurance_cost'] if excel_data['insurance_years'] > 0 else Decimal('0')
         annual_recycle = excel_data['recycle_cost']*excel_data['capacities']/Decimal(str(excel_data['recycle_years'])) if excel_data['recycle_years'] > 0 else Decimal('0')
+
+        # 模式 2 租金需要各年電費收入，先預建完整列表
+        rent_mode = int(excel_data.get('rent_mode', 1))
+        if rent_mode == 2:
+            _t = first_year_electricity_generation
+            _all_elec_income = [first_year_electricity_generation_income]
+            for _yr in range(2, total_years + 1):
+                _t = _t - (excel_data['electricity_generation'] * excel_data['every_year_decade'])
+                _all_elec_income.append(_t * excel_data['rate_of_sell'])
 
         # 創建支出 lists
         rent_list = []
@@ -159,12 +188,13 @@ class FinanceTool:
 
         for year in range(1, total_years + 1):
             # 租金
-            if year == 1:
+            if rent_mode == 2:
+                ratio = excel_data.get('rent_method2_ratio', Decimal('0'))
+                rent_list.append(_all_elec_income[year - 1] * ratio)
+            elif year == 1:
                 rent_list.append(Decimal('0'))
-            elif year <= excel_data['rent_years']:
-                rent_list.append(annual_rent)
             else:
-                rent_list.append(Decimal('0'))
+                rent_list.append(annual_rent)
 
             # 運維費
             if excel_data['maintenance_years'] and year <= excel_data['maintenance_years']:

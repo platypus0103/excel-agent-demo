@@ -265,7 +265,7 @@ function submitPriceForm() {
             if (!ratioStep) {
                 validationError = '請輸入調整比例！';
             } else {
-                requestData.step = ratioStep;
+                requestData.step = ratioStep / 100;  // 前端輸入 % 值，轉成小數傳給後端
             }
             break;
 
