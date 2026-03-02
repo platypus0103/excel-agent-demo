@@ -351,6 +351,14 @@ def agent_chat():
     if not user_query:
         return jsonify({"error": "請提供 'query' 參數"}), 400
 
+    # 短輸入攔截：輸入過短（去除空白後 < 3 字元）可能是錯字，直接回傳提示
+    if len(user_query.strip()) < 3:
+        return jsonify({
+            "query": user_query,
+            "response": "您的輸入太短，請描述您想做什麼（例如：查詢 IRR、修改保險費、執行滾算等）。",
+            "excel_modified": False
+        })
+
     print(f"\n--- API 請求: 執行 Agent 對話 ---")
     print(f"收到查詢: {user_query}")
     print(f"案場資訊: case_name={case_name}, original_filename={original_filename}, sheet_name={sheet_name}")
@@ -671,7 +679,21 @@ def agent_chat():
 
         else:
             # 3. 其他請求調用 AI Agent 的 chat 方法
-            agent_response = agent.chat(user_query)
+            # 注入可用工作表名稱，避免模型幻覺（hallucination）
+            enhanced_query = user_query
+            if case_name and original_filename:
+                current_excel_path = os.path.join(parent_dir, 'Excel User Data', f"{case_name}_{original_filename}")
+                if os.path.exists(current_excel_path):
+                    try:
+                        import openpyxl
+                        wb = openpyxl.load_workbook(current_excel_path, read_only=True)
+                        sheet_names = wb.sheetnames
+                        wb.close()
+                        enhanced_query = f"[目前 Excel 可用工作表: {', '.join(sheet_names)}]\n{user_query}"
+                    except Exception:
+                        pass
+
+            agent_response = agent.chat(enhanced_query)
             # 檢查是否有使用 Excel 工具
             excel_tools = ['write_excel_cell', 'delete_excel_cell', 'read_excel_cell',
                           'add_excel_sheet', 'delete_excel_sheet', 'edit_sheet_by_field']
@@ -1536,7 +1558,8 @@ def download_template():
         ws_new = wb_new.active
         ws_new.title = src_sheet.title
 
-        for row in src_sheet.iter_rows():
+        DOWNLOAD_ROWS = 35
+        for row in src_sheet.iter_rows(max_row=DOWNLOAD_ROWS):
             for cell in row:
                 new_cell = ws_new.cell(row=cell.row, column=cell.column, value=cell.value)
                 if cell.has_style:
@@ -1546,15 +1569,17 @@ def download_template():
                     new_cell.alignment   = copy(cell.alignment)
                     new_cell.number_format = cell.number_format
 
-        # 複製欄寬與列高
+        # 複製欄寬與列高（只複製有用到的列高）
         for col_letter, col_dim in src_sheet.column_dimensions.items():
             ws_new.column_dimensions[col_letter].width = col_dim.width
         for row_num, row_dim in src_sheet.row_dimensions.items():
-            ws_new.row_dimensions[row_num].height = row_dim.height
+            if row_num <= DOWNLOAD_ROWS:
+                ws_new.row_dimensions[row_num].height = row_dim.height
 
-        # 複製合併儲存格
+        # 複製合併儲存格（只取前 35 列範圍內的）
         for merged_range in src_sheet.merged_cells.ranges:
-            ws_new.merge_cells(str(merged_range))
+            if merged_range.min_row <= DOWNLOAD_ROWS:
+                ws_new.merge_cells(str(merged_range))
 
         # 輸出為記憶體串流並回傳
         output = io.BytesIO()

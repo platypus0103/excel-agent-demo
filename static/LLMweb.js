@@ -371,9 +371,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.error('重新命名請求失敗:', error);
                     alert(`重新命名請求失敗: ${error.message}`);
                 });
+
+                // 更新儲存的完整檔名
+                cases[caseId].excelFileName = newFullName;
             }
 
             cases[caseId].name = newName.trim();
+
+            // 同步更新 window.currentCase（供 price_rolling.js 等使用）
+            if (window.currentCase && window.currentCase.id === caseId) {
+                window.currentCase.name = newName.trim();
+            }
+
             saveCases();
             renderCaseList();
         }
@@ -625,9 +634,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function sendMessage() {
         if (!userInput || !chatMessages) return;
-        
+
         const text = userInput.value.trim();
         if (!text || !activeCaseId) return;
+
+        // 前端輸入驗證：輸入過短可能是錯字
+        if (text.length < 3) {
+            userInput.placeholder = '請輸入至少 3 個字元描述您的需求';
+            userInput.value = '';
+            return;
+        }
 
         // 顯示使用者訊息
         const userMessage = { role: 'user', text: text };
