@@ -638,12 +638,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const text = userInput.value.trim();
         if (!text || !activeCaseId) return;
 
-        // 前端輸入驗證：輸入過短可能是錯字
-        if (text.length < 3) {
-            userInput.placeholder = '請輸入至少 3 個字元描述您的需求';
-            userInput.value = '';
-            return;
-        }
 
         // 顯示使用者訊息
         const userMessage = { role: 'user', text: text };

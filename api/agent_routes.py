@@ -351,14 +351,6 @@ def agent_chat():
     if not user_query:
         return jsonify({"error": "請提供 'query' 參數"}), 400
 
-    # 短輸入攔截：輸入過短（去除空白後 < 3 字元）可能是錯字，直接回傳提示
-    if len(user_query.strip()) < 3:
-        return jsonify({
-            "query": user_query,
-            "response": "您的輸入太短，請描述您想做什麼（例如：查詢 IRR、修改保險費、執行滾算等）。",
-            "excel_modified": False
-        })
-
     print(f"\n--- API 請求: 執行 Agent 對話 ---")
     print(f"收到查詢: {user_query}")
     print(f"案場資訊: case_name={case_name}, original_filename={original_filename}, sheet_name={sheet_name}")
