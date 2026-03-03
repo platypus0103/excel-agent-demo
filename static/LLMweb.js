@@ -1427,6 +1427,21 @@ document.addEventListener('DOMContentLoaded', function() {
         submitBtn.textContent = '匯入中...';
         submitBtn.disabled = true;
 
+        // 收集財務參數
+        const loanRatioVal = document.getElementById('importLoanRatio').value;
+        const repayPeriodsVal = document.getElementById('importRepayPeriods').value;
+        const dividendRatioVal = document.getElementById('importDividendRatio').value;
+        const capReductionVal = document.getElementById('importCapReductionPeriods').value;
+        const bankRateVal = document.getElementById('importBankRate').value;
+
+        const financeParams = {
+            loan_ratio: loanRatioVal !== '' ? parseFloat(loanRatioVal) : null,
+            repay_periods: repayPeriodsVal !== '' ? parseInt(repayPeriodsVal) : null,
+            dividend_ratio: dividendRatioVal !== '' ? parseFloat(dividendRatioVal) : null,
+            cap_reduction_periods: capReductionVal !== '' ? parseInt(capReductionVal) : null,
+            bank_rate: bankRateVal !== '' ? parseFloat(bankRateVal) : null
+        };
+
         try {
             const response = await fetch('/api/import_sheets', {
                 method: 'POST',
@@ -1438,7 +1453,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         case_name: s.case_name,
                         sheet_name: s.sheet_name,
                         filename: s.filename
-                    }))
+                    })),
+                    finance_params: financeParams
                 })
             });
 

@@ -1721,7 +1721,7 @@ def create_aggregation_sheet(target_wb, cases_info):
     last_col      = 3 + n_years  # C=3, D=4, 最後一個年份欄 = 4+(n_years-1) = 3+n_years
 
     # 建立（或清空重用）彙整總表
-    SHEET_NAME = "彙整總表"
+    SHEET_NAME = "多站彙整"
     if SHEET_NAME in target_wb.sheetnames:
         # 清空原有內容，保留工作表位置（通常在第一頁）
         agg_ws = target_wb[SHEET_NAME]
@@ -1812,7 +1812,7 @@ def create_aggregation_sheet(target_wb, cases_info):
     return current_row, item_total_rows  # 回傳第一個空白列 + 各項目年總計列號
 
 
-def create_income_cashflow_section(target_wb, cases_info, agg_last_row, item_total_rows=None):
+def create_income_cashflow_section(target_wb, cases_info, agg_last_row, item_total_rows=None, finance_params=None):
     """
     在彙整總表工作表的 agg_last_row 下方（空 6 列）附加：
       - 綜合損益表：範本 B37:W80，資料欄從 D(col4) 開始
@@ -1844,7 +1844,7 @@ def create_income_cashflow_section(target_wb, cases_info, agg_last_row, item_tot
 
     template_wb = openpyxl.load_workbook(template_path)
     template_ws = template_wb['滾算紀錄1']
-    agg_ws = target_wb["彙整總表"]
+    agg_ws = target_wb["多站彙整"]
 
     print(f"[損益/現金流] 使用工作表: {template_ws.title}, agg_last_row={agg_last_row}, income_start={agg_last_row + 6}")
 
@@ -1943,24 +1943,25 @@ def create_income_cashflow_section(target_wb, cases_info, agg_last_row, item_tot
 
         # ── 第一張綜合損益表（範本 37~58）──
 
-        # 一般項目：D 欄起引用上方總表年總計
+        # 一般項目：D 欄起引用上方總表年總計（44~54 行為支出項，加負號）
         FIRST_TABLE_ITEMS = [
-            {"name": "預估發電度數", "template_row": 40},
-            {"name": "預估收入",     "template_row": 41},
-            {"name": "租金",         "template_row": 45},
-            {"name": "運維",         "template_row": 48},
-            {"name": "保險",         "template_row": 49},
-            {"name": "模組回收費",   "template_row": 50},
+            {"name": "預估發電度數", "template_row": 40, "expense": False},
+            {"name": "預估收入",     "template_row": 41, "expense": False},
+            {"name": "租金",         "template_row": 45, "expense": True},
+            {"name": "運維",         "template_row": 48, "expense": True},
+            {"name": "保險",         "template_row": 49, "expense": True},
+            {"name": "模組回收費",   "template_row": 50, "expense": True},
         ]
         for item in FIRST_TABLE_ITEMS:
             total_row = item_total_rows.get(item["name"])
             if total_row is None:
                 continue
             dst_row = t2a(item["template_row"])
+            sign = "-" if item["expense"] else ""
             for i in range(n_years):
                 col = 4 + i
                 col_letter = get_column_letter(col)
-                agg_ws.cell(row=dst_row, column=col, value=f"={col_letter}{total_row}")
+                agg_ws.cell(row=dst_row, column=col, value=f"={sign}{col_letter}{total_row}")
 
         # 設備費用（C44）：C 欄橫向加總上方總表設備折舊年總計，D 欄之後全填 0
         equip_total_row = item_total_rows.get("設備折舊")
@@ -1969,17 +1970,17 @@ def create_income_cashflow_section(target_wb, cases_info, agg_last_row, item_tot
             first_col_letter = get_column_letter(4)
             last_col_letter  = get_column_letter(3 + n_years)
             agg_ws.cell(row=dst_row_43, column=3,
-                        value=f"=SUM({first_col_letter}{equip_total_row}:{last_col_letter}{equip_total_row})")
+                        value=f"=-SUM({first_col_letter}{equip_total_row}:{last_col_letter}{equip_total_row})")
 
-        # 所得稅（row 54）：引用第二張綜合損益表的所得稅（row 77）
+        # 所得稅（row 54）：引用第二張綜合損益表的所得稅（row 77），支出加負號
         dst_row_54 = t2a(54)
         dst_row_77 = t2a(77)
         for i in range(n_years):
             col = 4 + i
             col_letter = get_column_letter(col)
-            agg_ws.cell(row=dst_row_54, column=col, value=f"={col_letter}{dst_row_77}")
+            agg_ws.cell(row=dst_row_54, column=col, value=f"=-{col_letter}{dst_row_77}")
 
-        # 現金流（row 55）：=SUM(D41:D54)
+        # 現金流（row 55）：D 欄起 =SUM(D41:D54)；C 欄 = 設備費用（C44）
         dst_row_55 = t2a(55)
         dst_row_41 = t2a(41)
         for i in range(n_years):
@@ -1987,28 +1988,37 @@ def create_income_cashflow_section(target_wb, cases_info, agg_last_row, item_tot
             col_letter = get_column_letter(col)
             agg_ws.cell(row=dst_row_55, column=col,
                         value=f"=SUM({col_letter}{dst_row_41}:{col_letter}{dst_row_54})")
+        # C55 = 設備費用（C44），作為 IRR 的初始現金流（負值投入）
+        agg_ws.cell(row=dst_row_55, column=3, value=f"=C{t2a(44)}")
+
+        # IRR（C58）：=IRR(C55:last_col55)，從 C 欄（設備費用）開始計算
+        dst_row_58 = t2a(58)
+        last_data_letter = get_column_letter(3 + n_years)
+        agg_ws.cell(row=dst_row_58, column=3,
+                    value=f"=IRR(C{dst_row_55}:{last_data_letter}{dst_row_55})")
 
         # ── 第二張綜合損益表（範本 60~80）──
 
-        # 一般項目（含設備折舊）：D 欄起引用上方總表年總計
+        # 一般項目（含設備折舊）：D 欄起引用上方總表年總計；支出項加負號（利息另處理）
         SECOND_TABLE_ITEMS = [
-            {"name": "預估發電度數", "template_row": 63},
-            {"name": "預估收入",     "template_row": 64},
-            {"name": "設備折舊",     "template_row": 67},
-            {"name": "租金",         "template_row": 68},
-            {"name": "運維",         "template_row": 71},
-            {"name": "保險",         "template_row": 72},
-            {"name": "模組回收費",   "template_row": 73},
+            {"name": "預估發電度數", "template_row": 63, "expense": False},
+            {"name": "預估收入",     "template_row": 64, "expense": False},
+            {"name": "設備折舊",     "template_row": 67, "expense": True},
+            {"name": "租金",         "template_row": 68, "expense": True},
+            {"name": "運維",         "template_row": 71, "expense": True},
+            {"name": "保險",         "template_row": 72, "expense": True},
+            {"name": "模組回收費",   "template_row": 73, "expense": True},
         ]
         for item in SECOND_TABLE_ITEMS:
             total_row = item_total_rows.get(item["name"])
             if total_row is None:
                 continue
             dst_row = t2a(item["template_row"])
+            sign = "-" if item["expense"] else ""
             for i in range(n_years):
                 col = 4 + i
                 col_letter = get_column_letter(col)
-                agg_ws.cell(row=dst_row, column=col, value=f"={col_letter}{total_row}")
+                agg_ws.cell(row=dst_row, column=col, value=f"={sign}{col_letter}{total_row}")
 
         # 稅前淨利（row 76）：=SUM(D64:D75)
         dst_row_76 = t2a(76)
@@ -2039,6 +2049,161 @@ def create_income_cashflow_section(target_wb, cases_info, agg_last_row, item_tot
     copy_block(82, 109, 2, 23, 5, cashflow_start, ext_template_col=5)
     cashflow_end = cashflow_start + (109 - 82)
 
+    # 現金流量表公式填入（引用第二張綜合損益表的值）
+    if item_total_rows:
+        def cf_row(tmpl_row):
+            return cashflow_start + (tmpl_row - 82)
+
+        _dst_78 = income_start + (78 - 37)   # 第二張損益表：稅後淨利
+        dst_r85 = cf_row(85)
+        dst_r86 = cf_row(86)
+        dst_r87 = cf_row(87)
+
+        # row 86 設備折舊：引用最上方總表的設備折舊年總計（正數）
+        _equip_agg_row = item_total_rows.get("設備折舊")
+
+        for i in range(n_years):
+            col = 4 + i
+            col_letter = get_column_letter(col)
+            # 稅後淨利（row 85）：引用第二張損益表稅後淨利（正數）
+            agg_ws.cell(row=dst_r85, column=col, value=f"={col_letter}{_dst_78}")
+            # 設備折舊（row 86）：引用最上方總表的設備折舊年總計（正數）
+            if _equip_agg_row:
+                agg_ws.cell(row=dst_r86, column=col, value=f"={col_letter}{_equip_agg_row}")
+            # 營運活動現金流量（row 87）：稅後淨利 + 設備折舊
+            agg_ws.cell(row=dst_r87, column=col,
+                        value=f"={col_letter}{dst_r85}+{col_letter}{dst_r86}")
+
+    # ── 現金流量表延伸公式（89, 92, 93, 94, 95, 96 行）──
+    if finance_params:
+        def cf2(r):
+            return cashflow_start + (r - 82)
+
+        # 參數格位置（同張工作表）
+        p_loan   = f"C{agg_last_row + 1}"   # 貸款成數(%)
+        p_repay  = f"C{agg_last_row + 2}"   # 還款期數
+        p_div    = f"C{agg_last_row + 3}"   # 股利比率(%)
+        p_cap    = f"C{agg_last_row + 4}"   # 年底減資攤還期數
+        p_bank   = f"C{agg_last_row + 5}"   # 銀行利率(%)
+
+        # 實際數值（用來決定填值範圍）
+        repay_val  = int(finance_params.get('repay_periods') or 0)
+        cap_val    = int(finance_params.get('cap_reduction_periods') or 0)
+
+        r86 = cf2(86)   # 設備折舊行
+        r85 = cf2(85)   # 稅後淨利行（現金流量表）
+        r89 = cf2(89);  r92 = cf2(92);  r93 = cf2(93)
+        r94 = cf2(94);  r95 = cf2(95);  r96 = cf2(96)
+
+        first_col_l = get_column_letter(4)
+        last_col_l  = get_column_letter(3 + n_years)
+
+        # Row 89：設備支出 = 第一張綜合損益表的設備費用（C44）
+        _income_r44 = income_start + (44 - 37)
+        agg_ws.cell(row=r89, column=4,
+                    value=f"=C{_income_r44}")
+
+        # Row 92：借款（負數，現金流出）= -設備支出絕對值 * 貸款成數(%)/100（D欄單格）
+        agg_ws.cell(row=r92, column=4,
+                    value=f"=-D{r89}*{p_loan}/100")
+
+        # Row 93：還款 = -|借款|/攤還期數（負數，現金流出），從 E 欄開始填 repay_val 年
+        if repay_val > 0:
+            for i in range(min(repay_val, n_years - 1)):
+                agg_ws.cell(row=r93, column=5 + i,
+                            value=f"=-D{r92}/{p_repay}")
+
+        # Row 94：現金增資（負數，現金流出）= -設備支出絕對值 * (1-貸款成數(%)/100)（D欄單格）
+        agg_ws.cell(row=r94, column=4,
+                    value=f"=-D{r89}*(1-{p_loan}/100)")
+
+        # Row 95：現金股利 = 前一年稅後淨利(row85) * 股利比率(%)/100，從 E 欄起
+        for i in range(n_years - 1):
+            prev_col_l = get_column_letter(4 + i)
+            agg_ws.cell(row=r95, column=5 + i,
+                        value=f"=-{prev_col_l}{r85}*{p_div}/100")
+
+        # Row 96：年底減資 = -現金增資/攤還期數，從最後一年往前回填 cap_val 年
+        if cap_val > 0:
+            for i in range(min(cap_val, n_years)):
+                col = 3 + n_years - i   # 最後一欄往前
+                agg_ws.cell(row=r96, column=col,
+                            value=f"=-D{r94}/{p_cap}")
+
+        # ── row 99/100/101：現金淨流入出、期初、期末 ──
+        r99  = cf2(99);  r100 = cf2(100);  r101 = cf2(101)
+        r87_act = cf2(87);  r96_act = cf2(96)
+
+        for i in range(n_years):
+            col   = 4 + i
+            col_l = get_column_letter(col)
+
+            # Row 99：現金淨流入(出) = SUM(row87:row96) 同欄
+            agg_ws.cell(row=r99, column=col,
+                        value=f"=SUM({col_l}{r87_act}:{col_l}{r96_act})")
+
+            # Row 100：期初淨現金
+            if i == 0:
+                agg_ws.cell(row=r100, column=col, value=0)
+            else:
+                prev_l = get_column_letter(col - 1)
+                agg_ws.cell(row=r100, column=col, value=f"={prev_l}{r101}")
+
+            # Row 101：期末淨現金 = 99 + 100
+            agg_ws.cell(row=r101, column=col,
+                        value=f"={col_l}{r99}+{col_l}{r100}")
+
+        # ── row 104/105/106/107/109：成本法、權益法、借款餘額 ──
+        r104 = cf2(104);  r105 = cf2(105)
+        r106 = cf2(106);  r107 = cf2(107)
+        r109 = cf2(109)
+
+        for i in range(n_years):
+            col   = 4 + i
+            col_l = get_column_letter(col)
+
+            # Row 104：成本法實際現金流
+            # 首年 = -現金增資；其餘 = -現金股利 - 年底減資
+            if i == 0:
+                agg_ws.cell(row=r104, column=col, value=f"=-D{r94}")
+            else:
+                agg_ws.cell(row=r104, column=col,
+                            value=f"=-{col_l}{r95}-{col_l}{r96}")
+
+            # Row 106：權益法實際現金流
+            # 首年 = 稅後淨利 - 現金增資；其餘 = 稅後淨利 - 年底減資
+            if i == 0:
+                agg_ws.cell(row=r106, column=col, value=f"={col_l}{r85}-D{r94}")
+            else:
+                agg_ws.cell(row=r106, column=col,
+                            value=f"={col_l}{r85}-{col_l}{r96}")
+
+            # Row 109：借款餘額
+            # 首年 = 借款；其餘 = 前一年餘額 + 當年還款
+            if i == 0:
+                agg_ws.cell(row=r109, column=col, value=f"=D{r92}")
+            else:
+                prev_l = get_column_letter(col - 1)
+                agg_ws.cell(row=r109, column=col,
+                            value=f"={prev_l}{r109}+{col_l}{r93}")
+
+        # Row 105：成本法 IRR = IRR(D104:last_col104)
+        agg_ws.cell(row=r105, column=3,
+                    value=f"=IRR({first_col_l}{r104}:{last_col_l}{r104})")
+
+        # Row 107：權益法 IRR = IRR(D106:last_col106)
+        agg_ws.cell(row=r107, column=3,
+                    value=f"=IRR({first_col_l}{r106}:{last_col_l}{r106})")
+
+        # ── 第二張綜合損益表 row 70：利息費用 = -借款餘額 * 銀行利率/100 ──
+        # 借款餘額 = row 109（現金流量表），銀行利率 = p_bank
+        dst_r70 = income_start + (70 - 37)
+        for i in range(n_years):
+            col   = 4 + i
+            col_l = get_column_letter(col)
+            agg_ws.cell(row=dst_r70, column=col,
+                        value=f"=-{col_l}{r109}*{p_bank}/100")
+
     # ── 更新年份列（template 第 37、60 列 → D欄起；第 82 列 → E欄起）──
     # 綜合損益表 第一年份列（template row 37）
     dst_row_37 = income_start + (37 - 37)   # = income_start
@@ -2068,12 +2233,26 @@ def create_income_cashflow_section(target_wb, cases_info, agg_last_row, item_tot
         # 現金流量表 row 84
         agg_ws.cell(row=cashflow_start + (84 - 82), column=new_col, value=seq_val)
 
-    # 年份資料欄（D 欄起）確保最小欄寬 14，避免顯示 #####
-    for i in range(n_years):
-        col_letter = get_column_letter(4 + i)
-        current_width = agg_ws.column_dimensions[col_letter].width or 0
-        if current_width < 14:
-            agg_ws.column_dimensions[col_letter].width = 14
+    # ── 自動調整欄寬（參數列 + 綜合損益表 + 現金流量表全範圍）──
+    def _cell_width(val):
+        """估算儲存格顯示寬度；公式格用預設 16，CJK 字元計 2"""
+        s = str(val)
+        if s.startswith('='):
+            return 16
+        return sum(2 if '\u4e00' <= ch <= '\u9fff' else 1 for ch in s)
+
+    col_widths = {}
+    for row in agg_ws.iter_rows(min_row=agg_last_row + 1, max_row=cashflow_end):
+        for cell in row:
+            if isinstance(cell, MergedCell):
+                continue
+            if cell.value is not None:
+                w = _cell_width(cell.value)
+                col_widths[cell.column] = max(col_widths.get(cell.column, 0), w)
+
+    for col_num, w in col_widths.items():
+        col_letter = get_column_letter(col_num)
+        agg_ws.column_dimensions[col_letter].width = min(max(w + 2, 10), 60)
 
     template_wb.close()
     print(f"[損益/現金流] 綜合損益表 row {income_start}~{income_end}，"
@@ -2096,6 +2275,7 @@ def import_sheets():
         target_case_name = data.get('target_case_name')
         target_filename = data.get('target_filename')  # 可能為 None
         sheets_to_import = data.get('sheets_to_import', [])
+        finance_params = data.get('finance_params', {})
 
         print(f"\n[import_sheets] 目標案場: {target_case_name}")
         print(f"[import_sheets] 目標檔案: {target_filename}")
@@ -2135,7 +2315,7 @@ def import_sheets():
             target_path = os.path.join(excel_dir, f"{target_case_name}_{new_filename}")
             # 創建新檔案，並將預設空白 Sheet 直接命名為「彙整總表」
             wb = openpyxl.Workbook()
-            wb.active.title = "彙整總表"
+            wb.active.title = "多站彙整"
             wb.save(target_path)
             wb.close()
             print(f"[import_sheets] 創建新檔案: {target_path}")
@@ -2260,14 +2440,33 @@ def import_sheets():
 
         # 建立彙整總表（自動觸發）
         print(f"[import_sheets] cases_info 共 {len(cases_info)} 筆: {[c['display_name'] for c in cases_info]}")
+        agg_last_row = 0
         if imported_count > 0 and cases_info:
             agg_last_row, item_total_rows = create_aggregation_sheet(target_wb, cases_info)
             try:
-                create_income_cashflow_section(target_wb, cases_info, agg_last_row, item_total_rows)
+                create_income_cashflow_section(target_wb, cases_info, agg_last_row, item_total_rows, finance_params)
             except Exception as e:
                 import traceback
                 print(f"[損益/現金流] 建立失敗（不影響主流程）: {e}")
                 print(traceback.format_exc())
+
+        # 將財務參數寫入彙整總表（總表與綜合損益表之間的空白區域）
+        if agg_last_row > 0 and finance_params:
+            agg_ws = target_wb["多站彙整"]
+            param_start_row = agg_last_row + 1  # 緊接在總表後開始
+            params_to_write = [
+                ("貸款成數(%)",     finance_params.get('loan_ratio')),
+                ("還款期數",       finance_params.get('repay_periods')),
+                ("股利比率(%)",    finance_params.get('dividend_ratio')),
+                ("年底減資攤還期數", finance_params.get('cap_reduction_periods')),
+                ("銀行利率(%)",    finance_params.get('bank_rate')),
+            ]
+            for i, (name, value) in enumerate(params_to_write):
+                row = param_start_row + i
+                agg_ws.cell(row=row, column=2, value=name)   # B 欄放名稱
+                if value is not None:
+                    agg_ws.cell(row=row, column=3, value=value)  # C 欄放值
+            print(f"[import_sheets] 財務參數已寫入彙整總表 row {param_start_row}~{param_start_row+3}")
 
         # 儲存目標檔案
         target_wb.save(target_path)
