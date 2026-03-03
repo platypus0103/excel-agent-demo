@@ -23,18 +23,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化
     init();
 
-    function init() {
-        loadCases();
-        if (Object.keys(cases).length === 0) {
-            addNewCase();
-        } else {
-            const firstCaseId = Object.keys(cases)[0];
-            switchActiveCase(firstCaseId);
-        }
-        
-        // 優化的 Luckysheet 初始化
+    async function init() {
         initLuckysheetWhenReady();
         bindEvents();
+        bindAuthEvents();
+        await checkSession();
     }
 
 
@@ -79,27 +72,135 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // 本地儲存
-    function saveCases() {
-        localStorage.setItem('llmWebCases', JSON.stringify(cases));
+    // ── Session / Auth ──────────────────────────────────────
+
+    function setLoggedInUI(email) {
+        document.getElementById('emailLoginArea').style.display = 'none';
+        document.getElementById('emailUserArea').style.display = 'flex';
+        document.getElementById('emailDisplay').textContent = email;
     }
 
-    function loadCases() {
-        const saved = localStorage.getItem('llmWebCases');
-        if (saved) {
-            try {
-                cases = JSON.parse(saved);
-                const caseIds = Object.keys(cases);
-                if (caseIds.length > 0) {
-                    caseCounter = Math.max(...caseIds.map(id => parseInt(id.replace('case', '')))) + 1;
-                }
-            } catch (e) {
-                console.error('載數據時發生錯誤:', e);
-                cases = {};
-                caseCounter = 0;
+    function setLoggedOutUI() {
+        document.getElementById('emailLoginArea').style.display = 'flex';
+        document.getElementById('emailUserArea').style.display = 'none';
+        document.getElementById('emailInput').value = '';
+        cases = {};
+        activeCaseId = null;
+        caseCounter = 0;
+        renderCaseList();
+        renderChat();
+        if (caseTitle) caseTitle.textContent = '請選擇或新增試算表';
+    }
+
+    async function checkSession() {
+        try {
+            const res  = await fetch('/api/auth/me');
+            const data = await res.json();
+            if (data.status === 'ok') {
+                setLoggedInUI(data.email);
+                await loadCasesFromDB();
+            } else {
+                setLoggedOutUI();
             }
+        } catch (e) {
+            setLoggedOutUI();
         }
     }
+
+    async function loginWithEmail() {
+        const email = document.getElementById('emailInput').value.trim();
+        if (!email) { alert('請輸入 Email'); return; }
+
+        const btn = document.getElementById('loginBtn');
+        btn.textContent = '登入中...';
+        btn.disabled = true;
+
+        try {
+            const res  = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                setLoggedInUI(data.email);
+                await loadCasesFromDB();
+            } else {
+                alert(data.error || '登入失敗');
+            }
+        } catch (e) {
+            alert('登入失敗，請稍後再試');
+        } finally {
+            btn.textContent = '登入';
+            btn.disabled = false;
+        }
+    }
+
+    async function logoutUser() {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        setLoggedOutUI();
+    }
+
+    function bindAuthEvents() {
+        document.getElementById('loginBtn').addEventListener('click', loginWithEmail);
+        document.getElementById('logoutBtn').addEventListener('click', logoutUser);
+        document.getElementById('emailInput').addEventListener('keypress', e => {
+            if (e.key === 'Enter') loginWithEmail();
+        });
+    }
+
+    // ── 案場（DB 版）───────────────────────────────────────
+
+    async function loadCasesFromDB() {
+        const res  = await fetch('/api/cases');
+        const data = await res.json();
+        if (data.status !== 'success') return;
+
+        cases = {};
+        for (const c of data.cases) {
+            const key = String(c.id);
+            cases[key] = {
+                id:                   c.id,
+                name:                 c.name,
+                siteType:             c.site_type,
+                messages:             [],
+                excelData:            null,
+                excelChecked:         false,  // 尚未嘗試從伺服器載入，切換時會自動嘗試
+                hasExcel:             !!c.excel_filename,
+                excelFileName:        c.excel_filename
+                                        ? `${c.name}_${c.excel_filename}` : null,
+                excelOriginalFileName: c.excel_filename || null,
+            };
+        }
+
+        // 讓計數器從當前已有的案場數量開始，避免跨用戶累加
+        caseCounter = Object.keys(cases).length;
+
+        renderCaseList();
+
+        if (Object.keys(cases).length === 0) {
+            await addNewCase();
+        } else {
+            switchActiveCase(Object.keys(cases)[0]);
+        }
+    }
+
+    // saveCases() 保留為空操作（各操作已即時寫 DB）
+    function saveCases() {}
+
+    // 供 price_rolling.js 等外部 script 呼叫，將 bot 訊息存入 DB
+    window.saveBotMessageToDB = function(text) {
+        if (!activeCaseId || !cases[activeCaseId]) return;
+        const msg = { role: 'bot', text };
+        cases[activeCaseId].messages.push(msg);
+        const dbId = cases[activeCaseId].id;
+        if (!dbId) return;
+        fetch(`/api/cases/${dbId}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: [{ role: 'bot', content: text }] })
+        }).catch(() => {});
+    };
 
     // 初始化 Luckysheet - 優化版本
     function initLuckysheet(data = null) {
@@ -214,25 +315,50 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function updateLuckysheetData(data) {
-        // 如果沒有數據，顯示友好提示而不是重新初始化
-        if (!data) {
-            console.log('無 Excel 數據，顯示空白提示');
-            const container = document.getElementById('luckysheet-container');
-            if (container) {
-                container.innerHTML = `
-                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; background: white; flex-direction: column;">
-                        <div style="text-align: center; padding: 20px;">
-                            <div style="font-size: 48px; margin-bottom: 20px;">📄</div>
-                            <h3 style="color: #2c3e50; margin: 10px 0;">空白試算表</h3>
-                            <p style="color: #666; margin: 10px 0;">請匯入 Excel 檔案開始使用</p>
-                            <button onclick="document.getElementById('fileInput').click()"
-                                    style="background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; margin-top: 10px;">
-                                📁 選擇 Excel 檔案
-                            </button>
-                        </div>
+    function showNoExcelPlaceholder() {
+        // 顯示「請匯入 Excel」提示（僅在 Luckysheet 未初始化時使用）
+        const container = document.getElementById('luckysheet-container');
+        if (container) {
+            // 重置旗標，因為 container 即將被自定義 HTML 替換
+            isLuckysheetReady = false;
+            luckysheetInitialized = false;
+            container.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: center; height: 100%; background: white; flex-direction: column;">
+                    <div style="text-align: center; padding: 20px;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">📄</div>
+                        <h3 style="color: #2c3e50; margin: 10px 0;">空白試算表</h3>
+                        <p style="color: #666; margin: 10px 0;">請匯入 Excel 檔案開始使用</p>
+                        <button onclick="document.getElementById('fileInput').click()"
+                                style="background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; margin-top: 10px;">
+                            📁 選擇 Excel 檔案
+                        </button>
                     </div>
-                `;
+                </div>
+            `;
+        }
+    }
+
+    function updateLuckysheetData(data) {
+        // 沒有數據：若 Luckysheet 已初始化就重置為空白工作表（不破壞實例）
+        // 若未初始化則顯示提示 HTML
+        if (!data) {
+            if (isLuckysheetReady) {
+                // 保留 Luckysheet 實例，只清空資料 → 後續 setAllSheetData 可直接用
+                try {
+                    luckysheet.setAllSheetData([{
+                        name: '工作表1', index: '0', status: '1', order: '0',
+                        celldata: [], row: 20, column: 10,
+                        config: { merge: {}, rowlen: {}, columnlen: {}, borderInfo: [] },
+                        pivotTable: null, isPivotTable: false,
+                        luckysheet_select_save: [], calcChain: [],
+                        hyperlink: {}, dataVerification: {}
+                    }]);
+                } catch (e) {
+                    console.warn('清空 Luckysheet 失敗，改用提示頁面:', e);
+                    showNoExcelPlaceholder();
+                }
+            } else {
+                showNoExcelPlaceholder();
             }
             return;
         }
@@ -262,130 +388,106 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // 試算表管理
-    function addNewCase(siteType = 'single') {
-        const caseId = `case${caseCounter}`;  // 先取得 ID
-        const caseName = `表 ${caseCounter + 1}`;  // 顯示名稱
-        caseCounter++;  // 最後遞增
+    async function addNewCase(siteType = 'single') {
+        caseCounter++;
+        const caseName = `表 ${caseCounter}`;
 
-        cases[caseId] = {
-            name: caseName,
-            siteType: siteType,  // 站點類型：'single'（單站）或 'multi'（多站）
-            messages: [],
-            excelData: null,
-            hasExcel: false,
-            excelFileName: null,
-            excelOriginalFileName: null  // Excel 原始檔名（例如：公版.xlsx）
+        const res  = await fetch('/api/cases', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: caseName, site_type: siteType })
+        });
+        const data = await res.json();
+        if (data.status !== 'success') { console.error('新增案場失敗', data); return; }
+
+        const key = String(data.case.id);
+        cases[key] = {
+            id:                    data.case.id,
+            name:                  data.case.name,
+            siteType:              data.case.site_type,
+            messages:              [],
+            excelData:             null,
+            excelChecked:          true,   // 新案場確認沒有 Excel，不需要自動嘗試載入
+            hasExcel:              false,
+            excelFileName:         null,
+            excelOriginalFileName: null,
         };
 
-        saveCases();
         renderCaseList();
-        switchActiveCase(caseId);
+        switchActiveCase(key);
     }
 
-    function deleteCase(caseId) {
+    async function deleteCase(caseId) {
         if (Object.keys(cases).length === 1) {
             alert('至少需要保留一試算表');
             return;
         }
 
-        if (confirm(`確定要刪除試算表「${cases[caseId].name}」嗎？`)) {
-            // 如果有 Excel 檔案，先刪除後端的 Excel
-            const caseName = cases[caseId].name;
-            const originalFileName = cases[caseId].excelOriginalFileName;
+        if (!confirm(`確定要刪除試算表「${cases[caseId].name}」嗎？`)) return;
 
-            if (originalFileName) {
-                const fullFileName = `${caseName}_${originalFileName}`;
+        const dbId = cases[caseId].id;
+        const originalFileName = cases[caseId].excelOriginalFileName;
 
-                // 呼叫後端 API 刪除 Excel 檔案
-                fetch('/api/delete_excel', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        case_id: caseId,
-                        filename: fullFileName
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        console.log('後端 Excel 檔案已刪除:', fullFileName);
-                    } else {
-                        console.warn('後端 Excel 刪除失敗:', data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('刪除 Excel 請求失敗:', error);
-                });
-            }
-
-            // 刪除前端案場資料
-            delete cases[caseId];
-
-            // 判斷是否需要切換到其他案場
-            let newActiveCaseId = activeCaseId;
-            if (activeCaseId === caseId) {
-                // 刪除的是當前案場，需要切換到其他案場
-                const remainingCases = Object.keys(cases);
-                newActiveCaseId = remainingCases[0];
-                // 重要：先將 activeCaseId 設為 null，避免 switchActiveCase 提前 return
-                activeCaseId = null;
-            }
-
-            saveCases();
-            renderCaseList();
-            switchActiveCase(newActiveCaseId);
+        // 刪除後端 Excel 檔案
+        if (originalFileName) {
+            fetch('/api/delete_excel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: `${cases[caseId].name}_${originalFileName}` })
+            }).catch(() => {});
         }
+
+        // 刪除 DB 記錄（含聊天紀錄 cascade）
+        await fetch(`/api/cases/${dbId}`, { method: 'DELETE' });
+
+        delete cases[caseId];
+
+        let nextId = activeCaseId;
+        if (activeCaseId === caseId) {
+            activeCaseId = null;
+            nextId = Object.keys(cases)[0];
+        }
+        renderCaseList();
+        switchActiveCase(nextId);
     }
 
-    function renameCase(caseId) {
+    async function renameCase(caseId) {
         const currentName = cases[caseId].name;
         const newName = prompt('請輸入新的試算表名稱:', currentName);
+        if (!newName || !newName.trim() || newName.trim() === currentName) return;
 
-        if (newName && newName.trim() && newName !== currentName) {
-            const originalFileName = cases[caseId].excelOriginalFileName;  // 原始檔名（例如：公版.xlsx）
+        const trimmed = newName.trim();
+        const dbId = cases[caseId].id;
+        const originalFileName = cases[caseId].excelOriginalFileName;
 
-            if(originalFileName){
-                // 組成舊檔名和新檔名
-                const oldFullName = `${currentName}_${originalFileName}`;  // 例如：表 1_公版.xlsx
-                const newFullName = `${newName.trim()}_${originalFileName}`;  // 例如：財報_公版.xlsx
+        // 更新 DB 名稱
+        await fetch(`/api/cases/${dbId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: trimmed })
+        });
 
-                fetch('/api/rename_excel', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        case_id: caseId,
-                        old_filename: oldFullName,
-                        new_filename: newFullName
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        console.log('後端檔案已重新命名:', newFullName);
-                    } else {
-                        console.error('後端重新命名失敗:', data.error);
-                        alert(`後端檔案重新命名失敗: ${data.error || '未知錯誤'}`);
-                    }
-                })
-                .catch(error => {
-                    console.error('重新命名請求失敗:', error);
-                    alert(`重新命名請求失敗: ${error.message}`);
-                });
-
-                // 更新儲存的完整檔名
-                cases[caseId].excelFileName = newFullName;
-            }
-
-            cases[caseId].name = newName.trim();
-
-            // 同步更新 window.currentCase（供 price_rolling.js 等使用）
-            if (window.currentCase && window.currentCase.id === caseId) {
-                window.currentCase.name = newName.trim();
-            }
-
-            saveCases();
-            renderCaseList();
+        // 重新命名 Excel 檔案
+        if (originalFileName) {
+            const oldFullName = `${currentName}_${originalFileName}`;
+            const newFullName = `${trimmed}_${originalFileName}`;
+            fetch('/api/rename_excel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ old_filename: oldFullName, new_filename: newFullName })
+            }).then(r => r.json()).then(data => {
+                if (data.status === 'success') {
+                    cases[caseId].excelFileName = newFullName;
+                }
+            }).catch(() => {});
         }
+
+        cases[caseId].name = trimmed;
+        if (window.currentCase && window.currentCase.id === caseId) {
+            window.currentCase.name = trimmed;
+        }
+        renderCaseList();
+        if (caseTitle && activeCaseId === caseId) caseTitle.textContent = trimmed;
     }
 
     function renderCaseList() {
@@ -545,8 +647,7 @@ document.addEventListener('DOMContentLoaded', function() {
         renameCase(caseId);
     }
 
-    function switchActiveCase(caseId) {
-        // 避免重複切換同一
+    async function switchActiveCase(caseId) {
         if (activeCaseId === caseId) return;
 
         activeCaseId = caseId;
@@ -555,11 +656,32 @@ document.addEventListener('DOMContentLoaded', function() {
         window.currentCase = {
             id: caseId,
             name: cases[caseId].name,
-            original_filename: cases[caseId].excelOriginalFileName || cases[caseId].originalFilename || '',
+            original_filename: cases[caseId].excelOriginalFileName || '',
             sheet_name: cases[caseId].sheetName || null
         };
 
-        // 批量更新 UI - 避免多次重繪
+        // 從 DB 載入該案場的完整聊天紀錄
+        try {
+            const dbId = cases[caseId].id;
+            const res  = await fetch(`/api/cases/${dbId}/messages`);
+            const data = await res.json();
+            if (data.status === 'success') {
+                cases[caseId].messages = data.messages.map(m => ({
+                    role: m.role, text: m.content
+                }));
+            }
+        } catch (e) {
+            console.warn('載入聊天紀錄失敗:', e);
+        }
+
+        // 只要記憶體中沒有 excelData 且尚未確認過，就嘗試從伺服器靜默載入
+        // 不依賴 hasExcel，因為舊資料的 excel_filename 可能為 null
+        // excelChecked 旗標避免每次切換都重打 API（失敗後就不再重試）
+        if (!cases[caseId].excelData && !cases[caseId].excelChecked) {
+            reloadExcelData(caseId, true);
+        }
+
+        // 批量更新 UI
         requestAnimationFrame(() => {
             renderCaseList();
             renderChat();
@@ -569,41 +691,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 caseTitle.textContent = cases[caseId].name;
             }
             
-            // 載入該案場的 Excel 數據
+            // 載入該案場的 Excel 數據（統一使用靜態 HTML 表格）
             if (cases[caseId].excelData) {
-                if (luckysheetInitialized && isLuckysheetReady) {
-                    updateLuckysheetData(cases[caseId].excelData);
-                } else {
-                    console.log('使用完整表格顯示已保存的 Excel 數據');
-                    createSimpleTable(cases[caseId].excelData);
-                }
+                createSimpleTable(cases[caseId].excelData);
+            } else if (!cases[caseId].excelChecked) {
+                // excelData 為 null 但尚未確認（reloadExcelData 正在進行中）
+                // 不觸發任何清空動作，保留 Luckysheet 現狀，等 fetch 完成後 setAllSheetData
+                console.log('Excel 載入中，保持 Luckysheet 現狀等待資料...');
             } else {
-                // 案場沒有 Excel 數據，顯示空白表格
-                if (luckysheetInitialized && isLuckysheetReady) {
-                    // 清空 Luckysheet，顯示空白表格
-                    console.log('切換到沒有 Excel 數據的案場，顯示空白表格');
-                    updateLuckysheetData(null);
-                } else {
-                    // Luckysheet 未初始化，先顯示簡化表格避免黑屏
-                    console.log('Luckysheet 未初始化，顯示簡化表格');
-                    const container = document.getElementById('luckysheet-container');
-                    if (container) {
-                        container.innerHTML = `
-                            <div style="display: flex; align-items: center; justify-content: center; height: 100%; background: white; flex-direction: column;">
-                                <div style="text-align: center; padding: 20px;">
-                                    <div style="font-size: 48px; margin-bottom: 20px;">📄</div>
-                                    <h3 style="color: #2c3e50; margin: 10px 0;">空白試算表</h3>
-                                    <p style="color: #666; margin: 10px 0;">請匯入 Excel 檔案開始使用</p>
-                                    <button onclick="document.getElementById('fileInput').click()"
-                                            style="background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 14px; margin-top: 10px;">
-                                        📁 選擇 Excel 檔案
-                                    </button>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    // 不再嘗試初始化 Luckysheet，避免黑屏
-                }
+                // 確認此案場無 Excel 檔案，顯示空白提示
+                createSimpleTable(null);
             }
         });
     }
@@ -689,92 +786,86 @@ document.addEventListener('DOMContentLoaded', function() {
             return response.json();
         })
         .then(data => {
-            // 移除載入提示
             const loadingElement = document.getElementById(loadingId);
             if (loadingElement) loadingElement.remove();
 
-            // 顯示 Agent 回應
             const botMessage = { role: 'bot', text: data.response };
             cases[activeCaseId].messages.push(botMessage);
             appendMessage(botMessage.role, botMessage.text);
-            saveCases();
 
-            // 檢查是否需要重新載入 Excel
+            // 存入 DB
+            const dbId = cases[activeCaseId].id;
+            fetch(`/api/cases/${dbId}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: [
+                    { role: 'user', content: text },
+                    { role: 'bot',  content: data.response }
+                ]})
+            }).catch(() => {});
+
             if (data.excel_modified && activeCaseId) {
-                console.log('檢測到 Excel 已被修改，準備重新載入...');
                 reloadExcelData(activeCaseId);
             }
         })
         .catch(error => {
             console.error('錯誤:', error);
-            // 移除載入提示
             const loadingElement = document.getElementById(loadingId);
             if (loadingElement) loadingElement.remove();
 
             const errorMessage = { role: 'bot', text: `發生錯誤: ${error.message}` };
             cases[activeCaseId].messages.push(errorMessage);
             appendMessage(errorMessage.role, errorMessage.text);
-            saveCases();
         });
     }
 
-    // 重新載入 Excel 數據
-    function reloadExcelData(caseId) {
+    // 重新載入 Excel 數據（silent=true 時不在聊天室顯示更新訊息）
+    // 改為下載原始 xlsx 二進位 → 前端 XLSX.js 解析，與上傳走同一條路，樣式完整保留
+    function reloadExcelData(caseId, silent = false) {
         console.log(`正在重新載入案場 ${caseId} 的 Excel 數據...`);
 
-        // 傳送前端名稱和原始檔名
         const caseName = cases[caseId].name;
         const originalFileName = cases[caseId].excelOriginalFileName;
 
-        fetch(`/api/read_excel/${caseId}?case_name=${encodeURIComponent(caseName)}&original_filename=${encodeURIComponent(originalFileName || '')}`)
+        // 使用 download_excel 端點取得原始二進位檔案
+        fetch(`/api/download_excel?case_name=${encodeURIComponent(caseName)}&original_filename=${encodeURIComponent(originalFileName || '')}`)
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('無法讀取 Excel 檔案');
+                    if (cases[caseId]) cases[caseId].excelChecked = true;
+                    throw new Error('找不到 Excel 檔案');
                 }
-                return response.json();
+                return response.arrayBuffer();
             })
-            .then(data => {
-                if (data.status === 'success' && data.data) {
-                    console.log('Excel 數據已成功載入');
+            .then(arrayBuffer => {
+                // 與上傳路徑完全相同：XLSX.read + convertToLuckysheet → 樣式/合併格/欄寬均保留
+                const uint8 = new Uint8Array(arrayBuffer);
+                const workbook = XLSX.read(uint8, { type: 'array', cellStyles: true });
+                const luckysheetData = convertToLuckysheet(workbook);
 
-                    // 更新案場的 Excel 數據
-                    cases[caseId].excelData = data.data;
-                    saveCases();
+                cases[caseId].excelData = luckysheetData;
+                cases[caseId].excelChecked = true;
+                cases[caseId].hasExcel = true;
 
-                    // 如果是當前案場，更新 Luckysheet 顯示
-                    if (caseId === activeCaseId) {
-                        if (luckysheetInitialized && isLuckysheetReady) {
-                            updateLuckysheetData(data.data);
-                            console.log('Luckysheet 已更新顯示');
-                        } else {
-                            createSimpleTable(data.data);
-                            console.log('表格已更新顯示');
-                        }
+                if (caseId === activeCaseId) {
+                    createSimpleTable(luckysheetData);
+                    console.log('Excel 顯示已更新（含樣式）');
 
-                        // 顯示更新提示訊息
-                        const updateMessage = {
-                            role: 'bot',
-                            text: 'Excel 表格已自動更新'
-                        };
+                    if (!silent) {
+                        const updateMessage = { role: 'bot', text: 'Excel 表格已自動更新' };
                         cases[activeCaseId].messages.push(updateMessage);
                         appendMessage(updateMessage.role, updateMessage.text);
-                        saveCases();
                     }
-                } else {
-                    console.warn('Excel 數據格式不正確或為空');
                 }
             })
             .catch(error => {
                 console.error('重新載入 Excel 失敗:', error);
-                // 如果找不到檔案，可能是因為還沒上傳，不顯示錯誤
-                if (!error.message.includes('404')) {
-                    const errorMsg = {
-                        role: 'bot',
-                        text: `Excel 更新失敗: ${error.message}`
-                    };
-                    cases[activeCaseId].messages.push(errorMsg);
-                    appendMessage(errorMsg.role, errorMsg.text);
-                    saveCases();
+                if (cases[caseId]) cases[caseId].excelChecked = true;
+                if (!silent) {
+                    const errorMsg = { role: 'bot', text: `Excel 更新失敗: ${error.message}` };
+                    if (cases[activeCaseId]) {
+                        cases[activeCaseId].messages.push(errorMsg);
+                        appendMessage(errorMsg.role, errorMsg.text);
+                    }
                 }
             });
     }
@@ -791,7 +882,7 @@ document.addEventListener('DOMContentLoaded', function() {
         reader.onload = function(e) {
             try {
                 const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, {type: 'array'});
+                const workbook = XLSX.read(data, {type: 'array', cellStyles: true});
                 
                 // 轉換為 Luckysheet 格式
                 const luckysheetData = convertToLuckysheet(workbook);
@@ -799,15 +890,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 // 保存到當前
                 cases[activeCaseId].excelData = luckysheetData;
                 cases[activeCaseId].hasExcel = true;
+                cases[activeCaseId].excelChecked = true;
                 cases[activeCaseId].excelFileName = file.name;
-                cases[activeCaseId].excelOriginalFileName = file.name;  // 儲存原始檔名 
-                // 嘗試在 Luckysheet 中載入數據，失敗則使用完整表格顯示
-                if (luckysheetInitialized && isLuckysheetReady) {
-                    updateLuckysheetData(luckysheetData);
-                } else {
-                    console.log('Luckysheet 不可用，使用完整表格顯示模式');
-                    createSimpleTable(luckysheetData);
-                }
+                cases[activeCaseId].excelOriginalFileName = file.name;  // 儲存原始檔名
+                // 統一使用靜態 HTML 表格顯示
+                createSimpleTable(luckysheetData);
                 
                 // 更新 UI（不顯示前端預覽訊息，等上傳完成後再顯示）
                 renderCaseList();
@@ -857,7 +944,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if(data.original_filename){
                 cases[activeCaseId].excelOriginalFileName = data.original_filename;  // 儲存原始檔名
-                saveCases();
+
+                // 同步更新 DB 案場的 excel_filename
+                const dbId = cases[activeCaseId].id;
+                if (dbId) {
+                    fetch(`/api/cases/${dbId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ excel_filename: data.original_filename })
+                    }).catch(() => {});
+                    cases[activeCaseId].hasExcel = true;
+                }
 
                 // 同步更新 window.currentCase
                 if (window.currentCase && window.currentCase.id === activeCaseId) {
@@ -866,17 +963,24 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             // 上傳成功訊息（包含功能說明）
-            const successMessage = {
-                role: 'bot',
-                text: `Excel 檔案已上傳到伺服器：${data.original_filename}\n\n` +
+            const successText = `Excel 檔案已上傳到伺服器：${data.original_filename}\n\n` +
                       `功能說明：\n` +
                       `- 價金滾算：請點擊上方的「價金滾算」按鈕來執行滾算計算\n` +
                       `- 匯入表格：點選上方「匯入表格」可以插入其他案場的資訊\n` +
-                      `- 匯出表格：若想匯出結果，可以點擊上方的「匯出表格」`
-            };
+                      `- 匯出表格：若想匯出結果，可以點擊上方的「匯出表格」`;
+            const successMessage = { role: 'bot', text: successText };
             cases[activeCaseId].messages.push(successMessage);
             renderChat();
-            saveCases();
+
+            // 將通知訊息存入 DB，切換案場後仍可看到
+            const uploadDbId = cases[activeCaseId].id;
+            if (uploadDbId) {
+                fetch(`/api/cases/${uploadDbId}/messages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages: [{ role: 'bot', content: successText }] })
+                }).catch(() => {});
+            }
         })
         .catch(error => {
             console.error('檔案上傳錯誤:', error);
@@ -892,61 +996,123 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function convertToLuckysheet(workbook) {
+        // 將 xlsx 顏色物件轉為 #RRGGBB 字串
+        function toHexColor(colorObj) {
+            if (!colorObj) return null;
+            const raw = colorObj.argb || colorObj.rgb || '';
+            if (raw.length === 8) return '#' + raw.slice(2); // ARGB → RGB
+            if (raw.length === 6) return '#' + raw;
+            return null;
+        }
+
         const sheets = [];
-        
+
         workbook.SheetNames.forEach((sheetName, index) => {
             const worksheet = workbook.Sheets[sheetName];
-            
-            // 處理空工作表
+
             if (!worksheet['!ref']) {
                 sheets.push({
-                    name: sheetName,
-                    index: index.toString(),
-                    status: index === 0 ? "1" : "0",
-                    order: index.toString(),
-                    celldata: [],
-                    row: 20,
-                    column: 10,
-                    config: {},
-                    pivotTable: null,
-                    isPivotTable: false,
-                    luckysheet_select_save: [],
-                    calcChain: [],
-                    hyperlink: {},
-                    dataVerification: {}
+                    name: sheetName, index: index.toString(),
+                    status: index === 0 ? "1" : "0", order: index.toString(),
+                    celldata: [], row: 20, column: 10, config: {},
+                    pivotTable: null, isPivotTable: false,
+                    luckysheet_select_save: [], calcChain: [],
+                    hyperlink: {}, dataVerification: {}
                 });
                 return;
             }
-            
+
             const range = XLSX.utils.decode_range(worksheet['!ref']);
             const celldata = [];
-            
-            // 單元格轉換 - 處理有值或有公式的單元格
+
             for (let row = range.s.r; row <= range.e.r; row++) {
                 for (let col = range.s.c; col <= range.e.c; col++) {
                     const cellAddress = XLSX.utils.encode_cell({r: row, c: col});
                     const cell = worksheet[cellAddress];
 
-                    if (!cell || cell.v === undefined || cell.v === null || cell.v === '') continue;
+                    // 跳過完全空白且沒有樣式的儲存格
+                    if (!cell) continue;
+                    const hasValue = cell.v !== undefined && cell.v !== null && cell.v !== '';
+                    const hasStyle = !!cell.s;
+                    if (!hasValue && !hasStyle) continue;
 
                     const vObj = {
-                        v: cell.v,
-                        ct: {
-                            fa: "General",
-                            t: cell.t === 'n' ? 'n' : 's'
-                        },
-                        m: cell.w || String(cell.v)
+                        v: hasValue ? cell.v : '',
+                        ct: { fa: 'General', t: cell.t === 'n' ? 'n' : 's' },
+                        m: cell.w || (hasValue ? String(cell.v) : '')
                     };
 
-                    // 處理數字格式
-                    if (cell.t === 'n' && cell.z) {
-                        vObj.ct.fa = cell.z;
+                    // 數字格式
+                    if (cell.t === 'n' && cell.z) vObj.ct.fa = cell.z;
+
+                    // 樣式（需要 XLSX.read 帶 cellStyles: true）
+                    if (cell.s) {
+                        const s = cell.s;
+
+                        // 背景色
+                        const bg = toHexColor(s.fgColor);
+                        if (bg) vObj.bg = bg;
+
+                        // 字型
+                        if (s.font) {
+                            const fc = toHexColor(s.font.color);
+                            if (fc) vObj.fc = fc;
+                            if (s.font.bold)      vObj.bl = 1;
+                            if (s.font.italic)    vObj.it = 1;
+                            if (s.font.underline) vObj.un = 1;
+                            if (s.font.strike)    vObj.cl = 1;
+                            if (s.font.sz)        vObj.fs = s.font.sz;
+                            if (s.font.name)      vObj.ff = s.font.name;
+                        }
+
+                        // 對齊
+                        if (s.alignment) {
+                            const htMap = { left: 1, center: 2, right: 3, justify: 4 };
+                            const vtMap = { top: 1, center: 2, bottom: 3 };
+                            if (s.alignment.horizontal) vObj.ht = htMap[s.alignment.horizontal] || 0;
+                            if (s.alignment.vertical)   vObj.vt = vtMap[s.alignment.vertical]   || 0;
+                            if (s.alignment.wrapText)   vObj.tb = 2;
+                        }
                     }
 
                     celldata.push({ r: row, c: col, v: vObj });
                 }
             }
-            
+
+            // 合併格：XLSX 格式 → Luckysheet 格式
+            const mergeConfig = {};
+            if (Array.isArray(worksheet['!merges'])) {
+                worksheet['!merges'].forEach(m => {
+                    mergeConfig[`${m.s.r}_${m.s.c}`] = {
+                        r: m.s.r, c: m.s.c,
+                        rs: m.e.r - m.s.r + 1,
+                        cs: m.e.c - m.s.c + 1
+                    };
+                });
+            }
+
+            // 欄寬
+            const columnlen = {};
+            if (worksheet['!cols']) {
+                worksheet['!cols'].forEach((col, i) => {
+                    if (col) {
+                        const w = col.wpx || (col.wch ? Math.round(col.wch * 7) : null);
+                        if (w) columnlen[i] = w;
+                    }
+                });
+            }
+
+            // 列高
+            const rowlen = {};
+            if (worksheet['!rows']) {
+                worksheet['!rows'].forEach((row, i) => {
+                    if (row) {
+                        const h = row.hpx || (row.hpt ? Math.round(row.hpt * 1.333) : null);
+                        if (h) rowlen[i] = h;
+                    }
+                });
+            }
+
             sheets.push({
                 name: sheetName,
                 index: index.toString(),
@@ -956,23 +1122,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 row: Math.max(range.e.r + 1, 20),
                 column: Math.max(range.e.c + 1, 10),
                 config: {
-                    merge: worksheet['!merges'] || {},
-                    rowlen: {},
-                    columnlen: {},
-                    rowhidden: {},
-                    colhidden: {},
-                    borderInfo: [],
-                    authority: {}
+                    merge: mergeConfig,
+                    rowlen: rowlen,
+                    columnlen: columnlen,
+                    rowhidden: {}, colhidden: {},
+                    borderInfo: [], authority: {}
                 },
-                pivotTable: null,
-                isPivotTable: false,
-                luckysheet_select_save: [],
-                calcChain: [],
-                hyperlink: {},
-                dataVerification: {}
+                pivotTable: null, isPivotTable: false,
+                luckysheet_select_save: [], calcChain: [],
+                hyperlink: {}, dataVerification: {}
             });
         });
-        
+
         return sheets;
     }
 

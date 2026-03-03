@@ -497,6 +497,76 @@ body, html {
     font-weight: 600;
 }
 
+/* ── Email 登入區域 ──────────────────────────────────── */
+.email-login-area {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.email-input {
+    padding: 6px 10px;
+    border: 1px solid #dce1e7;
+    border-radius: 6px;
+    font-size: 13px;
+    width: 200px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.email-input:focus {
+    border-color: #667eea;
+}
+
+.email-login-btn {
+    padding: 6px 14px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.email-login-btn:hover {
+    background: #5a6fd6;
+}
+
+.email-user-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.email-display {
+    font-size: 13px;
+    color: #2c3e50;
+    font-weight: 500;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.email-logout-btn {
+    padding: 5px 12px;
+    background: transparent;
+    color: #7f8c8d;
+    border: 1px solid #dce1e7;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.email-logout-btn:hover {
+    background: #e74c3c;
+    color: white;
+    border-color: #e74c3c;
+}
+
+
 /* 匯入表格按鈕 - 與匯出表格相同綠色 */
 /* 已使用 price-rolling-btn 樣式，無需額外覆寫 */
 

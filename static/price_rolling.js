@@ -340,8 +340,11 @@ function submitPriceForm() {
         removeLastMessage();
 
         if (data.status === 'success') {
-            // 將 Agent 回應插入聊天框
+            // 將 Agent 回應插入聊天框，並存入 DB
             addMessageToChatBox('AI 助手', data.response, 'assistant');
+            if (typeof window.saveBotMessageToDB === 'function') {
+                window.saveBotMessageToDB(data.response);
+            }
         } else {
             // 顯示錯誤
             addMessageToChatBox('系統', `計算失敗: ${data.error}`, 'error');

@@ -30,7 +30,12 @@ def create_app():
 
     # 基本配置
     app.config['DEBUG'] = True
-    app.config['SECRET_KEY'] = 'ai-agent-secret-key'
+    app.config['SECRET_KEY'] = 'ai-agent-secret-key-2025'
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+    # 初始化資料庫
+    from models.database import init_db
+    init_db(app)
 
     # 註冊 AI Agent API 藍圖
     try:
@@ -40,35 +45,31 @@ def create_app():
     except ImportError as e:
         print(f"警告: 無法匯入 api.agent_routes: {e}")
 
+    # 註冊 Auth 藍圖
+    try:
+        from api.auth_routes import auth_bp
+        app.register_blueprint(auth_bp, url_prefix='/api')
+        print("Auth 路由註冊成功")
+    except ImportError as e:
+        print(f"警告: 無法匯入 api.auth_routes: {e}")
+
+    # 註冊 Case 藍圖
+    try:
+        from api.case_routes import case_bp
+        app.register_blueprint(case_bp, url_prefix='/api')
+        print("Case 路由註冊成功")
+    except ImportError as e:
+        print(f"警告: 無法匯入 api.case_routes: {e}")
+
     # 主頁路由
     @app.route('/')
     def index():
-        """主頁面 - AI Agent 聊天介面"""
         return render_template('LLMweb.html')
-
-    # API 根路由
-    @app.route('/api')
-    def api_info():
-        """API 資訊端點"""
-        return jsonify({
-            'name': 'AI Agent API',
-            'version': '1.0.0',
-            'description': 'AI Agent with Excel Tool - Web Interface',
-            'endpoints': {
-                'agent_chat': '/api/agent_chat',
-                'health_check': '/api/health'
-            }
-        })
 
     # 健康檢查
     @app.route('/api/health')
     def health_check():
-        """健康檢查端點"""
-        return jsonify({
-            'status': 'healthy',
-            'service': 'AI Agent',
-            'version': '1.0.0'
-        })
+        return jsonify({'status': 'healthy', 'service': 'AI Agent'})
 
     return app
 

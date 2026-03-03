@@ -81,7 +81,15 @@
                         <div class="llm-logo">LLM</div>
                         <span id="caseTitle">請選擇或新增試算表</span>
                     </div>
-                    
+                    <!-- Email 登入區域 -->
+                    <div id="emailLoginArea" class="email-login-area">
+                        <input type="email" id="emailInput" class="email-input" placeholder="輸入 Email">
+                        <button id="loginBtn" class="email-login-btn">登入</button>
+                    </div>
+                    <div id="emailUserArea" class="email-user-area" style="display:none;">
+                        <span id="emailDisplay" class="email-display"></span>
+                        <button id="logoutBtn" class="email-logout-btn">登出</button>
+                    </div>
                 </div>
 
                 <div class="chat-messages" id="chatMessages"></div>
@@ -282,7 +290,7 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='LLMweb.js') }}?v={{ range(1, 99999) | random }}"></script>
+<script src="{{ url_for('static', filename='LLMweb.js') }}?v={{ range(1, 99999) | random }}"></script>
     <script src="{{ url_for('static', filename='price_rolling.js') }}?v={{ range(1, 99999) | random }}"></script>
 </body>
 </html>
