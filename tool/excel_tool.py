@@ -334,6 +334,19 @@ class ExcelTool:
             操作結果字典
         """
         try:
+            # 強制要求 section_type：避免 LLM 猜測錯誤區域
+            if section_type is None:
+                return {
+                    "success": False,
+                    "need_clarification": True,
+                    "message": (
+                        "請指定要修改的區域：\n"
+                        "- 「公版」（第1-36行）\n"
+                        "- 「綜合損益表」（第37-64行）\n"
+                        "- 「現金流量表」（第86-115行）"
+                    )
+                }
+
             wb = load_workbook(self.file_path)
 
             # 檢查 sheet 是否存在
@@ -405,14 +418,17 @@ class ExcelTool:
                 # 公版數值在 D 列（第 4 列）
                 value_col = 4
 
-                # 判斷數值正負
+                # 判斷數值正負：優先尊重使用者輸入的值
                 if new_value is not None:
-                    if new_value < 0:
-                        final_value = new_value
-                    elif is_expense is True or (is_expense is None and is_outflow):
+                    if is_expense is True:
+                        # 使用者明確說「支出」→ 存為負值
                         final_value = -abs(new_value)
-                    else:
+                    elif is_expense is False:
+                        # 使用者明確說「收入」→ 存為正值
                         final_value = abs(new_value)
+                    else:
+                        # 未指定 → 完全尊重使用者輸入的值（含正負號）
+                        final_value = new_value
                 else:
                     return {
                         "success": False,
@@ -479,13 +495,13 @@ class ExcelTool:
 
                     col = year_columns[year_int]
 
-                    # 判斷該值是否為支出
-                    if value < 0:
-                        final_value = value
-                    elif is_expense is True or (is_expense is None and is_outflow):
+                    # 判斷數值正負：優先尊重使用者輸入的值
+                    if is_expense is True:
                         final_value = -abs(value)
-                    else:
+                    elif is_expense is False:
                         final_value = abs(value)
+                    else:
+                        final_value = value
 
                     cell_ref = f"{get_column_letter(col)}{field_row}"
                     old_value = ws.cell(row=field_row, column=col).value
@@ -509,18 +525,16 @@ class ExcelTool:
                         "available_years": available_years
                     }
 
-                # 判斷是否為支出，決定數值正負
-                final_value = new_value
-
-                # 如果使用者已經輸入負數，保留負數
-                if new_value < 0:
-                    final_value = new_value
-                # 如果明確指定是支出，或欄位是 Outflow，使用負值
-                elif is_expense is True or (is_expense is None and is_outflow):
+                # 判斷數值正負：優先尊重使用者輸入的值
+                if is_expense is True:
+                    # 使用者明確說「支出」→ 存為負值
                     final_value = -abs(new_value)
-                # 否則使用正值
-                else:
+                elif is_expense is False:
+                    # 使用者明確說「收入」→ 存為正值
                     final_value = abs(new_value)
+                else:
+                    # 未指定 → 完全尊重使用者輸入（含正負號）
+                    final_value = new_value
 
                 # 修改儲存格
                 for year in years_to_modify:

@@ -64,6 +64,12 @@ class AIAgent:
             print(error_msg)
             return error_msg
 
+    def _strip_thinking(self, content: str) -> str:
+        """移除 qwen3 的思考過程標籤 <think>...</think>"""
+        import re
+        content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
+        return content.strip()
+
     def _handle_response(self, response: dict, messages: list) -> str:
         """
         處理 AI 回應，包括工具調用
@@ -81,8 +87,8 @@ class AIAgent:
         tool_calls = message.get('tool_calls')
 
         if not tool_calls:
-            # 沒有工具調用，直接返回文字回應
-            return message.get('content', '')
+            # 沒有工具調用，直接返回文字回應（移除思考過程標籤）
+            return self._strip_thinking(message.get('content', ''))
 
         # 有工具調用，執行工具
         print("\n🔧 AI 正在使用工具...")
@@ -124,7 +130,7 @@ class AIAgent:
             think=self.config.thinking_mode
         )
 
-        return final_response.get('message', {}).get('content', '')
+        return self._strip_thinking(final_response.get('message', {}).get('content', ''))
     
     def show_conversation(self):
         self.conversation.print_conversation()
