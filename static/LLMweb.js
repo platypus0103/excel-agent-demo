@@ -619,6 +619,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // 根據當前案場的站點類型更新「匯入表格」按鈕狀態
+    function updateImportSheetsBtnState() {
+        const btn = document.getElementById('importSheetsBtn');
+        if (!btn) return;
+        const siteType = (activeCaseId && cases[activeCaseId])
+            ? (cases[activeCaseId].siteType || 'single')
+            : 'single';
+        btn.disabled = (siteType !== 'multi');
+    }
+
     // 更改案場類型
     function changeCaseType(caseId, newType) {
         const caseData = cases[caseId];
@@ -629,6 +639,7 @@ document.addEventListener('DOMContentLoaded', function() {
         caseData.siteType = newType;
         saveCases();
         renderCaseList();
+        if (caseId === activeCaseId) updateImportSheetsBtnState();
 
         // 顯示提示訊息
         const typeText = newType === 'multi' ? '多站' : '單站';
@@ -651,6 +662,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (activeCaseId === caseId) return;
 
         activeCaseId = caseId;
+        updateImportSheetsBtnState();
 
         // 設置全局變量，供價金滾算等功能使用
         window.currentCase = {
@@ -1669,4 +1681,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (importSheetsBtn) {
         importSheetsBtn.addEventListener('click', openImportDialog);
     }
+
+    // 初始化匯入表格按鈕狀態
+    updateImportSheetsBtnState();
 });

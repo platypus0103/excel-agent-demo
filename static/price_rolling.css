@@ -19,6 +19,14 @@
     box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
 }
 
+.price-rolling-btn:disabled {
+    background: linear-gradient(135deg, #b0b0b0 0%, #c8c8c8 100%);
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+    opacity: 0.6;
+}
+
 /* 對話框遮罩 */
 .price-dialog-overlay {
     display: none;
