@@ -108,28 +108,20 @@ def process_user_query(query, simulation_amount=0, excel_path=None, rolling_mode
     
     # ========== 直接使用網頁提供的模式和參數調用工具 ==========
     
-    # 情況 1: 網頁明確指定了滾算模式和參數
+    # 情況 1: 網頁明確指定了滾算模式和參數（寫入 Excel）
     if rolling_mode and rolling_params:
         print(f"使用網頁參數直接調用滾算工具...")
         print(f"  模式: {rolling_mode}")
+        response = _execute_price_rolling_with_params(rolling_mode, rolling_params, excel_path, sheet_name)
+        return response, True
 
-        # 直接使用 execute_price_rolling 工具（會自動輸出 Excel 記錄）
-        return _execute_price_rolling_with_params(rolling_mode, rolling_params, excel_path, sheet_name)
-    
     # 情況 2a: 用戶要求儲存滾算紀錄到 Excel
     elif re.search(r'執行滾算紀錄|儲存滾算|保存滾算|寫入excel|存檔', query, re.IGNORECASE):
         print(f"檢測到儲存滾算紀錄請求，執行 execute_price_rolling...")
 
-        # 嘗試從快取取得上次的滾算參數
         cached = _get_rolling_cache(excel_path)
 
-        if cached:
-            # 使用快取的參數
-            mode = cached["mode"]
-            params = cached["params"]
-            print(f"使用快取的滾算參數: mode={mode}, params={params}")
-        else:
-            # 無快取，提示用戶先執行滾算
+        if not cached:
             return """尚無滾算紀錄
 
 您尚未執行價金滾算，無法儲存紀錄。
@@ -139,23 +131,23 @@ def process_user_query(query, simulation_amount=0, excel_path=None, rolling_mode
 2. 選擇滾算模式並輸入參數
 3. 執行滾算計算
 4. 再輸入「執行滾算紀錄」來儲存結果
-提示: 滾算紀錄會使用您上一次執行的滾算參數。"""
+提示: 滾算紀錄會使用您上一次執行的滾算參數。""", False
 
-        # 使用 execute_price_rolling 工具寫入 Excel
+        mode = cached["mode"]
+        params = cached["params"]
+        print(f"使用快取的滾算參數: mode={mode}, params={params}")
+
         result = _execute_equipment_cost_tool(mode, params, excel_path, sheet_name)
 
         if "執行失敗" not in result:
-            # 取得快取中的參數摘要
             mode_display = {
                 "cash": "CashMode（固定金額）",
                 "ratio": "RatioMode（比例調整）",
                 "conditional": "ConditionalMode（條件調整）",
                 "customize": "CustomizeMode（自訂調整）"
             }.get(mode, mode)
-
             boundary = params.get("boundary", "N/A")
             step = params.get("step", "N/A")
-
             return f"""### 儲存完畢
 
 滾算紀錄已成功寫入 Excel 檔案。
@@ -164,19 +156,18 @@ def process_user_query(query, simulation_amount=0, excel_path=None, rolling_mode
 - **模式**: {mode_display}
 - **邊界**: {boundary}
 - **步伐**: {step}
-- **儲存時間**: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}"""
+- **儲存時間**: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}""", True
         else:
-            return result
+            return result, False
 
-    # 情況 2b: 其他滾算相關關鍵字 - 提示使用對話框
-    elif re.search(r'滾算|價金|price.*rolling|IRR|設備成本|計算|分析|模擬|cashmode|ratiomode|conditional|customize', query, re.IGNORECASE):
+    # 情況 2b: 其他滾算相關關鍵字 - 提示使用對話框（不寫入 Excel）
+    elif re.search(r'價金\s*滾算|price.*rolling|設備成本|cashmode|ratiomode|conditionalmode|customizemode', query, re.IGNORECASE):
         print(f"檢測到滾算相關請求，提示用戶使用對話框...")
-
         return """請點擊上方的「價金滾算」按鈕來執行滾算計算。
 
-若要將結果儲存至 Excel，請在聊天框輸入「執行滾算紀錄」。"""
+若要將結果儲存至 Excel，請在聊天框輸入「執行滾算紀錄」。""", False
 
-    # 情況 3: 其他查詢 - 提供更友善的回應
+    # 情況 3: 其他查詢
     else:
         return """您好，我是財務分析助手。
 
@@ -193,7 +184,7 @@ def process_user_query(query, simulation_amount=0, excel_path=None, rolling_mode
 | RatioMode | 比例調整 |
 | ConditionalMode | 條件調整 |
 | CustomizeMode | 自訂調整 |
-"""
+""", False
 
 
 def _parse_query_for_rolling_params(query, simulation_amount):

@@ -419,15 +419,23 @@ def agent_chat():
                 _clear_pending_rolling_save(case_name)
 
         # ── 1. 價金滾算請求 → llm_service ──
-        if re.search(
-            r'滾算|價金|price.*rolling|設備成本|cashmode|ratiomode|conditional|customize|執行',
+        # 條件：明確的滾算動作關鍵字，且不包含修改/編輯意圖
+        # 「修改滾算紀錄1」中的「滾算紀錄」只是 sheet 名稱，不應進入此路由
+        _is_edit_intent = re.search(r'修改|更改|改成|設定|編輯|把.+改|變更|調整', user_query)
+        _is_rolling_action = re.search(
+            r'執行滾算紀錄|儲存滾算|保存滾算'          # 明確存檔
+            r'|價金\s*滾算'                             # 價金滾算
+            r'|price\s*rolling'                         # 英文
+            r'|設備成本'                                # 設備成本滾算
+            r'|cashmode|ratiomode|conditionalmode|customizemode',  # 模式關鍵字
             user_query, re.IGNORECASE
-        ):
+        )
+
+        if _is_rolling_action and not _is_edit_intent:
             print("檢測到滾算相關請求，使用 llm_service 處理...")
             from services.llm_service import process_user_query
-            agent_response = process_user_query(
+            agent_response, excel_modified = process_user_query(
                 user_query, excel_path=current_excel_path, sheet_name=sheet_name)
-            excel_modified = True
 
         # ── 2. 所有其他請求（含 IRR 查詢、修改 Excel）→ LLM function calling ──
         else:
