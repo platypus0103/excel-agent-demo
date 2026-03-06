@@ -48,43 +48,6 @@ def get_agent():
     return _agent_instance
 
 
-# ========== 待處理修改請求的快取 ==========
-# 用於存儲需要用戶補充信息的修改請求
-# key: case_name, value: { 'params': {...}, 'missing': [...], 'timestamp': ... }
-_pending_edit_requests = {}
-
-
-def _store_pending_edit(case_name: str, params: dict, missing: list):
-    """存儲待處理的修改請求"""
-    from datetime import datetime
-    _pending_edit_requests[case_name] = {
-        'params': params,
-        'missing': missing,
-        'timestamp': datetime.now()
-    }
-    print(f"[快取] 已存儲待處理修改請求: case={case_name}, missing={missing}")
-
-
-def _get_pending_edit(case_name: str) -> dict:
-    """獲取待處理的修改請求"""
-    from datetime import datetime
-    pending = _pending_edit_requests.get(case_name)
-    if pending:
-        # 檢查是否過期（5分鐘）
-        elapsed = (datetime.now() - pending['timestamp']).total_seconds()
-        if elapsed > 300:
-            del _pending_edit_requests[case_name]
-            print(f"[快取] 待處理請求已過期: case={case_name}")
-            return None
-        return pending
-    return None
-
-
-def _clear_pending_edit(case_name: str):
-    """清除待處理的修改請求"""
-    if case_name in _pending_edit_requests:
-        del _pending_edit_requests[case_name]
-        print(f"[快取] 已清除待處理請求: case={case_name}")
 
 
 # ========== 待確認保存的滾算結果快取 ==========
@@ -127,7 +90,7 @@ def _clear_pending_rolling_save(case_name: str):
         print(f"[快取] 已清除待確認滾算: case={case_name}")
 
 
-def _parse_edit_request(query: str, existing_params: dict = None) -> dict:
+def _parse_edit_request_REMOVED(query: str, existing_params: dict = None) -> dict:  # 已廢棄，保留以備參考
     """
     解析修改工作表的請求，提取參數
 
@@ -390,314 +353,89 @@ def agent_chat():
                         agent.tool_manager.set_finance_excel_file(fallback_file, sheet_name)
                         print(f"使用備用 Excel 檔案: {fallback_file}")
 
-        # 檢查請求類型並分流處理
         import re
 
-        # 0a. 先檢查是否有待確認保存的滾算結果
+        # ── 取得可用工作表清單，注入到 query，避免模型幻覺 ──
+        sheet_names_prefix = ''
+        current_excel_path = None
+        if case_name and original_filename:
+            current_excel_path = os.path.join(_get_excel_dir(), f"{case_name}_{original_filename}")
+            if os.path.exists(current_excel_path):
+                try:
+                    import openpyxl
+                    wb = openpyxl.load_workbook(current_excel_path, read_only=True)
+                    sheet_names = wb.sheetnames
+                    wb.close()
+                    sheet_names_prefix = f"[目前 Excel 可用工作表: {', '.join(sheet_names)}]\n"
+                except Exception:
+                    pass
+            else:
+                # 找備用檔案
+                excel_dir = _get_excel_dir()
+                if os.path.exists(excel_dir):
+                    excel_files = [f for f in os.listdir(excel_dir)
+                                   if f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
+                    if excel_files:
+                        current_excel_path = os.path.join(excel_dir, excel_files[0])
+                        agent.tool_manager.set_finance_excel_file(current_excel_path, sheet_name)
+
+        # ── 0. 待確認保存的滾算結果 ──
         pending_rolling = _get_pending_rolling_save(case_name) if case_name else None
 
         if pending_rolling:
-            # 檢查用戶是否確認保存
-            is_confirm_save = re.search(r'^(是|好|要|對|確認|保存|儲存|存|yes|ok|save)$', user_query.strip(), re.IGNORECASE)
-            is_decline_save = re.search(r'^(否|不|不要|取消|no|cancel)$', user_query.strip(), re.IGNORECASE)
+            is_confirm = re.search(r'^(是|好|要|對|確認|保存|儲存|存|yes|ok|save)$',
+                                   user_query.strip(), re.IGNORECASE)
+            is_decline = re.search(r'^(否|不|不要|取消|no|cancel)$',
+                                   user_query.strip(), re.IGNORECASE)
 
-            if is_confirm_save:
-                # 用戶確認保存，執行 execute_price_rolling
-                print("用戶確認保存滾算結果，執行 execute_price_rolling...")
+            if is_confirm:
+                print("用戶確認保存滾算結果...")
                 _clear_pending_rolling_save(case_name)
-
-                # 準備保存參數，加入 excel_file
                 save_params = pending_rolling['params'].copy()
                 save_params['excel_file'] = pending_rolling.get('excel_path')
-
-                # 轉換模式名稱：CashMode -> cash, RatioMode -> ratio 等
                 mode_mapping = {
-                    "CashMode": "cash",
-                    "RatioMode": "ratio",
-                    "ConditionalMode": "conditional",
-                    "CustomizeMode": "customize"
+                    "CashMode": "cash", "RatioMode": "ratio",
+                    "ConditionalMode": "conditional", "CustomizeMode": "customize"
                 }
-                original_mode = save_params.get('mode', '')
-                save_params['mode'] = mode_mapping.get(original_mode, original_mode.lower())
-
-                print(f"保存參數: {save_params}")
-
-                # 執行保存
+                save_params['mode'] = mode_mapping.get(
+                    save_params.get('mode', ''), save_params.get('mode', '').lower())
                 save_result = agent.tool_manager.execute_tool("execute_price_rolling", save_params)
-
                 if save_result.get("success"):
-                    agent_response = "滾算紀錄已儲存"
-                    excel_modified = True
+                    return jsonify({"query": user_query, "response": "滾算紀錄已儲存",
+                                    "excel_modified": True})
                 else:
-                    agent_response = f"儲存失敗：{save_result.get('message', '未知錯誤')}"
-                    excel_modified = False
+                    return jsonify({"query": user_query,
+                                    "response": f"儲存失敗：{save_result.get('message', '未知錯誤')}",
+                                    "excel_modified": False})
 
-                return jsonify({
-                    "query": user_query,
-                    "response": agent_response,
-                    "excel_modified": excel_modified
-                })
-
-            elif is_decline_save:
-                # 用戶拒絕保存
+            elif is_decline:
                 print("用戶拒絕保存滾算結果")
                 _clear_pending_rolling_save(case_name)
-
-                return jsonify({
-                    "query": user_query,
-                    "response": "好的，滾算結果不會儲存。您可以繼續進行其他操作。",
-                    "excel_modified": False
-                })
-
+                return jsonify({"query": user_query,
+                                "response": "好的，滾算結果不會儲存。您可以繼續進行其他操作。",
+                                "excel_modified": False})
             else:
-                # 用戶輸入其他內容，視為不保存並繼續處理新請求
-                print("用戶未確認保存，清除待確認快取，處理新請求...")
+                # 其他輸入視為不保存，繼續處理新請求
                 _clear_pending_rolling_save(case_name)
-                # 繼續往下執行，處理新請求
 
-        # 0b. 檢查是否有待處理的修改請求（用戶可能在回答反問）
-        pending = _get_pending_edit(case_name) if case_name else None
-
-        if pending:
-            print(f"發現待處理的修改請求，嘗試合併用戶回答...")
-            # 將用戶的回答與之前的參數合併
-            parsed = _parse_edit_request(user_query, pending['params'])
-
-            if parsed.get('complete'):
-                # 參數完整，執行修改
-                print("參數已完整，執行修改...")
-                _clear_pending_edit(case_name)
-
-                # 設定 Excel 檔案路徑
-                if case_name and original_filename:
-                    excel_path = os.path.join(_get_excel_dir(), f"{case_name}_{original_filename}")
-                    if os.path.exists(excel_path):
-                        agent.tool_manager.excel_tool.file_path = excel_path
-
-                # 直接調用工具
-                tool_args = {
-                    'sheet_name': parsed['sheet_name'],
-                    'field_keyword': parsed['field_keyword'],
-                    'year_spec': parsed['year_spec'],
-                }
-                # 如果有 year_value_map，使用多年份模式
-                if parsed.get('year_value_map'):
-                    tool_args['year_value_map'] = parsed['year_value_map']
-                else:
-                    tool_args['new_value'] = parsed['new_value']
-
-                if parsed.get('is_expense') is not None:
-                    tool_args['is_expense'] = parsed['is_expense']
-                if parsed.get('section_type'):
-                    tool_args['section_type'] = parsed['section_type']
-
-                result = agent.tool_manager.execute_tool('edit_sheet_by_field', tool_args)
-
-                if result.get('success'):
-                    excel_modified = True
-                    agent_response = f"### 修改完成\n\n{result.get('message', '已成功修改')}"
-                    if result.get('matched_field'):
-                        agent_response += f"\n\n**匹配欄位**: {result['matched_field']}"
-                    if result.get('years_modified'):
-                        years = result['years_modified']
-                        # 判斷是多年份模式還是傳統模式
-                        if result.get('year_value_map'):
-                            # 多年份模式：顯示每個年份的值
-                            agent_response += f"\n**修改年份**: {', '.join(map(str, sorted(years)))}（共 {len(years)} 年）"
-                        elif len(years) > 1:
-                            agent_response += f"\n**修改年份**: {min(years)} ~ {max(years)}（共 {len(years)} 年）"
-                        else:
-                            agent_response += f"\n**修改年份**: {years[0]}"
-                    # 顯示數值詳情
-                    if result.get('year_value_map'):
-                        # 多年份模式：顯示每個年份對應的值
-                        agent_response += "\n**設定值明細**:"
-                        for year, value in sorted(result['year_value_map'].items(), key=lambda x: int(x[0])):
-                            agent_response += f"\n  - {year}年: {value}"
-                    elif result.get('new_value') is not None:
-                        agent_response += f"\n**新數值**: {result['new_value']}"
-                else:
-                    excel_modified = False
-                    agent_response = f"### 修改失敗\n\n{result.get('message', '未知錯誤')}"
-
-                return jsonify({
-                    "query": user_query,
-                    "response": agent_response,
-                    "excel_modified": excel_modified
-                })
-
-            else:
-                # 參數仍不完整，繼續反問
-                print(f"參數仍不完整，缺少: {parsed.get('missing_params')}")
-                _store_pending_edit(case_name, parsed, parsed.get('missing_params', []))
-                agent_response = _generate_followup_question(parsed.get('missing_params', []), parsed)
-                return jsonify({
-                    "query": user_query,
-                    "response": agent_response,
-                    "excel_modified": False
-                })
-
-        # 1. 檢查是否為「修改 Excel」請求（優先級最高）
-        is_edit_request = re.search(r'修改|更改|改成|設定|把.+改|變更', user_query, re.IGNORECASE)
-        # 判斷是否為工作表修改請求：需要有工作表名稱，或者有常見欄位名稱
-        has_sheet_name = re.search(r'滾算紀錄|sheet|工作表', user_query, re.IGNORECASE)
-        # 匹配所有包含「費」的詞（如回收費、保險費、運維費等），以及其他常見欄位
-        has_field_keyword = re.search(r'\w*費\w*|租金|折舊|利息|成本|收入|支出|價金|利潤', user_query)
-        is_sheet_edit = is_edit_request and (has_sheet_name or has_field_keyword)
-
-        if is_sheet_edit:
-            # 修改工作表的請求，直接解析參數並調用工具（繞過 LLM）
-            print("檢測到修改工作表請求，直接調用 edit_sheet_by_field 工具...")
-
-            # 解析用戶輸入
-            parsed = _parse_edit_request(user_query)
-
-            if parsed.get('complete'):
-                # 參數完整，直接執行
-                print("參數完整，直接執行修改...")
-
-                # 設定 Excel 檔案路徑
-                if case_name and original_filename:
-                    excel_path = os.path.join(_get_excel_dir(), f"{case_name}_{original_filename}")
-                    if os.path.exists(excel_path):
-                        agent.tool_manager.excel_tool.file_path = excel_path
-                        print(f"已設定 Excel 路徑: {excel_path}")
-
-                # 直接調用工具
-                tool_args = {
-                    'sheet_name': parsed['sheet_name'],
-                    'field_keyword': parsed['field_keyword'],
-                    'year_spec': parsed['year_spec'],
-                }
-
-                # 如果有 year_value_map，使用多年份模式
-                if parsed.get('year_value_map'):
-                    tool_args['year_value_map'] = parsed['year_value_map']
-                else:
-                    tool_args['new_value'] = parsed['new_value']
-
-                # 可選參數
-                if parsed.get('is_expense') is not None:
-                    tool_args['is_expense'] = parsed['is_expense']
-                if parsed.get('section_type'):
-                    tool_args['section_type'] = parsed['section_type']
-
-                print(f"工具參數: {tool_args}")
-
-                # 執行工具
-                result = agent.tool_manager.execute_tool('edit_sheet_by_field', tool_args)
-
-                if result.get('success'):
-                    excel_modified = True
-                    agent_response = f"### 修改完成\n\n{result.get('message', '已成功修改')}"
-
-                    # 添加詳細信息
-                    if result.get('matched_field'):
-                        agent_response += f"\n\n**匹配欄位**: {result['matched_field']}"
-                    if result.get('years_modified'):
-                        years = result['years_modified']
-                        # 判斷是多年份模式還是傳統模式
-                        if result.get('year_value_map'):
-                            # 多年份模式：顯示每個年份
-                            agent_response += f"\n**修改年份**: {', '.join(map(str, sorted(years)))}（共 {len(years)} 年）"
-                        elif len(years) > 1:
-                            agent_response += f"\n**修改年份**: {min(years)} ~ {max(years)}（共 {len(years)} 年）"
-                        else:
-                            agent_response += f"\n**修改年份**: {years[0]}"
-                    # 顯示數值詳情
-                    if result.get('year_value_map'):
-                        # 多年份模式：顯示每個年份對應的值
-                        agent_response += "\n**設定值明細**:"
-                        for year, value in sorted(result['year_value_map'].items(), key=lambda x: int(x[0])):
-                            agent_response += f"\n  - {year}年: {value}"
-                    elif result.get('new_value') is not None:
-                        agent_response += f"\n**新數值**: {result['new_value']}"
-                else:
-                    excel_modified = False
-                    agent_response = f"### 修改失敗\n\n{result.get('message', '未知錯誤')}"
-                    if result.get('available_fields'):
-                        agent_response += f"\n\n**可用欄位**:\n" + "\n".join([f"- {f}" for f in result['available_fields'][:10]])
-                    if result.get('available_sheets'):
-                        agent_response += f"\n\n**可用工作表**: {', '.join(result['available_sheets'])}"
-            elif parsed.get('success') and parsed.get('missing_params'):
-                # 部分參數已解析，生成反問（防呆機制）
-                print(f"參數不完整，缺少: {parsed.get('missing_params')}，生成反問...")
-
-                # 存儲待處理請求
-                _store_pending_edit(case_name, parsed, parsed.get('missing_params', []))
-
-                # 生成反問
-                agent_response = _generate_followup_question(parsed.get('missing_params', []), parsed)
-                excel_modified = False
-
-            else:
-                # 完全無法解析，交給 LLM 處理（混合方案）
-                print(f"直接解析失敗（{parsed.get('message')}），交給 LLM 處理...")
-
-                # 設定 Excel 檔案路徑
-                if case_name and original_filename:
-                    excel_path = os.path.join(_get_excel_dir(), f"{case_name}_{original_filename}")
-                    if os.path.exists(excel_path):
-                        agent.tool_manager.excel_tool.file_path = excel_path
-
-                # 調用 LLM
-                agent_response = agent.chat(user_query)
-
-                # 檢查是否有使用 Excel 編輯工具
-                excel_tools = ['write_excel_cell', 'delete_excel_cell', 'read_excel_cell',
-                              'add_excel_sheet', 'delete_excel_sheet', 'edit_sheet_by_field']
-                excel_modified = any(tool in agent.last_used_tools for tool in excel_tools)
-
-                # 如果 LLM 也沒有成功處理，提供格式提示
-                if not excel_modified and 'edit_sheet_by_field' not in agent.last_used_tools:
-                    agent_response += "\n\n---\n**提示**: 如果修改未成功，請嘗試以下格式：\n"
-                    agent_response += "- 修改滾算紀錄2全部的保險費 變成支出40000\n"
-                    agent_response += "- 修改滾算紀錄3的公版 保險費改成40000\n"
-                    agent_response += "- 修改滾算紀錄4的綜合損益表 2020~2025的租金改成-50000\n"
-                    agent_response += "- 修改滾算紀錄3的綜合損益表 保險費 2020改為-40000 2023改為-20000 2027改為-50000（非連續年份）"
-
-        # 2. 檢查是否為滾算相關請求
-        elif re.search(r'滾算|價金|price.*rolling|IRR|設備成本|計算|分析|模擬|cashmode|ratiomode|conditional|customize|執行', user_query, re.IGNORECASE):
+        # ── 1. 價金滾算請求 → llm_service ──
+        if re.search(
+            r'滾算|價金|price.*rolling|設備成本|cashmode|ratiomode|conditional|customize|執行',
+            user_query, re.IGNORECASE
+        ):
             print("檢測到滾算相關請求，使用 llm_service 處理...")
             from services.llm_service import process_user_query
+            agent_response = process_user_query(
+                user_query, excel_path=current_excel_path, sheet_name=sheet_name)
+            excel_modified = True
 
-            # 構建當前聊天室的 Excel 路徑
-            current_excel_path = None
-            if case_name and original_filename:
-                current_excel_path = os.path.join(_get_excel_dir(), f"{case_name}_{original_filename}")
-                if not os.path.exists(current_excel_path):
-                    # 如果檔案不存在，嘗試尋找備用檔案
-                    excel_dir = _get_excel_dir()
-                    if os.path.exists(excel_dir):
-                        excel_files = [f for f in os.listdir(excel_dir) if f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
-                        if excel_files:
-                            current_excel_path = os.path.join(excel_dir, excel_files[0])
-                            print(f"原檔案不存在，使用備用檔案: {current_excel_path}")
-
-            # 傳遞 excel_path 給 llm_service
-            agent_response = process_user_query(user_query, excel_path=current_excel_path, sheet_name=sheet_name)
-            excel_modified = True  # 滾算會產生 Excel 記錄
-
+        # ── 2. 所有其他請求（含 IRR 查詢、修改 Excel）→ LLM function calling ──
         else:
-            # 3. 其他請求調用 AI Agent 的 chat 方法
-            # 注入可用工作表名稱，避免模型幻覺（hallucination）
-            enhanced_query = user_query
-            if case_name and original_filename:
-                current_excel_path = os.path.join(_get_excel_dir(), f"{case_name}_{original_filename}")
-                if os.path.exists(current_excel_path):
-                    try:
-                        import openpyxl
-                        wb = openpyxl.load_workbook(current_excel_path, read_only=True)
-                        sheet_names = wb.sheetnames
-                        wb.close()
-                        enhanced_query = f"[目前 Excel 可用工作表: {', '.join(sheet_names)}]\n{user_query}"
-                    except Exception:
-                        pass
-
+            print("交由 LLM function calling 處理...")
+            enhanced_query = f"{sheet_names_prefix}{user_query}"
             agent_response = agent.chat(enhanced_query)
-            # 檢查是否有使用 Excel 工具
             excel_tools = ['write_excel_cell', 'delete_excel_cell', 'read_excel_cell',
-                          'add_excel_sheet', 'delete_excel_sheet', 'edit_sheet_by_field']
+                           'edit_sheet_by_field']
             excel_modified = any(tool in agent.last_used_tools for tool in excel_tools)
 
         print(f"Agent 回應成功 (Excel modified: {excel_modified})")
@@ -709,7 +447,7 @@ def agent_chat():
 
     except Exception as e:
         import traceback
-        print(f"🚨 AI Agent 處理錯誤: {e}")
+        print(f"AI Agent 處理錯誤: {e}")
         print(traceback.format_exc())
         return jsonify({"error": f"Agent 處理請求時發生錯誤: {str(e)}"}), 500
 

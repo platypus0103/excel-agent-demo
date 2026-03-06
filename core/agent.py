@@ -48,7 +48,8 @@ class AIAgent:
                 tools=tools,
                 temperature=self.config.temperature,
                 top_p=self.config.top_p,
-                top_k=self.config.top_k
+                top_k=self.config.top_k,
+                think=self.config.thinking_mode
             )
 
             # 5. 處理回應（可能包含工具調用）
@@ -119,7 +120,8 @@ class AIAgent:
             tools=tools,
             temperature=self.config.temperature,
             top_p=self.config.top_p,
-            top_k=self.config.top_k
+            top_k=self.config.top_k,
+            think=self.config.thinking_mode
         )
 
         return final_response.get('message', {}).get('content', '')

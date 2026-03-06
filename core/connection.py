@@ -39,7 +39,8 @@ class OllamaConnection:
         tools: List[Dict],
         temperature: float = 0.7,
         top_p: float = 0.9,
-        top_k: int = 40
+        top_k: int = 40,
+        think: bool = False
     ) -> Dict:
         """
         發送訊息並支援工具調用（function calling）
@@ -50,6 +51,7 @@ class OllamaConnection:
             temperature: 創意度
             top_p: 多樣性
             top_k: 候選詞數量
+            think: 是否啟用思考模式（qwen3 支援，32B 建議開啟）
 
         Returns:
             完整的回應字典（包含可能的工具調用）
@@ -59,6 +61,7 @@ class OllamaConnection:
                 model=self.model_name,
                 messages=messages,
                 tools=tools,
+                think=think,
                 options={
                     'temperature': temperature,
                     'top_p': top_p,
