@@ -47,6 +47,49 @@ class FinanceTool:
             return None
         return round(value * 100, 2)
 
+    def _read_irr_from_sheet(self, sheet_name: str) -> Optional[Dict]:
+        """
+        直接從工作表 B 欄搜尋 IRR 關鍵字，讀取 C 欄的預算值。
+        適用於「滾算紀錄」等已有預算 IRR 的工作表。
+
+        Returns:
+            含 project_irr / cost_method_irr / equity_method_irr 的 dict，
+            若任一值找不到則回傳 None（改用計算模式）
+        """
+        try:
+            wb = openpyxl.load_workbook(self.excel_file, data_only=True)
+            if sheet_name not in wb.sheetnames:
+                return None
+            ws = wb[sheet_name]
+
+            irr_keywords = {
+                "project_irr":      ["專案法", "Project IRR", "project irr", "專案IRR", "專案 IRR"],
+                "cost_method_irr":  ["成本法", "Cost IRR", "cost irr", "成本IRR", "成本 IRR"],
+                "equity_method_irr": ["權益法", "Equity IRR", "equity irr", "權益IRR", "權益 IRR"],
+            }
+
+            found = {}
+            for row in ws.iter_rows():
+                b_cell = row[1] if len(row) > 1 else None  # B 欄 (index 1)
+                c_cell = row[2] if len(row) > 2 else None  # C 欄 (index 2)
+                if b_cell is None or b_cell.value is None:
+                    continue
+                label = str(b_cell.value).strip()
+                for key, keywords in irr_keywords.items():
+                    if key not in found and any(kw in label for kw in keywords):
+                        val = c_cell.value if c_cell else None
+                        if val is not None:
+                            try:
+                                found[key] = round(float(val), 2)
+                            except (ValueError, TypeError):
+                                pass
+
+            if len(found) == 3:
+                return found
+            return None
+        except Exception:
+            return None
+
     def _load_excel_data(self) -> Dict:
         """從 Excel 讀取數據"""
         try:
@@ -453,9 +496,26 @@ class FinanceTool:
         try:
             # 如果指定了工作表名稱，臨時設定
             original_sheet = self.sheet_name
+            target_sheet = sheet_name if sheet_name else self.sheet_name
+
+            # 優先：從工作表 B/C 欄直接讀取預算 IRR（適用於滾算紀錄等已計算工作表）
+            direct = self._read_irr_from_sheet(target_sheet) if target_sheet else None
+            if direct:
+                return {
+                    "success": True,
+                    "message": f"IRR 讀取完成 (工作表: {target_sheet})",
+                    "data": {
+                        "sheet_name": target_sheet,
+                        "project_irr": direct["project_irr"],
+                        "cost_method_irr": direct["cost_method_irr"],
+                        "equity_method_irr": direct["equity_method_irr"],
+                    }
+                }
+
+            # 備用：從參數重新計算
             if sheet_name:
                 self.sheet_name = sheet_name
-                self.data = None  # 重置數據，因為要讀取不同的工作表
+                self.data = None
 
             self._calculate_all()
 

@@ -314,7 +314,6 @@ class ExcelTool:
         field_keyword: str,
         year_spec: str,
         new_value: Union[int, float] = None,
-        is_expense: bool = None,
         section_type: str = None,
         year_value_map: dict = None
     ) -> dict:
@@ -325,8 +324,7 @@ class ExcelTool:
             sheet_name: 工作表名稱，如 "滾算紀錄5"
             field_keyword: 欄位關鍵字，如 "設備費用"（支援模糊匹配）
             year_spec: 年份規格，如 "2020~2025", "2030", "全部", "multiple"（多年份模式）
-            new_value: 新的數值（如果是負數會保留負號），當 year_value_map 有值時可為 None
-            is_expense: 是否為支出（True=支出用負值，False=收入用正值，None=自動判斷）
+            new_value: 新的數值，正負號完全依照使用者輸入。當 year_value_map 有值時可為 None
             section_type: 區域類型，"公版"=1-36行，"現金流量表"或"綜合損益表"=37-64行，None=全部
             year_value_map: 年份-數值映射，如 {2020: -40000, 2023: -20000}，支持非連續年份
 
@@ -418,17 +416,9 @@ class ExcelTool:
                 # 公版數值在 D 列（第 4 列）
                 value_col = 4
 
-                # 判斷數值正負：優先尊重使用者輸入的值
+                # 直接使用使用者輸入的數值（含正負號）
                 if new_value is not None:
-                    if is_expense is True:
-                        # 使用者明確說「支出」→ 存為負值
-                        final_value = -abs(new_value)
-                    elif is_expense is False:
-                        # 使用者明確說「收入」→ 存為正值
-                        final_value = abs(new_value)
-                    else:
-                        # 未指定 → 完全尊重使用者輸入的值（含正負號）
-                        final_value = new_value
+                    final_value = new_value
                 else:
                     return {
                         "success": False,
@@ -495,13 +485,8 @@ class ExcelTool:
 
                     col = year_columns[year_int]
 
-                    # 判斷數值正負：優先尊重使用者輸入的值
-                    if is_expense is True:
-                        final_value = -abs(value)
-                    elif is_expense is False:
-                        final_value = abs(value)
-                    else:
-                        final_value = value
+                    # 直接使用使用者輸入的數值（含正負號）
+                    final_value = value
 
                     cell_ref = f"{get_column_letter(col)}{field_row}"
                     old_value = ws.cell(row=field_row, column=col).value
@@ -525,16 +510,8 @@ class ExcelTool:
                         "available_years": available_years
                     }
 
-                # 判斷數值正負：優先尊重使用者輸入的值
-                if is_expense is True:
-                    # 使用者明確說「支出」→ 存為負值
-                    final_value = -abs(new_value)
-                elif is_expense is False:
-                    # 使用者明確說「收入」→ 存為正值
-                    final_value = abs(new_value)
-                else:
-                    # 未指定 → 完全尊重使用者輸入（含正負號）
-                    final_value = new_value
+                # 直接使用使用者輸入的數值（含正負號）
+                final_value = new_value
 
                 # 修改儲存格
                 for year in years_to_modify:
@@ -650,7 +627,7 @@ EXCEL_TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "edit_sheet_by_field",
-            "description": "根據欄位名稱和年份智慧修改 Excel 工作表中的數值。支援模糊匹配欄位名稱。【重要】使用者說「支出」時 is_expense 必須設為 true，說「收入」時設為 false。【區域限定】「公版」=1-36行，「綜合損益表」=37-64行，「現金流量表」=86-115行。【多年份模式】可使用 year_value_map 設定不同年份的不同數值。",
+            "description": "根據欄位名稱和年份智慧修改 Excel 工作表中的數值。支援模糊匹配欄位名稱。【區域限定】「公版」=1-36行，「綜合損益表」=37-64行，「現金流量表」=86-115行。【多年份模式】可使用 year_value_map 設定不同年份的不同數值。",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -668,11 +645,7 @@ EXCEL_TOOLS_SCHEMA = [
                     },
                     "new_value": {
                         "type": "number",
-                        "description": "要設定的新數值（正數）。正負號由 is_expense 決定。使用 year_value_map 時可省略"
-                    },
-                    "is_expense": {
-                        "type": "boolean",
-                        "description": "【必填判斷】使用者說「支出」→ true（存為負值），說「收入」→ false（存為正值）。若使用者未明確說明，根據欄位名稱自動判斷"
+                        "description": "要設定的新數值。正負號完全依照使用者輸入，使用者說 40000 就存 40000，說 -40000 就存 -40000。使用 year_value_map 時可省略"
                     },
                     "section_type": {
                         "type": "string",
