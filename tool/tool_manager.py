@@ -42,6 +42,16 @@ class ToolManager:
             function=self.excel_tool.edit_by_field_and_year,
             schema=EXCEL_TOOLS_SCHEMA[3]
         )
+        self.register_tool(
+            name="list_excel_sheets",
+            function=self.excel_tool.list_sheets,
+            schema=EXCEL_TOOLS_SCHEMA[4]
+        )
+        self.register_tool(
+            name="read_sheet_by_field",
+            function=self.excel_tool.read_sheet_by_field,
+            schema=EXCEL_TOOLS_SCHEMA[5]
+        )
 
         # 創建財務工具實例
         self.finance_tool = FinanceTool()

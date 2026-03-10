@@ -21,6 +21,63 @@ body, html {
     box-shadow: 2px 0 5px rgba(0,0,0,0.1);
 }
 
+/* ── 側邊欄收納按鈕 ─────────────────────────────────── */
+.sidebar-toggle-btn {
+    position: absolute;
+    right: -14px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 100;
+    width: 28px;
+    height: 28px;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 28px;
+    text-align: center;
+    box-shadow: 2px 0 6px rgba(0,0,0,0.25);
+    transition: background 0.2s, transform 0.2s;
+    padding: 0;
+}
+
+.sidebar-toggle-btn:hover {
+    background: #2980b9;
+}
+
+/* 側邊欄收納狀態 */
+.sidebar {
+    position: relative;
+    transition: width 0.3s ease, padding 0.3s ease;
+}
+
+.sidebar.collapsed {
+    width: 0 !important;
+    padding: 0 !important;
+    overflow: visible; /* 讓按鈕仍可見 */
+}
+
+.sidebar.collapsed .sidebar-header,
+.sidebar.collapsed .case-list {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
+.sidebar:not(.collapsed) .sidebar-header,
+.sidebar:not(.collapsed) .case-list {
+    opacity: 1;
+    transition: opacity 0.2s ease 0.1s;
+}
+
+/* 收納時按鈕箭頭反轉 */
+.sidebar.collapsed .sidebar-toggle-btn {
+    transform: translateY(-50%) scaleX(-1);
+    right: -14px;
+}
+
 .sidebar-header {
     display: flex;
     justify-content: space-between;
@@ -324,6 +381,92 @@ body, html {
     color: white;
     margin-right: auto;
 }
+
+/* ── Markdown 渲染樣式 ────────────────────────────────── */
+.message.bot .md-p,
+.message.assistant .md-p {
+    margin: 3px 0;
+    line-height: 1.6;
+}
+
+.message.bot .md-h,
+.message.assistant .md-h {
+    margin: 8px 0 4px;
+    font-size: 1em;
+    color: #1a252f;
+    border-bottom: 1px solid #bdc3c7;
+    padding-bottom: 2px;
+}
+
+.md-table-wrap {
+    overflow-x: auto;
+    margin: 8px 0;
+    border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.md-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 12px;
+    background: white;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.md-table thead tr {
+    background: linear-gradient(135deg, #2c3e50, #34495e);
+    color: white;
+}
+
+.md-table thead th {
+    padding: 7px 12px;
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+    border: none;
+}
+
+.md-table tbody tr:nth-child(even) {
+    background: #f4f6f8;
+}
+
+.md-table tbody tr:hover {
+    background: #dce9f5;
+    transition: background 0.15s;
+}
+
+.md-table td {
+    padding: 6px 12px;
+    border-bottom: 1px solid #e8ecef;
+    white-space: nowrap;
+    color: #2c3e50;
+}
+
+.md-table td:not(:first-child) {
+    text-align: right;
+}
+
+.md-code {
+    background: #dce1e8;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 11px;
+    color: #c0392b;
+}
+
+.message.bot pre,
+.message.assistant pre {
+    background: #2c3e50;
+    color: #ecf0f1;
+    padding: 10px 14px;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 11px;
+    margin: 6px 0;
+}
+/* ────────────────────────────────────────────────────── */
 
 .chat-input {
     display: flex;

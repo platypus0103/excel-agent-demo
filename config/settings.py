@@ -7,7 +7,7 @@ class AgentConfig:
 
     
     # 模型設定
-    model_name: str = "qwen3:32b-q4_k_m"
+    model_name: str = "qwen3:32b"
     
     # 生成參數
     temperature: float = 0.1        # 創意度 (0.0-2.0)
@@ -46,6 +46,17 @@ class AgentConfig:
         "- 查詢稅後淨利 → get_net_profit\n"
         "- 查詢年度詳情 → get_year_detail\n"
         "- 查詢專案摘要 → get_project_summary\n\n"
+
+        "【查詢工作表欄位數值：read_sheet_by_field】\n"
+        "當使用者要查詢特定工作表（包含滾算紀錄）中的欄位數值時使用此工具。\n"
+        "- 若不確定工作表名稱，先呼叫 list_excel_sheets 取得清單，再詢問使用者確認。\n"
+        "- sheet_name（工作表名稱）：如「滾算紀錄1」、使用者自訂名稱。若未提及，先呼叫 list_excel_sheets 再詢問。\n"
+        "- field_keyword（欄位名稱）：如「專案法IRR」、「現金流」、「租金」。支援模糊匹配。\n"
+        "- section_type（區域）：【必填】「公版」（第1-36行）、「綜合損益表」（第37-64行）、「現金流量表」（第86-115行）。若未提及，必須先詢問。\n"
+        "- year_spec（年份）：選填。不填 = 回傳全部年份；「2025」= 單年；「2020~2025」= 範圍。公版無年份維度可不填。\n\n"
+
+        "【列出工作表清單：list_excel_sheets】\n"
+        "當使用者詢問有哪些工作表、有哪些滾算紀錄，或查詢前不確定工作表名稱時使用。\n\n"
 
         "【價金滾算】\n"
         "- 純計算（不寫入 Excel）→ calculate_price_rolling\n"

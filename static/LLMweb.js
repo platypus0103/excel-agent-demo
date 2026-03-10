@@ -23,13 +23,30 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化
     init();
 
+    // ── 側邊欄收納 ──────────────────────────────────────────
+    const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+    const sidebar = document.getElementById('sidebar');
+
+    if (sidebarToggleBtn && sidebar) {
+        sidebarToggleBtn.addEventListener('click', function () {
+            const isCollapsed = sidebar.classList.toggle('collapsed');
+            sidebarToggleBtn.title = isCollapsed ? '展開側邊欄' : '收納側邊欄';
+            // 收納後觸發 Luckysheet resize 以填滿新空間
+            setTimeout(function () {
+                if (typeof luckysheet !== 'undefined') {
+                    try { luckysheet.resize(); } catch (e) { /* ignore */ }
+                }
+                window.dispatchEvent(new Event('resize'));
+            }, 320);
+        });
+    }
+
     async function init() {
         initLuckysheetWhenReady();
         bindEvents();
         bindAuthEvents();
         await checkSession();
     }
-
 
 
     function initLuckysheetWhenReady() {
@@ -730,13 +747,123 @@ document.addEventListener('DOMContentLoaded', function() {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
+    // 掛到 window 讓 price_rolling.js 等外部 script 也能使用
+    window._renderMarkdown = function(text) { return renderMarkdown(text); };
+    function isTableLine(line) {
+        var s = line.trim();
+        if (!s) return false;
+        if (/^\s*\|/.test(line)) return true;
+        if (s.indexOf('|') !== -1) return true;
+        return false;
+    }
+
+    function normalizeMarkdown(text) {
+        return text
+            .replace(/([^\n])(#{1,3} )/g, '$1\n$2')
+            .replace(/([^\n])(- \*\*)/g, '$1\n$2')
+            .replace(/([^\n])((?<!\|)---(?![-|]))/g, '$1\n$2')
+            .replace(/([^\n])(\*\*[^*]+\*\*[^|*\n]{3,})/g, '$1\n$2');
+    }
+
+    function renderMarkdown(text) {
+        const lines = normalizeMarkdown(text).split('\n');
+        const output = [];
+        let i = 0;
+
+        while (i < lines.length) {
+            const line = lines[i];
+
+            if (isTableLine(line)) {
+                const tableLines = [];
+                while (i < lines.length && isTableLine(lines[i])) {
+                    tableLines.push(lines[i]);
+                    i++;
+                }
+                output.push(buildTable(tableLines));
+                continue;
+            }
+
+            if (line.startsWith('```')) {
+                i++;
+                const codeLines = [];
+                while (i < lines.length && !lines[i].startsWith('```')) {
+                    codeLines.push(escapeHtml(lines[i]));
+                    i++;
+                }
+                i++;
+                output.push(`<pre><code>${codeLines.join('\n')}</code></pre>`);
+                continue;
+            }
+
+            if (/^#{1,3}\s/.test(line)) {
+                const level = line.match(/^(#{1,3})/)[1].length;
+                const content = inlineMarkdown(line.replace(/^#{1,3}\s/, ''));
+                output.push(`<h${level} class="md-h">${content}</h${level}>`);
+                i++; continue;
+            }
+
+            const trimmed = line.trim();
+            if (trimmed === '') {
+                output.push('<br>');
+            } else {
+                output.push(`<p class="md-p">${inlineMarkdown(trimmed)}</p>`);
+            }
+            i++;
+        }
+
+        return output.join('');
+    }
+
+    function buildTable(lines) {
+        const rows = lines
+            .filter(l => !/^[-|:\s]+$/.test(l.trim()))
+            .map(l =>
+                l.trim()
+                 .replace(/^\|/, '').replace(/\|$/, '')
+                 .split('|')
+                 .map(cell => inlineMarkdown(cell.trim()))
+            );
+
+        if (rows.length === 0) return '';
+
+        const [header, ...body] = rows;
+        const thCells = header.map(h => `<th>${h}</th>`).join('');
+        const tbRows  = body.map(row => {
+            const cells = header.map((_, ci) =>
+                `<td>${row[ci] !== undefined ? row[ci] : ''}</td>`
+            ).join('');
+            return `<tr>${cells}</tr>`;
+        }).join('');
+
+        return `<div class="md-table-wrap"><table class="md-table"><thead><tr>${thCells}</tr></thead><tbody>${tbRows}</tbody></table></div>`;
+    }
+
+    function inlineMarkdown(text) {
+        return text
+            .replace(/\*\*(.+?)\*\*/g, '\x00strong\x01$1\x00/strong\x01')
+            .replace(/\*(.+?)\*/g,     '\x00em\x01$1\x00/em\x01')
+            .replace(/`(.+?)`/g,       '\x00code class="md-code"\x01$1\x00/code\x01')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/\x00(\/??[a-z][^\x01]*)\x01/g, '<$1>');
+    }
+
+    function escapeHtml(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
     function appendMessage(role, text) {
         if (!chatMessages) return;
-        
+
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${role}`;
-        // 處理換行符，保持格式
-        messageDiv.innerHTML = text.replace(/\n/g, '<br>');
+
+        // bot / assistant 訊息套用 Markdown 渲染；使用者訊息維持純文字
+        if (role === 'bot' || role === 'assistant') {
+            messageDiv.innerHTML = renderMarkdown(text);
+        } else {
+            messageDiv.textContent = text;
+        }
+
         chatMessages.appendChild(messageDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
