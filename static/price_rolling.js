@@ -527,19 +527,16 @@ function addMessageToChatBox(sender, message, type = 'assistant') {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${type}`;
 
-    // 創建消息內容
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'message-content';
-
-    // 如果消息包含 Markdown，使用 marked 庫渲染（如果可用）
-    if (typeof marked !== 'undefined') {
-        contentDiv.innerHTML = marked.parse(message);
+    // 使用 LLMweb.js 的 renderMarkdown 渲染（bot/assistant 訊息）
+    if (type === 'assistant' || type === 'bot') {
+        if (typeof window._renderMarkdown === 'function') {
+            messageDiv.innerHTML = window._renderMarkdown(message);
+        } else {
+            messageDiv.innerHTML = message.replace(/\n/g, '<br>');
+        }
     } else {
-        // 簡單的換行處理
-        contentDiv.innerHTML = message.replace(/\n/g, '<br>');
+        messageDiv.textContent = message;
     }
-
-    messageDiv.appendChild(contentDiv);
     chatMessages.appendChild(messageDiv);
 
     // 滾動到底部
