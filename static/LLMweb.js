@@ -1,3 +1,27 @@
+async function switchModel(model) {
+    const selector = document.getElementById('modelSelector');
+    selector.disabled = true;
+    try {
+        const res = await fetch('/api/agent/model', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model })
+        });
+        const data = await res.json();
+        if (data.status !== 'success') {
+            alert('模型切換失敗：' + (data.error || '未知錯誤'));
+            // 切換失敗就恢復舊值
+            const revert = await fetch('/api/agent/model');
+            const rd = await revert.json();
+            if (rd.status === 'success') selector.value = rd.model;
+        }
+    } catch (e) {
+        alert('模型切換失敗：' + e);
+    } finally {
+        selector.disabled = false;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // DOM 元素 - 匹配 HTML 中的實際 ID
     const caseList = document.getElementById('caseList');
@@ -46,6 +70,7 @@ document.addEventListener('DOMContentLoaded', function() {
         bindEvents();
         bindAuthEvents();
         await checkSession();
+        await loadCurrentModel();
     }
 
 
@@ -121,6 +146,18 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (e) {
             setLoggedOutUI();
+        }
+    }
+
+    async function loadCurrentModel() {
+        try {
+            const res  = await fetch('/api/agent/model');
+            const data = await res.json();
+            if (data.status === 'success') {
+                document.getElementById('modelSelector').value = data.model;
+            }
+        } catch (e) {
+            console.warn('無法取得目前模型:', e);
         }
     }
 

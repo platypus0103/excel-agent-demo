@@ -291,10 +291,15 @@ class FinanceTool:
 
         # 計算現金流
         cash_flows = [-total_equipment_cost]
-        total_cost = annual_rent + annual_maintenance + annual_insurance + annual_recycle
 
-        first_year_cash_flow = first_year_electricity_generation_income - total_cost
-        first_tax = (first_year_cash_flow - year_equipment_cost + annual_rent) * excel_data['income_tax']
+        # Bug fix 1: 第一年用 rent_list[0]（mode1=0, mode2=income*ratio），不用 annual_rent
+        first_year_cash_flow = (first_year_electricity_generation_income
+                                - rent_list[0]
+                                - maintenance_list[0]
+                                - insurance_list[0]
+                                - recycle_list[0])
+        # Bug fix 1: 稅的折舊也改用 depreciation_list[0]
+        first_tax = (first_year_cash_flow - depreciation_list[0]) * excel_data['income_tax']
         first_year_cash_flow -= first_tax
         cash_flows.append(first_year_cash_flow)
 
@@ -304,7 +309,8 @@ class FinanceTool:
         for year in range(2, total_years + 1):
             following_years_electricity_generation_income = electricity_generation_income_list[year-1]
             annual_cash_flow = following_years_electricity_generation_income - rent_list[year-1] - maintenance_list[year-1] - insurance_list[year-1] - recycle_list[year-1]
-            annual_tax = (annual_cash_flow - year_equipment_cost) * excel_data['income_tax']
+            # Bug fix 2: 用 depreciation_list[year-1]，折舊年限後自動為 0
+            annual_tax = (annual_cash_flow - depreciation_list[year-1]) * excel_data['income_tax']
             annual_cash_flow -= annual_tax
             cash_flows.append(annual_cash_flow)
 

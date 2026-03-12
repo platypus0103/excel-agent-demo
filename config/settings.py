@@ -7,7 +7,7 @@ class AgentConfig:
 
     
     # 模型設定
-    model_name: str = "qwen3:32b"
+    model_name: str = "qwen3:4b"
     
     # 生成參數
     temperature: float = 0.1        # 創意度 (0.0-2.0)

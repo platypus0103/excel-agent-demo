@@ -82,6 +82,14 @@
                         <div class="llm-logo">LLM</div>
                         <span id="caseTitle">請選擇或新增試算表</span>
                     </div>
+                    <!-- 模型選擇 -->
+                    <div class="model-selector-area">
+                        <select id="modelSelector" class="model-selector" onchange="switchModel(this.value)" title="切換模型">
+                            <option value="qwen3:4b">qwen3:4b</option>
+                            <option value="qwen3:14b">qwen3:14b</option>
+                            <option value="qwen3:32b">qwen3:32b</option>
+                        </select>
+                    </div>
                     <!-- Email 登入區域 -->
                     <div id="emailLoginArea" class="email-login-area">
                         <input type="email" id="emailInput" class="email-input" placeholder="輸入 Email">

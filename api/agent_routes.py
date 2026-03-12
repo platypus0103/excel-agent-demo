@@ -459,6 +459,33 @@ def agent_chat():
         print(traceback.format_exc())
         return jsonify({"error": f"Agent 處理請求時發生錯誤: {str(e)}"}), 500
 
+AVAILABLE_MODELS = ['qwen3:4b', 'qwen3:14b', 'qwen3:32b']
+
+@agent_bp.route('/agent/model', methods=['GET'])
+def get_model():
+    """取得目前使用的模型"""
+    try:
+        agent = get_agent()
+        return jsonify({"status": "success", "model": agent.config.model_name})
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+@agent_bp.route('/agent/model', methods=['POST'])
+def set_model():
+    """切換模型"""
+    try:
+        data = request.get_json()
+        model = data.get('model', '')
+        if model not in AVAILABLE_MODELS:
+            return jsonify({"status": "error", "error": f"不支援的模型，可選: {AVAILABLE_MODELS}"}), 400
+        agent = get_agent()
+        agent.config.model_name = model
+        agent.connection.model_name = model
+        print(f"[模型切換] → {model}")
+        return jsonify({"status": "success", "model": model})
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)}), 500
+
 @agent_bp.route('/reset', methods=['POST'])
 def reset_agent():
     """重置 Agent 對話歷史"""
