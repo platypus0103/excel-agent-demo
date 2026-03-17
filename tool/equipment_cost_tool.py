@@ -4,6 +4,7 @@ import shutil
 import time
 import datetime
 from openpyxl import load_workbook, Workbook
+from utils.recalc import recalc as _recalc
 from typing import Dict, List, Optional, Any, Union
 from tool.equipment_cost_services import (
     CostStructureService, 
@@ -19,8 +20,10 @@ class EquipmentCostTool:
 
     def __init__(self):
         """初始化設備成本工具"""
-        self.excel_folder = "Excel"
-        self.excel_final_folder = "Excel Generic Template"
+        # 以此檔案位置為基準，往上一層找到專案根目錄，確保模板路徑正確
+        _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.excel_folder = os.path.join(_project_root, "Excel")
+        self.excel_final_folder = os.path.join(_project_root, "Excel Generic Template")
         self.output_file_name = "excel公版.xlsx"
 
     def _find_excel_file(self, directory: str) -> Optional[str]:
@@ -734,21 +737,25 @@ class EquipmentCostTool:
                 wb = load_workbook(output_path, keep_links=True)
 
                 # === 1. 寫入滾算紀錄單(總紀錄)工作表 ===
+                EXPECTED_HEADERS = ["編號", "價金每KW", "專案法IRR", "成本法IRR", "權益法IRR", "信邦利潤率", "信邦利潤", "每kw信邦利潤", "開發費", "備註"]
+
                 if "滾算紀錄單(總紀錄)" in wb.sheetnames:
                     sheet = wb["滾算紀錄單(總紀錄)"]
                 else:
                     # 如果沒有滾算紀錄單(總紀錄)，創建一個
                     sheet = wb.create_sheet("滾算紀錄單(總紀錄)")
-                    # 設定標題行（新增「編號」作為第一欄）
-                    headers = ["編號", "價金每KW", "專案法IRR", "權益法IRR", "信邦利潤率", "信邦利潤", "每kw信邦利潤", "開發費", "備註"]
-                    for col, header in enumerate(headers, 1):
+                    for col, header in enumerate(EXPECTED_HEADERS, 1):
                         sheet.cell(row=1, column=col, value=header)
 
                 # 檢查是否需要添加「編號」欄位（針對已存在的工作表）
                 if sheet.cell(row=1, column=1).value != "編號":
-                    # 插入新的編號欄位，將現有資料往右移
                     sheet.insert_cols(1)
                     sheet.cell(row=1, column=1, value="編號")
+
+                # 檢查是否需要插入「成本法IRR」欄位（舊工作表 D 欄是「權益法IRR」）
+                if sheet.cell(row=1, column=4).value == "權益法IRR":
+                    sheet.insert_cols(4)
+                    sheet.cell(row=1, column=4, value="成本法IRR")
 
                 # 找到下一個空行開始寫入（檢查編號欄和價金欄）
                 start_row = 2
@@ -796,25 +803,37 @@ class EquipmentCostTool:
                         # 獲取Excel建置容量
                         capacity = result.get("original_data", {}).get("capacity", 436.1)
 
-                        # 計算每kw信邦利潤
-                        base_profit_per_kw = price / (1 - current_profit_rate) - price
-                        annual_development_cost = development_fee
-                        profit_per_kw = base_profit_per_kw - annual_development_cost
+                        # 每kw信邦利潤：優先使用前端預計算值（與顯示一致），否則自行計算
+                        precomputed_ppkw = irr_data.get('profit_per_kw')
+                        if precomputed_ppkw is not None:
+                            profit_per_kw = precomputed_ppkw
+                        else:
+                            profit_per_kw = price / (1 - current_profit_rate) - price
                         calculated_profit = profit_per_kw * capacity
 
                         # === 寫入滾算紀錄單（新增編號欄位） ===
                         sheet.cell(row=current_row, column=1, value=record_number)  # 編號
                         sheet.cell(row=current_row, column=2, value=price)  # 價金每KW
-                        sheet.cell(row=current_row, column=3, value=irr_data.get("project_irr"))  # 專案法IRR
-                        sheet.cell(row=current_row, column=4, value=irr_data.get("equity_method_irr"))  # 權益法IRR
 
-                        profit_rate_cell = sheet.cell(row=current_row, column=5, value=current_profit_rate)
+                        # IRR 以小數形式儲存（0.0175 = 1.75%），套 0.00% 格式
+                        # 如此 XLSX.js 讀到 % 格式會用 v.m 顯示，不走 Math.round
+                        def _irr_val(v):
+                            return v / 100 if v is not None else None
+
+                        irr_c3 = sheet.cell(row=current_row, column=3, value=_irr_val(irr_data.get("project_irr")))
+                        irr_c3.number_format = '0.00%'
+                        irr_c4 = sheet.cell(row=current_row, column=4, value=_irr_val(irr_data.get("cost_method_irr")))
+                        irr_c4.number_format = '0.00%'
+                        irr_c5 = sheet.cell(row=current_row, column=5, value=_irr_val(irr_data.get("equity_method_irr")))
+                        irr_c5.number_format = '0.00%'
+
+                        profit_rate_cell = sheet.cell(row=current_row, column=6, value=current_profit_rate)
                         profit_rate_cell.number_format = '0.00%'
 
-                        sheet.cell(row=current_row, column=6, value=calculated_profit)  # 信邦利潤
-                        sheet.cell(row=current_row, column=7, value=profit_per_kw)      # 每kw信邦利潤
-                        sheet.cell(row=current_row, column=8, value=development_fee)   # 開發費
-                        sheet.cell(row=current_row, column=9, value=remark)            # 備註
+                        sheet.cell(row=current_row, column=7, value=calculated_profit)  # 信邦利潤
+                        sheet.cell(row=current_row, column=8, value=profit_per_kw)      # 每kw信邦利潤
+                        sheet.cell(row=current_row, column=9, value=development_fee)   # 開發費
+                        sheet.cell(row=current_row, column=10, value=remark)            # 備註
 
                         # === 創建對應編號的滾算紀錄工作表 ===
                         new_sheet_name = f"滾算紀錄{record_number}"
@@ -894,6 +913,7 @@ class EquipmentCostTool:
 
                 wb.save(output_path)
                 wb.close()
+                _recalc(output_path)  # 填入公式快取，確保前端讀取正確數值
                 return  # 成功完成，退出重試循環
                 
             except PermissionError as e:
@@ -915,6 +935,7 @@ class EquipmentCostTool:
                               adjustment_times: int = 10,
                               sheet_name: str = None,
                               excel_file: str = None,
+                              precomputed_irr_results: list = None,
                               **kwargs) -> Dict[str, Any]:
         """
         執行價金滾算
@@ -1021,9 +1042,13 @@ class EquipmentCostTool:
             cost_structure_adjusted = cost_service.equipment_cost_calculation(adjustment_record)
             profit_record = cost_service.get_profit(adjustment_record)
             
-            # 5. 計算IRR
-            print("正在計算IRR...")
-            irr_results = self._calculate_irr_for_prices(excel_file, adjustment_record, profit_rate, development_fee, sheet_name)
+            # 5. 計算IRR（若有預計算結果則直接使用，避免重算導致數值不一致）
+            if precomputed_irr_results and len(precomputed_irr_results) == len(adjustment_record):
+                print(f"使用預計算 IRR 結果，共 {len(precomputed_irr_results)} 筆")
+                irr_results = precomputed_irr_results
+            else:
+                print("正在計算IRR...")
+                irr_results = self._calculate_irr_for_prices(excel_file, adjustment_record, profit_rate, development_fee, sheet_name)
 
             # 檢查是否有 IRR 計算失敗
             for irr_data in irr_results:

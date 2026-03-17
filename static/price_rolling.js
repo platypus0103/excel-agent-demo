@@ -6,6 +6,13 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // 打開對話框
+// 金額千分位格式化（四捨五入取整）
+function fmtMoney(v) {
+    if (v === null || v === undefined || v === 'N/A') return 'N/A';
+    const n = Math.round(Number(v));
+    return isNaN(n) ? String(v) : n.toLocaleString('zh-TW');
+}
+
 function openPriceDialog() {
     document.getElementById('priceDialogOverlay').classList.add('active');
     initializePriceDialogDrag();
@@ -13,8 +20,8 @@ function openPriceDialog() {
     // 從 Excel 讀取 C16(初始價金)、C17(利潤率)、C18(開發費) 預填至表單
     const caseInfo = getCurrentCaseInfo();
     let url = '/api/get_excel_defaults';
-    if (caseInfo && caseInfo.case_name && caseInfo.original_filename) {
-        url += `?case_name=${encodeURIComponent(caseInfo.case_name)}&original_filename=${encodeURIComponent(caseInfo.original_filename)}`;
+    if (caseInfo && caseInfo.original_filename) {
+        url += `?case_id=${encodeURIComponent(caseInfo.case_id || '')}&case_name=${encodeURIComponent(caseInfo.case_name || '')}&original_filename=${encodeURIComponent(caseInfo.original_filename)}`;
     }
 
     fetch(url)
@@ -242,6 +249,7 @@ function submitPriceForm() {
     // 獲取當前案場信息
     const currentCase = getCurrentCaseInfo();
     if (currentCase) {
+        requestData.case_id = currentCase.case_id;
         requestData.case_name = currentCase.case_name;
         requestData.original_filename = currentCase.original_filename;
         requestData.sheet_name = currentCase.sheet_name;
@@ -323,8 +331,21 @@ function submitPriceForm() {
     // 關閉對話框
     closePriceDialog();
 
-    // 顯示加載提示
-    addMessageToChatBox('系統', '正在計算價金滾算，請稍候...', 'assistant');
+    // 在發送前鎖定案場本地 key，避免切換聊天室後回應跑到錯的地方
+    // 注意：必須用 getActiveCaseId() 取本地 key，而非 getCurrentCaseInfo().case_id（那是 DB ID）
+    const senderCaseId = (typeof window.getActiveCaseId === 'function') ? window.getActiveCaseId() : null;
+
+    // 顯示加載提示（用唯一 ID，切換聊天室後仍可移除）
+    const loadingId = 'pr-loading-' + Date.now();
+    const loadingDiv = document.createElement('div');
+    loadingDiv.id = loadingId;
+    loadingDiv.className = 'message assistant';
+    loadingDiv.textContent = '正在計算價金滾算，請稍候...';
+    const chatMessages = document.getElementById('chatMessages');
+    if (chatMessages) {
+        chatMessages.appendChild(loadingDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
 
     // 調用後端 API
     fetch('/api/calculate_price_rolling', {
@@ -337,23 +358,26 @@ function submitPriceForm() {
     .then(response => response.json())
     .then(data => {
         // 移除加載提示
-        removeLastMessage();
+        const loadingEl = document.getElementById(loadingId);
+        if (loadingEl) loadingEl.remove();
 
         if (data.status === 'success') {
-            // 將 Agent 回應插入聊天框，並存入 DB
-            addMessageToChatBox('AI 助手', data.response, 'assistant');
-            if (typeof window.saveBotMessageToDB === 'function') {
-                window.saveBotMessageToDB(data.response);
+            if (typeof window.appendMessageToCase === 'function') {
+                window.appendMessageToCase(senderCaseId, 'bot', data.response);
             }
         } else {
-            // 顯示錯誤
-            addMessageToChatBox('系統', `計算失敗: ${data.error}`, 'error');
+            if (typeof window.appendMessageToCase === 'function') {
+                window.appendMessageToCase(senderCaseId, 'bot', `計算失敗: ${data.error}`);
+            }
         }
     })
     .catch(error => {
         console.error('API 調用錯誤:', error);
-        removeLastMessage();
-        addMessageToChatBox('系統', `發生錯誤: ${error.message}`, 'error');
+        const loadingEl = document.getElementById(loadingId);
+        if (loadingEl) loadingEl.remove();
+        if (typeof window.appendMessageToCase === 'function') {
+            window.appendMessageToCase(senderCaseId, 'bot', `發生錯誤: ${error.message}`);
+        }
     });
 }
 
@@ -473,9 +497,9 @@ function displayPriceResults(prices, profitList, profitRate) {
         html += `
             <tr>
                 <td>${idx + 1}</td>
-                <td>${price}</td>
+                <td>${fmtMoney(price)}</td>
                 <td>${(profitRate * 100).toFixed(2)}%</td>
-                <td>${profitList[idx]}</td>
+                <td>${fmtMoney(profitList[idx])}</td>
             </tr>
         `;
     });
@@ -486,33 +510,14 @@ function displayPriceResults(prices, profitList, profitRate) {
 
 // 獲取當前案場信息
 function getCurrentCaseInfo() {
-    // 從 localStorage 或全局變量中獲取當前案場信息
-    // 這個函數需要與 LLMweb.js 中的案場管理邏輯配合
-
-    // 嘗試從 window 對象獲取（如果 LLMweb.js 有設置全局變量）
     if (window.currentCase) {
         return {
-            case_name: window.currentCase.name,
-            original_filename: window.currentCase.original_filename,
-            sheet_name: window.currentCase.sheet_name || null
+            case_id:           window.currentCase.id || '',
+            case_name:         window.currentCase.name || '',
+            original_filename: window.currentCase.original_filename || '',
+            sheet_name:        window.currentCase.sheet_name || null
         };
     }
-
-    // 嘗試從 localStorage 獲取
-    const storedCase = localStorage.getItem('currentCase');
-    if (storedCase) {
-        try {
-            const caseData = JSON.parse(storedCase);
-            return {
-                case_name: caseData.name,
-                original_filename: caseData.original_filename,
-                sheet_name: caseData.sheet_name || null
-            };
-        } catch (e) {
-            console.error('解析案場信息失敗:', e);
-        }
-    }
-
     return null;
 }
 
@@ -570,8 +575,8 @@ function exportCurrentExcel() {
         return;
     }
 
-    // 構建下載 URL，包含案場名稱和原始檔名以確保路徑正確
-    const downloadUrl = `/api/download_excel?case_name=${encodeURIComponent(currentCase.case_name)}&original_filename=${encodeURIComponent(currentCase.original_filename || '')}`;
+    // 構建下載 URL，包含 case_id / 案場名稱 / 原始檔名以確保路徑正確
+    const downloadUrl = `/api/download_excel?case_id=${encodeURIComponent(currentCase.case_id || '')}&case_name=${encodeURIComponent(currentCase.case_name)}&original_filename=${encodeURIComponent(currentCase.original_filename || '')}`;
 
     // 直接下載服務器上的原始 Excel 檔案（保留公式）
     window.location.href = downloadUrl;

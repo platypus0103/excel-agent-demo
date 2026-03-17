@@ -1,27 +1,3 @@
-async function switchModel(model) {
-    const selector = document.getElementById('modelSelector');
-    selector.disabled = true;
-    try {
-        const res = await fetch('/api/agent/model', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model })
-        });
-        const data = await res.json();
-        if (data.status !== 'success') {
-            alert('模型切換失敗：' + (data.error || '未知錯誤'));
-            // 切換失敗就恢復舊值
-            const revert = await fetch('/api/agent/model');
-            const rd = await revert.json();
-            if (rd.status === 'success') selector.value = rd.model;
-        }
-    } catch (e) {
-        alert('模型切換失敗：' + e);
-    } finally {
-        selector.disabled = false;
-    }
-}
-
 document.addEventListener('DOMContentLoaded', function() {
     // DOM 元素 - 匹配 HTML 中的實際 ID
     const caseList = document.getElementById('caseList');
@@ -70,7 +46,6 @@ document.addEventListener('DOMContentLoaded', function() {
         bindEvents();
         bindAuthEvents();
         await checkSession();
-        await loadCurrentModel();
     }
 
 
@@ -146,18 +121,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (e) {
             setLoggedOutUI();
-        }
-    }
-
-    async function loadCurrentModel() {
-        try {
-            const res  = await fetch('/api/agent/model');
-            const data = await res.json();
-            if (data.status === 'success') {
-                document.getElementById('modelSelector').value = data.model;
-            }
-        } catch (e) {
-            console.warn('無法取得目前模型:', e);
         }
     }
 
@@ -242,18 +205,34 @@ document.addEventListener('DOMContentLoaded', function() {
     // saveCases() 保留為空操作（各操作已即時寫 DB）
     function saveCases() {}
 
-    // 供 price_rolling.js 等外部 script 呼叫，將 bot 訊息存入 DB
+    // 供外部 script 讀取當前本地案場 key（非 DB ID）
+    window.getActiveCaseId = function() { return activeCaseId; };
+
+    // 供外部 script 呼叫：將訊息存入指定案場並（若仍在該案場）顯示
+    // caseId 必須是本地 key（用 window.getActiveCaseId() 取得），省略時退回到 activeCaseId
+    window.appendMessageToCase = function(caseId, role, text, type) {
+        const targetId = caseId || activeCaseId;
+        if (!targetId || !cases[targetId]) return;
+        const msg = { role: role || 'bot', text };
+        cases[targetId].messages.push(msg);
+        // 只有目前仍在該案場才即時顯示
+        if (activeCaseId === targetId) {
+            appendMessage(msg.role, msg.text);
+        }
+        // 存 DB
+        const dbId = cases[targetId].id;
+        if (dbId) {
+            fetch(`/api/cases/${dbId}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: [{ role: msg.role, content: text }] })
+            }).catch(() => {});
+        }
+    };
+
+    // 舊介面保留相容（不指定 caseId → 用 activeCaseId）
     window.saveBotMessageToDB = function(text) {
-        if (!activeCaseId || !cases[activeCaseId]) return;
-        const msg = { role: 'bot', text };
-        cases[activeCaseId].messages.push(msg);
-        const dbId = cases[activeCaseId].id;
-        if (!dbId) return;
-        fetch(`/api/cases/${dbId}/messages`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: [{ role: 'bot', content: text }] })
-        }).catch(() => {});
+        window.appendMessageToCase(activeCaseId, 'bot', text);
     };
 
     // 初始化 Luckysheet - 優化版本
@@ -720,7 +699,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // 設置全局變量，供價金滾算等功能使用
         window.currentCase = {
-            id: caseId,
+            id: cases[caseId].id,           // DB 的數字 ID，用於後端定址
             name: cases[caseId].name,
             original_filename: cases[caseId].excelOriginalFileName || '',
             sheet_name: cases[caseId].sheetName || null
@@ -934,9 +913,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const rentAdj = 1.0;  // 預設不調整
         const loanAmount = '';  // 預設空值
 
+        // 在發送請求前先鎖定當前案場 ID，避免非同步回調時 activeCaseId 已切換
+        const senderCaseId = activeCaseId;
+
         // 獲取當前案場的 Excel 檔案資訊
-        const caseName = cases[activeCaseId].name || '';
-        const originalFilename = cases[activeCaseId].excelOriginalFileName || '';
+        const caseName = cases[senderCaseId].name || '';
+        const originalFilename = cases[senderCaseId].excelOriginalFileName || '';
 
         // 呼叫後端 Agent API
         fetch('/api/agent_chat', {
@@ -948,9 +930,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 query: text,
                 equipment_cost_adj: costAdj,
                 rent_adj: rentAdj,
-                loan_amount: loanAmount, // 將借款金額傳遞給後端
-                case_name: caseName, // 傳遞案場名稱
-                original_filename: originalFilename // 傳遞原始檔名
+                loan_amount: loanAmount,
+                case_id: cases[senderCaseId].id,
+                case_name: caseName,
+                original_filename: originalFilename
             })
         })
         .then(response => {
@@ -966,22 +949,30 @@ document.addEventListener('DOMContentLoaded', function() {
             if (loadingElement) loadingElement.remove();
 
             const botMessage = { role: 'bot', text: data.response };
-            cases[activeCaseId].messages.push(botMessage);
-            appendMessage(botMessage.role, botMessage.text);
+            // 回答永遠存到原本那個聊天室
+            if (cases[senderCaseId]) {
+                cases[senderCaseId].messages.push(botMessage);
+            }
+            // 只有使用者還停在原聊天室時才即時顯示；否則等切回去時 renderChat 會顯示
+            if (activeCaseId === senderCaseId) {
+                appendMessage(botMessage.role, botMessage.text);
+            }
 
-            // 存入 DB
-            const dbId = cases[activeCaseId].id;
-            fetch(`/api/cases/${dbId}/messages`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: [
-                    { role: 'user', content: text },
-                    { role: 'bot',  content: data.response }
-                ]})
-            }).catch(() => {});
+            // 存入 DB（用原本的案場 ID）
+            const dbId = cases[senderCaseId] && cases[senderCaseId].id;
+            if (dbId) {
+                fetch(`/api/cases/${dbId}/messages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages: [
+                        { role: 'user', content: text },
+                        { role: 'bot',  content: data.response }
+                    ]})
+                }).catch(() => {});
+            }
 
-            if (data.excel_modified && activeCaseId) {
-                reloadExcelData(activeCaseId);
+            if (data.excel_modified && cases[senderCaseId]) {
+                reloadExcelData(senderCaseId);
             }
         })
         .catch(error => {
@@ -990,8 +981,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (loadingElement) loadingElement.remove();
 
             const errorMessage = { role: 'bot', text: `發生錯誤: ${error.message}` };
-            cases[activeCaseId].messages.push(errorMessage);
-            appendMessage(errorMessage.role, errorMessage.text);
+            if (cases[senderCaseId]) {
+                cases[senderCaseId].messages.push(errorMessage);
+            }
+            if (activeCaseId === senderCaseId) {
+                appendMessage(errorMessage.role, errorMessage.text);
+            }
         });
     }
 
@@ -1004,7 +999,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const originalFileName = cases[caseId].excelOriginalFileName;
 
         // 使用 download_excel 端點取得原始二進位檔案
-        fetch(`/api/download_excel?case_name=${encodeURIComponent(caseName)}&original_filename=${encodeURIComponent(originalFileName || '')}`)
+        fetch(`/api/download_excel?case_id=${encodeURIComponent(cases[caseId].id || '')}&case_name=${encodeURIComponent(caseName)}&original_filename=${encodeURIComponent(originalFileName || '')}`)
             .then(response => {
                 if (!response.ok) {
                     if (cases[caseId]) cases[caseId].excelChecked = true;
@@ -1096,7 +1091,7 @@ document.addEventListener('DOMContentLoaded', function() {
         reader.readAsArrayBuffer(file);
     }
     // 上傳檔案到後端
-    function uploadFileToBackend(file) {
+    async function uploadFileToBackend(file) {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('case_id', activeCaseId);
@@ -1115,11 +1110,50 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             return response.json();
         })
-        .then(data => {
+        .then(async data => {
             console.log('檔案上傳成功:', data);
 
             if(data.original_filename){
                 cases[activeCaseId].excelOriginalFileName = data.original_filename;  // 儲存原始檔名
+
+                // ── 優先用 Excel B2 的案場名稱，否則 fallback 到去副檔名的檔名 ──
+                const rawName = data.original_filename;
+                const newCaseName = (data.project_name && data.project_name.trim())
+                    ? data.project_name.trim()
+                    : rawName.replace(/\.xlsx$/i, '').replace(/\.xls$/i, '').trim();
+                const oldCaseName = cases[activeCaseId].name;
+
+                if (newCaseName && newCaseName !== oldCaseName) {
+                    const dbId = cases[activeCaseId].id;
+
+                    // 更新前端 state
+                    cases[activeCaseId].name = newCaseName;
+                    if (window.currentCase && window.currentCase.id === activeCaseId) {
+                        window.currentCase.name = newCaseName;
+                    }
+
+                    // 更新 DB 案場名稱
+                    if (dbId) {
+                        fetch(`/api/cases/${dbId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: newCaseName })
+                        }).catch(() => {});
+                    }
+
+                    // 後端上傳時已直接用 project_name 重命名磁碟檔案
+                    // 前端只需更新 excelFileName 為後端回傳的 filename
+                    if (data.filename) {
+                        cases[activeCaseId].excelFileName = data.filename;
+                    }
+
+                    // 同步更新 UI（側邊欄名稱、標題）
+                    renderCaseList();
+                    const caseTitle = document.getElementById('case-title');
+                    if (caseTitle && activeCaseId === String(activeCaseId)) {
+                        caseTitle.textContent = newCaseName;
+                    }
+                }
 
                 // 同步更新 DB 案場的 excel_filename
                 const dbId = cases[activeCaseId].id;
@@ -1421,165 +1455,223 @@ document.addEventListener('DOMContentLoaded', function() {
         const container = document.getElementById('luckysheet-container');
         if (!container) return;
 
-        container.innerHTML = `
-            <div style="padding: 10px; border: 1px solid #ddd; background: #f9f9f9; border-radius: 4px; height: 100%;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h4 style="margin: 0; color: #333;">📊 Excel 內容完整顯示</h4>
-                    <div style="font-size: 12px; color: #666;">
-                        <span id="excel-info">等待載入 Excel 檔案...</span>
+        if (!data || data.length === 0) {
+            container.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;background:white;">
+                    <div style="text-align:center;color:#666;">
+                        <div style="font-size:48px;margin-bottom:20px;">📄</div>
+                        <h3 style="color:#2c3e50;margin:10px 0;">空白試算表</h3>
+                        <p style="color:#666;margin:10px 0;">請匯入 Excel 檔案開始使用</p>
                     </div>
-                </div>
-                <div id="simple-table-container" style="height: calc(100% - 60px); overflow: auto; background: white; border: 1px solid #ccc; padding: 10px;"></div>
-                <div style="margin-top: 10px; font-size: 11px; color: #666; text-align: center;">
-                    ℹ️ 完整數據模式 - 所有文字和數值都已保留，可與 LLM 討論分析
-                </div>
-            </div>
-        `;
-
-        if (data && data.length > 0) {
-            displayCompleteExcelData(data);
-        } else {
-            // 如果沒有數據，顯示提示訊息
-            const simpleTableContainer = document.getElementById('simple-table-container');
-            if (simpleTableContainer) {
-                simpleTableContainer.innerHTML = `
-                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; flex-direction: column;">
-                        <div style="text-align: center; color: #666;">
-                            <div style="font-size: 48px; margin-bottom: 20px;">📄</div>
-                            <h4 style="margin: 10px 0; color: #2c3e50;">尚未匯入 Excel 檔案</h4>
-                            <p style="margin: 10px 0;">請點擊上方「匯入 Excel」按鈕選擇檔案</p>
-                        </div>
-                    </div>
-                `;
-            }
+                </div>`;
+            return;
         }
+
+        // ── 建立分頁式 UI ────────────────────────────────────────────
+        container.innerHTML = `
+            <div style="display:flex;flex-direction:column;height:100%;background:white;border:1px solid #ddd;border-radius:4px;overflow:hidden;">
+                <div id="sheet-tab-bar" style="display:flex;align-items:flex-end;background:#f5f5f5;border-bottom:2px solid #2c7be5;overflow-x:auto;flex-shrink:0;padding:0 8px;gap:2px;min-height:36px;"></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 12px;background:#fff;border-bottom:1px solid #eee;flex-shrink:0;">
+                    <span id="excel-info" style="font-size:11px;color:#888;"></span>
+                    <span id="sheet-cell-count" style="font-size:11px;color:#888;"></span>
+                </div>
+                <div id="sheet-content-area" style="flex:1;overflow:auto;"></div>
+            </div>`;
+
+        let activeSheetIndex = 0;
+
+        function renderTabs() {
+            const bar = document.getElementById('sheet-tab-bar');
+            if (!bar) return;
+            bar.innerHTML = '';
+            data.forEach((sheet, i) => {
+                const tab = document.createElement('div');
+                tab.style.cssText = [
+                    'padding:6px 14px 5px',
+                    'cursor:pointer',
+                    'font-size:12px',
+                    'border:1px solid ' + (i === activeSheetIndex ? '#2c7be5' : '#ccc'),
+                    'border-bottom:' + (i === activeSheetIndex ? '2px solid #fff' : '1px solid #ccc'),
+                    'border-radius:4px 4px 0 0',
+                    'background:' + (i === activeSheetIndex ? '#fff' : '#eee'),
+                    'color:' + (i === activeSheetIndex ? '#2c7be5' : '#555'),
+                    'font-weight:' + (i === activeSheetIndex ? 'bold' : 'normal'),
+                    'white-space:nowrap',
+                    'user-select:none',
+                    'margin-bottom:-2px',
+                    'transition:background .15s'
+                ].join(';');
+                tab.textContent = sheet.name || ('工作表' + (i + 1));
+                tab.title = sheet.name || '';
+                tab.addEventListener('click', () => {
+                    activeSheetIndex = i;
+                    renderTabs();
+                    renderSheetContent(i);
+                });
+                tab.addEventListener('mouseenter', () => {
+                    if (i !== activeSheetIndex) tab.style.background = '#e0e0e0';
+                });
+                tab.addEventListener('mouseleave', () => {
+                    if (i !== activeSheetIndex) tab.style.background = '#eee';
+                });
+                bar.appendChild(tab);
+            });
+        }
+
+        function renderSheetContent(idx) {
+            displaySheetData(data[idx], idx);
+        }
+
+        renderTabs();
+        renderSheetContent(0);
+
+        const infoEl = document.getElementById('excel-info');
+        if (infoEl) infoEl.textContent = `共 ${data.length} 個工作表`;
     }
 
-    // 完整顯示 Excel 數據，確保所有內容都被抓取
-    function displayCompleteExcelData(sheets) {
-        const tableContainer = document.getElementById('simple-table-container');
-        const infoElement = document.getElementById('excel-info');
-        
+    // 渲染單一工作表到 #sheet-content-area，完整還原 xlsx 樣式並套用千分位格式
+    function displaySheetData(sheet, sheetIndex) {
+        const tableContainer = document.getElementById('sheet-content-area');
         if (!tableContainer) return;
-        
-        let html = '';
-        let totalCells = 0;
-        let totalSheets = sheets.length;
-        
-        sheets.forEach((sheet, sheetIndex) => {
-            const sheetCells = sheet.celldata ? sheet.celldata.length : 0;
-            totalCells += sheetCells;
-            
-            html += `
-                <div style="margin-bottom: 25px; border: 1px solid #e0e0e0; border-radius: 6px;">
-                    <div style="background: #34495e; color: white; padding: 8px 12px; border-radius: 6px 6px 0 0;">
-                        <strong>📋 ${sheet.name}</strong> 
-                        <span style="font-size: 11px; opacity: 0.8;">(${sheetCells} 個儲存格)</span>
-                    </div>
-                    <div style="padding: 15px;">
-            `;
-            
-            if (sheet.celldata && sheet.celldata.length > 0) {
-                // 建立完整的儲存格網格
-                const maxRow = Math.max(...sheet.celldata.map(cell => cell.r)) + 1;
-                const maxCol = Math.max(...sheet.celldata.map(cell => cell.c)) + 1;
-                
-                // 創建儲存格數據映射
-                const cellMap = new Map();
-                sheet.celldata.forEach(cell => {
-                    const key = `${cell.r}-${cell.c}`;
-                    cellMap.set(key, cell);
-                });
-                
-                html += `
-                    <div style="margin-bottom: 10px; font-size: 12px; color: #666;">
-                        📐 工作表大小: ${maxRow} 行 × ${maxCol} 列
-                    </div>
-                    <table style="border-collapse: collapse; width: 100%; margin-bottom: 15px; font-size: 12px;">
-                `;
-                
-                // 添加列標題 (A, B, C...)
-                html += '<tr style="background: #ecf0f1;"><th style="border: 1px solid #bdc3c7; padding: 4px 6px; min-width: 30px; font-weight: bold;"></th>';
-                for (let c = 0; c < maxCol; c++) {
-                    const colName = String.fromCharCode(65 + (c % 26));
-                    html += `<th style="border: 1px solid #bdc3c7; padding: 4px 6px; font-weight: bold; background: #ecf0f1;">${colName}</th>`;
-                }
-                html += '</tr>';
-                
-                // 顯示所有行的數據
-                for (let r = 0; r < maxRow; r++) {
-                    html += `<tr>`;
-                    // 行號
-                    html += `<td style="border: 1px solid #bdc3c7; padding: 4px 6px; background: #ecf0f1; font-weight: bold; text-align: center;">${r + 1}</td>`;
-                    
-                    for (let c = 0; c < maxCol; c++) {
-                        const key = `${r}-${c}`;
-                        const cell = cellMap.get(key);
-                        
-                        let cellValue = '';
-                        let cellStyle = 'border: 1px solid #bdc3c7; padding: 4px 8px; vertical-align: top; max-width: 200px; word-wrap: break-word;';
-                        
-                        if (cell && cell.v) {
-                            // 優先使用格式化的文字，然後是原始值
-                            cellValue = cell.v.m || cell.v.v || '';
-                            
-                            // 根據數據類型設定樣式
-                            if (cell.v.t === 'n') {
-                                cellStyle += ' text-align: right; font-family: monospace;';
-                            }
-                            
-                            // 如果是重要數據，加粗顯示
-                            if (typeof cellValue === 'string' && (
-                                cellValue.includes('%') || 
-                                cellValue.includes('$') || 
-                                cellValue.includes('總') || 
-                                cellValue.includes('合計') ||
-                                cellValue.includes('收入') ||
-                                cellValue.includes('成本') ||
-                                cellValue.includes('費用')
-                            )) {
-                                cellStyle += ' font-weight: bold; background: #fff3cd;';
-                            }
-                        }
-                        
-                        // 確保所有內容都被保留，包括空格和特殊字符
-                        const safeValue = String(cellValue)
-                            .replace(/&/g, '&amp;')
-                            .replace(/</g, '&lt;')
-                            .replace(/>/g, '&gt;')
-                            .replace(/"/g, '&quot;')
-                            .replace(/'/g, '&#39;')
-                            .replace(/\n/g, '<br>');
-                        
-                        html += `<td style="${cellStyle}" title="${safeValue}">${safeValue || '&nbsp;'}</td>`;
-                    }
-                    html += '</tr>';
-                }
-                
-                html += '</table>';
-                
-                // 顯示工作表統計信息
-                html += `
-                    <div style="background: #f8f9fa; padding: 8px; border-radius: 4px; font-size: 11px; color: #495057;">
-                        📊 統計: 共 ${sheetCells} 個有內容的儲存格，顯示範圍 A1:${String.fromCharCode(65 + maxCol - 1)}${maxRow}
-                    </div>
-                `;
-                
-            } else {
-                html += '<div style="text-align: center; color: #6c757d; padding: 20px;">📄 此工作表沒有內容</div>';
-            }
-            
-            html += '</div></div>';
-        });
-        
-        // 更新信息顯示
-        if (infoElement) {
-            infoElement.textContent = `${totalSheets} 個工作表，共 ${totalCells} 個儲存格`;
+
+        function fmtNumber(v) {
+            if (v === null || v === undefined || v === '') return '';
+            const n = Number(v);
+            if (isNaN(n)) return String(v);
+            return Math.round(n).toLocaleString('zh-TW');
         }
-        
-        tableContainer.innerHTML = html;
-        
-        console.log(`完整顯示 Excel 內容: ${totalSheets} 個工作表，${totalCells} 個儲存格`);
+
+        function isMoneyValue(v, fa) {
+            if (typeof v !== 'number') return false;
+            if (Number.isInteger(v) && v >= 1900 && v <= 2100) return false;
+            if (fa && fa.includes('%')) return false;
+            if (Math.abs(v) < 1 && !Number.isInteger(v)) return false;
+            return true;
+        }
+
+        const cells = sheet.celldata || [];
+        const merges = (sheet.config && sheet.config.merge) ? sheet.config.merge : {};
+        const colWidths = (sheet.config && sheet.config.columnlen) ? sheet.config.columnlen : {};
+        const rowHeights = (sheet.config && sheet.config.rowlen) ? sheet.config.rowlen : {};
+
+        const countEl = document.getElementById('sheet-cell-count');
+        if (countEl) countEl.textContent = `${cells.length} 個儲存格`;
+
+        if (!cells.length) {
+            tableContainer.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#aaa;font-size:13px;">此工作表沒有內容</div>';
+            return;
+        }
+
+        const maxRow = Math.max(...cells.map(c => c.r)) + 1;
+        const maxCol = Math.max(...cells.map(c => c.c)) + 1;
+
+        const cellMap = new Map();
+        cells.forEach(c => cellMap.set(`${c.r}-${c.c}`, c));
+
+        const covered = new Set();
+        Object.values(merges).forEach(m => {
+            for (let dr = 0; dr < m.rs; dr++) {
+                for (let dc = 0; dc < m.cs; dc++) {
+                    if (dr === 0 && dc === 0) continue;
+                    covered.add(`${m.r + dr}_${m.c + dc}`);
+                }
+            }
+        });
+
+        let tbl = '<div style="overflow:auto;height:100%;"><table style="border-collapse:collapse;font-size:12px;table-layout:fixed;">';
+
+        // colgroup
+        tbl += '<colgroup><col style="width:36px">';
+        for (let c = 0; c < maxCol; c++) {
+            tbl += `<col style="width:${colWidths[c] || 80}px">`;
+        }
+        tbl += '</colgroup>';
+
+        // 欄標題
+        tbl += '<thead><tr style="background:#ecf0f1;position:sticky;top:0;z-index:2;"><th style="border:1px solid #bdc3c7;padding:3px 5px;text-align:center;background:#ecf0f1;"></th>';
+        for (let c = 0; c < maxCol; c++) {
+            let colName = '';
+            let tmp = c;
+            do { colName = String.fromCharCode(65 + tmp % 26) + colName; tmp = Math.floor(tmp / 26) - 1; } while (tmp >= 0);
+            tbl += `<th style="border:1px solid #bdc3c7;padding:3px 5px;text-align:center;background:#ecf0f1;">${colName}</th>`;
+        }
+        tbl += '</tr></thead><tbody>';
+
+        for (let r = 0; r < maxRow; r++) {
+            const rh = rowHeights[r] ? `height:${rowHeights[r]}px;` : '';
+            tbl += `<tr style="${rh}"><td style="border:1px solid #bdc3c7;padding:3px 5px;background:#ecf0f1;font-weight:bold;text-align:center;min-width:36px;position:sticky;left:0;z-index:1;">${r + 1}</td>`;
+
+            for (let c = 0; c < maxCol; c++) {
+                const covKey = `${r}_${c}`;
+                if (covered.has(covKey)) continue;
+
+                const mergeInfo = merges[`${r}_${c}`];
+                const rowspan = mergeInfo ? mergeInfo.rs : 1;
+                const colspan = mergeInfo ? mergeInfo.cs : 1;
+
+                const cell = cellMap.get(`${r}-${c}`);
+                const v = cell ? cell.v : null;
+
+                let tdStyle = 'border:1px solid #bdc3c7;padding:3px 6px;overflow:hidden;vertical-align:middle;';
+                tdStyle += `max-width:${colWidths[c] || 80}px;`;
+
+                if (v) {
+                    if (v.bg) {
+                        tdStyle += `background:${v.bg};`;
+                        // 年份列補白字：值是 2000~2100 的整數（年份數字）或「年份」標籤
+                        if (!v.fc) {
+                            const _raw = v.v;
+                            const _isYearNum   = typeof _raw === 'number' && Number.isInteger(_raw) && _raw >= 2000 && _raw <= 2100;
+                            const _isYearLabel = _raw === '年份' || v.m === '年份';
+                            if (_isYearNum || _isYearLabel) tdStyle += 'color:#FFFFFF;';
+                        }
+                    }
+                    if (v.fc) tdStyle += `color:${v.fc};`;
+                    if (v.bl) tdStyle += 'font-weight:bold;';
+                    if (v.it) tdStyle += 'font-style:italic;';
+                    if (v.un) tdStyle += 'text-decoration:underline;';
+                    if (v.fs) tdStyle += `font-size:${v.fs}pt;`;
+                    if (v.ff) tdStyle += `font-family:${v.ff};`;
+                    const htMap = {1:'left',2:'center',3:'right',4:'justify'};
+                    const vtMap = {1:'top',2:'middle',3:'bottom'};
+                    if (v.ht) tdStyle += `text-align:${htMap[v.ht]||'left'};`;
+                    else if (v.ct && v.ct.t === 'n') tdStyle += 'text-align:right;';
+                    if (v.vt) tdStyle += `vertical-align:${vtMap[v.vt]||'middle'};`;
+                    tdStyle += (v.tb === 2) ? 'white-space:normal;word-break:break-all;' : 'white-space:nowrap;';
+                } else {
+                    tdStyle += 'white-space:nowrap;';
+                }
+
+                let displayVal = '';
+                if (v) {
+                    const raw = v.v;
+                    const fa = (v.ct && v.ct.fa) ? v.ct.fa : '';
+                    if (isMoneyValue(raw, fa)) {
+                        displayVal = fmtNumber(raw);
+                    } else if (raw !== null && raw !== undefined && raw !== '') {
+                        displayVal = (v.m !== undefined && v.m !== '') ? v.m : String(raw);
+                    }
+                }
+
+                const safe = String(displayVal)
+                    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+                const rsAttr = rowspan > 1 ? ` rowspan="${rowspan}"` : '';
+                const csAttr = colspan > 1 ? ` colspan="${colspan}"` : '';
+
+                tbl += `<td${rsAttr}${csAttr} style="${tdStyle}">${safe || '&nbsp;'}</td>`;
+            }
+            tbl += '</tr>';
+        }
+
+        tbl += '</tbody></table></div>';
+        tableContainer.innerHTML = tbl;
+    }
+
+    // 舊名保留，供其他地方呼叫相容
+    function displayCompleteExcelData(sheets) {
+        if (sheets && sheets.length > 0) displaySheetData(sheets[0], 0);
     }
 
     // ========== 匯入表格功能 ==========
@@ -1666,7 +1758,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="import-case-item" data-case-name="${caseData.case_name}" data-filename="${caseData.filename}">
                     <div class="import-case-header" onclick="toggleImportCase(this)">
                         <span class="import-case-toggle">▶</span>
-                        <span class="import-case-name">${caseData.case_name}</span>
+                        <span class="import-case-name">${caseData.display_name || caseData.case_name}</span>
                         <span class="import-case-type ${siteType}">${siteTypeText}</span>
                         <span class="import-sheet-count">${sheetCount} 個 Sheet</span>
                     </div>

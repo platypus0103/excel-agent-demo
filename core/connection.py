@@ -57,17 +57,25 @@ class OllamaConnection:
             完整的回應字典（包含可能的工具調用）
         """
         try:
-            response = ollama.chat(
+            # think 參數僅在支援的 ollama 版本（>=0.4.x）才傳入
+            kwargs = dict(
                 model=self.model_name,
                 messages=messages,
                 tools=tools,
-                think=think,
                 options={
                     'temperature': temperature,
                     'top_p': top_p,
                     'top_k': top_k
                 }
             )
+            if think:
+                kwargs['think'] = True
+            try:
+                response = ollama.chat(**kwargs)
+            except TypeError:
+                # 當前 ollama SDK 版本不支援 think，移除後重試
+                kwargs.pop('think', None)
+                response = ollama.chat(**kwargs)
             return response
         except Exception as e:
             raise ConnectionError(f"發送訊息失敗: {e}")

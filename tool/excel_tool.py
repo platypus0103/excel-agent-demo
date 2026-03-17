@@ -5,6 +5,7 @@ from openpyxl import load_workbook, Workbook
 from openpyxl.utils import get_column_letter, column_index_from_string
 from typing import Optional, Union, List, Tuple
 from difflib import SequenceMatcher
+from utils.recalc import recalc as _recalc
 
 class ExcelTool:
     """Excel 操作工具類"""
@@ -93,6 +94,7 @@ class ExcelTool:
                 message = f"已將 {value} 寫入儲存格 {cell}"
 
             wb.save(self.file_path)
+            _recalc(self.file_path)
             return {
                 "success": True,
                 "message": message,
@@ -179,6 +181,7 @@ class ExcelTool:
                 message = f"已清空儲存格 {cell}"
 
             wb.save(self.file_path)
+            _recalc(self.file_path)
             return {
                 "success": True,
                 "message": message,
@@ -437,6 +440,7 @@ class ExcelTool:
 
                 # 儲存檔案
                 wb.save(self.file_path)
+                _recalc(self.file_path)
 
                 return {
                     "success": True,
@@ -528,6 +532,7 @@ class ExcelTool:
 
             # 5. 儲存檔案
             wb.save(self.file_path)
+            _recalc(self.file_path)
 
             # 6. 組織回應訊息
             if year_value_map:
@@ -622,7 +627,7 @@ class ExcelTool:
                     )
                 }
 
-            wb = load_workbook(self.file_path, data_only=True)
+            wb = load_workbook(self.file_path, read_only=True)
 
             # 模糊匹配 sheet 名稱
             if sheet_name not in wb.sheetnames:

@@ -21,6 +21,57 @@ def _get_excel_dir():
     os.makedirs(d, exist_ok=True)
     return d
 
+
+def _find_excel_file(case_id='', case_name='', original_filename=''):
+    """
+    通用 Excel 檔案定址，優先順序：
+    1. case_id + original_filename  → {case_id}_{original_filename}（最精準）
+    2. case_name + original_filename → {case_name}_{original_filename}（相容舊檔）
+    3. case_id 前綴搜尋              → {case_id}_*.xlsx
+    4. case_name 前綴搜尋            → {case_name}_*.xlsx
+    5. original_filename 包含搜尋
+    6. 目錄內任意 xlsx               → 最後保底
+    """
+    excel_dir = _get_excel_dir()
+    all_files = [f for f in os.listdir(excel_dir)
+                 if f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')] if os.path.exists(excel_dir) else []
+
+    # 方法1: case_id + original_filename
+    if case_id and original_filename:
+        candidate = os.path.join(excel_dir, f"{case_id}_{original_filename}")
+        if os.path.exists(candidate):
+            return candidate
+
+    # 方法2: case_name + original_filename
+    if case_name and original_filename:
+        candidate = os.path.join(excel_dir, f"{case_name}_{original_filename}")
+        if os.path.exists(candidate):
+            return candidate
+
+    # 方法3: case_id 前綴
+    if case_id:
+        matches = [f for f in all_files if f.startswith(f"{case_id}_")]
+        if matches:
+            return os.path.join(excel_dir, matches[0])
+
+    # 方法4: case_name 前綴
+    if case_name:
+        matches = [f for f in all_files if f.startswith(f"{case_name}_")]
+        if matches:
+            return os.path.join(excel_dir, matches[0])
+
+    # 方法5: original_filename 包含搜尋
+    if original_filename:
+        matches = [f for f in all_files if original_filename in f]
+        if matches:
+            return os.path.join(excel_dir, matches[0])
+
+    # 方法6: 保底，取第一個 xlsx
+    if all_files:
+        return os.path.join(excel_dir, all_files[0])
+
+    return None
+
 try:
     from core.agent import AIAgent
     from config.settings import DEFAULT_CONFIG
@@ -52,42 +103,46 @@ def get_agent():
 
 # ========== 待確認保存的滾算結果快取 ==========
 # 用於存儲等待用戶確認是否保存的滾算結果
-# key: case_name, value: { 'mode': ..., 'params': {...}, 'excel_path': ..., 'timestamp': ... }
+# key: case_id（優先）或 case_name，value: { 'mode': ..., 'params': {...}, 'excel_path': ..., 'timestamp': ... }
 _pending_rolling_save = {}
 
 
-def _store_pending_rolling_save(case_name: str, mode: str, params: dict, excel_path: str):
+def _store_pending_rolling_save(case_name: str, mode: str, params: dict, excel_path: str, case_id: str = '', tool_result: dict = None):
     """存儲待確認保存的滾算結果"""
     from datetime import datetime
-    _pending_rolling_save[case_name] = {
+    key = case_id if case_id else case_name
+    _pending_rolling_save[key] = {
         'mode': mode,
         'params': params,
         'excel_path': excel_path,
+        'tool_result': tool_result,  # 存入前端顯示的計算結果，確認時直接使用，不重算
         'timestamp': datetime.now()
     }
-    print(f"[快取] 已存儲待確認滾算: case={case_name}, mode={mode}")
+    print(f"[快取] 已存儲待確認滾算: key={key}, mode={mode}")
 
 
-def _get_pending_rolling_save(case_name: str) -> dict:
+def _get_pending_rolling_save(case_name: str, case_id: str = '') -> dict:
     """獲取待確認保存的滾算結果"""
     from datetime import datetime
-    pending = _pending_rolling_save.get(case_name)
+    key = case_id if case_id else case_name
+    pending = _pending_rolling_save.get(key)
     if pending:
         # 檢查是否過期（5分鐘）
         elapsed = (datetime.now() - pending['timestamp']).total_seconds()
         if elapsed > 300:
-            del _pending_rolling_save[case_name]
-            print(f"[快取] 待確認滾算已過期: case={case_name}")
+            del _pending_rolling_save[key]
+            print(f"[快取] 待確認滾算已過期: key={key}")
             return None
         return pending
     return None
 
 
-def _clear_pending_rolling_save(case_name: str):
+def _clear_pending_rolling_save(case_name: str, case_id: str = ''):
     """清除待確認保存的滾算結果"""
-    if case_name in _pending_rolling_save:
-        del _pending_rolling_save[case_name]
-        print(f"[快取] 已清除待確認滾算: case={case_name}")
+    key = case_id if case_id else case_name
+    if key in _pending_rolling_save:
+        del _pending_rolling_save[key]
+        print(f"[快取] 已清除待確認滾算: key={key}")
 
 
 def _parse_edit_request_REMOVED(query: str, existing_params: dict = None) -> dict:  # 已廢棄，保留以備參考
@@ -317,6 +372,7 @@ def agent_chat():
 
     # 獲取案場資訊
     case_name = data.get('case_name', '')
+    case_id = str(data.get('case_id', ''))
     original_filename = data.get('original_filename', '')
     sheet_name = data.get('sheet_name', None)  # 工作表名稱，可選
 
@@ -325,62 +381,37 @@ def agent_chat():
 
     print(f"\n--- API 請求: 執行 Agent 對話 ---")
     print(f"收到查詢: {user_query}")
-    print(f"案場資訊: case_name={case_name}, original_filename={original_filename}, sheet_name={sheet_name}")
+    print(f"案場資訊: case_id={case_id}, case_name={case_name}, original_filename={original_filename}, sheet_name={sheet_name}")
 
     try:
         # 獲取 Agent 實例
         agent = get_agent()
 
-        # 如果有案場的 Excel 檔案資訊，設定財務工具的檔案路徑
-        if case_name and original_filename:
-            import os
-            parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            excel_filename = f"{case_name}_{original_filename}"
-            excel_path = os.path.join(_get_excel_dir(), excel_filename)
-
-            # 檢查檔案是否存在
-            if os.path.exists(excel_path):
-                agent.tool_manager.set_finance_excel_file(excel_path, sheet_name)
-                print(f"已設定財務工具 Excel 檔案: {excel_path}")
-            else:
-                print(f"警告: Excel 檔案不存在: {excel_path}")
-                # 嘗試尋找 Excel 資料夾中的任何檔案
-                excel_dir = _get_excel_dir()
-                if os.path.exists(excel_dir):
-                    excel_files = [f for f in os.listdir(excel_dir) if f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
-                    if excel_files:
-                        fallback_file = os.path.join(excel_dir, excel_files[0])
-                        agent.tool_manager.set_finance_excel_file(fallback_file, sheet_name)
-                        print(f"使用備用 Excel 檔案: {fallback_file}")
-
         import re
+
+        # 使用通用定址 helper 取得 Excel 檔案路徑
+        excel_path = _find_excel_file(case_id=case_id, case_name=case_name, original_filename=original_filename)
+        if excel_path:
+            agent.tool_manager.set_finance_excel_file(excel_path, sheet_name)
+            print(f"已設定財務工具 Excel 檔案: {excel_path}")
+        else:
+            print(f"警告: 找不到 Excel 檔案 (case_id={case_id}, case_name={case_name})")
 
         # ── 取得可用工作表清單，注入到 query，避免模型幻覺 ──
         sheet_names_prefix = ''
-        current_excel_path = None
-        if case_name and original_filename:
-            current_excel_path = os.path.join(_get_excel_dir(), f"{case_name}_{original_filename}")
-            if os.path.exists(current_excel_path):
-                try:
-                    import openpyxl
-                    wb = openpyxl.load_workbook(current_excel_path, read_only=True)
-                    sheet_names = wb.sheetnames
-                    wb.close()
-                    sheet_names_prefix = f"[目前 Excel 可用工作表: {', '.join(sheet_names)}]\n"
-                except Exception:
-                    pass
-            else:
-                # 找備用檔案
-                excel_dir = _get_excel_dir()
-                if os.path.exists(excel_dir):
-                    excel_files = [f for f in os.listdir(excel_dir)
-                                   if f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
-                    if excel_files:
-                        current_excel_path = os.path.join(excel_dir, excel_files[0])
-                        agent.tool_manager.set_finance_excel_file(current_excel_path, sheet_name)
+        current_excel_path = excel_path
+        if current_excel_path and os.path.exists(current_excel_path):
+            try:
+                import openpyxl
+                wb = openpyxl.load_workbook(current_excel_path, read_only=True)
+                sheet_names = wb.sheetnames
+                wb.close()
+                sheet_names_prefix = f"[目前 Excel 可用工作表: {', '.join(sheet_names)}]\n"
+            except Exception:
+                pass
 
         # ── 0. 待確認保存的滾算結果 ──
-        pending_rolling = _get_pending_rolling_save(case_name) if case_name else None
+        pending_rolling = _get_pending_rolling_save(case_name, case_id=case_id) if (case_name or case_id) else None
 
         if pending_rolling:
             is_confirm = re.search(r'^(是|好|要|對|確認|保存|儲存|存|yes|ok|save)$',
@@ -390,7 +421,7 @@ def agent_chat():
 
             if is_confirm:
                 print("用戶確認保存滾算結果...")
-                _clear_pending_rolling_save(case_name)
+                _clear_pending_rolling_save(case_name, case_id=case_id)
                 save_params = pending_rolling['params'].copy()
                 save_params['excel_file'] = pending_rolling.get('excel_path')
                 mode_mapping = {
@@ -399,6 +430,26 @@ def agent_chat():
                 }
                 save_params['mode'] = mode_mapping.get(
                     save_params.get('mode', ''), save_params.get('mode', '').lower())
+
+                # 將前端已計算好的 IRR 結果傳入，避免重算導致數值不一致
+                stored_tool_result = pending_rolling.get('tool_result')
+                # calculate_price_rolling 結果結構: {"results_summary": {"data": data_rows}}
+                data_rows = (stored_tool_result or {}).get('results_summary', {}).get('data')
+                if data_rows:
+                    # data_rows 欄位順序: [price_per_kw, profit_per_kw, final_price_per_kw, project_irr, cost_method_irr, equity_method_irr]
+                    save_params['precomputed_irr_results'] = [
+                        {
+                            'project_irr':       row[3],
+                            'cost_method_irr':   row[4],
+                            'equity_method_irr': row[5],
+                            'profit_per_kw':     row[1],  # 直接用前端已算好的每kw信邦利潤
+                        }
+                        for row in data_rows
+                    ]
+                    print(f"[快取] 使用預計算 IRR，共 {len(data_rows)} 筆")
+                else:
+                    print(f"[快取] 無預計算 IRR，將重新計算（stored_tool_result keys: {list((stored_tool_result or {}).keys())})")
+
                 save_result = agent.tool_manager.execute_tool("execute_price_rolling", save_params)
                 if save_result.get("success"):
                     return jsonify({"query": user_query, "response": "滾算紀錄已儲存",
@@ -410,13 +461,13 @@ def agent_chat():
 
             elif is_decline:
                 print("用戶拒絕保存滾算結果")
-                _clear_pending_rolling_save(case_name)
+                _clear_pending_rolling_save(case_name, case_id=case_id)
                 return jsonify({"query": user_query,
                                 "response": "好的，滾算結果不會儲存。您可以繼續進行其他操作。",
                                 "excel_modified": False})
             else:
                 # 其他輸入視為不保存，繼續處理新請求
-                _clear_pending_rolling_save(case_name)
+                _clear_pending_rolling_save(case_name, case_id=case_id)
 
         # ── 1. 價金滾算請求 → llm_service ──
         # 條件：明確的滾算動作關鍵字，且不包含修改/編輯意圖
@@ -521,20 +572,11 @@ def get_excel_defaults():
         tool = EquipmentCostTool()
 
         # 優先使用前端傳入的案場參數來找到對應 Excel 檔案
+        case_id = request.args.get('case_id', '')
         case_name = request.args.get('case_name', '')
         original_filename = request.args.get('original_filename', '')
-        excel_dir = _get_excel_dir()
 
-        excel_file = None
-        if case_name and original_filename:
-            full_filename = f"{case_name}_{original_filename}"
-            candidate = os.path.join(excel_dir, full_filename)
-            if os.path.exists(candidate):
-                excel_file = candidate
-
-        # 若找不到則退回自動搜尋
-        if not excel_file:
-            excel_file = tool._find_excel_file(tool.excel_folder)
+        excel_file = _find_excel_file(case_id=case_id, case_name=case_name, original_filename=original_filename)
 
         # 先設定基本預設值（備用值）
         defaults = {
@@ -612,19 +654,36 @@ def upload_excel():
             os.makedirs(excel_dir)
             print(f"創建 Excel 目錄: {excel_dir}")
 
-        # 使用前端名稱作為前綴（格式：前端名稱_原始檔名）
-        filename = f"{case_name}_{original_filename}"  # 例如：表 1_公版.xlsx
+        # 優先用 case_id 作為前綴（永久唯一，不受改名影響）
+        if case_id:
+            filename = f"{case_id}_{original_filename}"  # 例如：1_公版.xlsx
+        else:
+            filename = f"{case_name}_{original_filename}"  # fallback
         file_path = os.path.join(excel_dir, filename)
         file.save(file_path)
         print(f"Excel 檔案已儲存: {file_path}")
         print(f"檔案資訊: case_id={case_id}, case_name={case_name}, filename={filename}")
+
+        # 嘗試從 Excel B2 讀取案場名稱
+        project_name = None
+        try:
+            from openpyxl import load_workbook as _lw
+            _wb = _lw(file_path, data_only=True, read_only=True)
+            _ws = _wb.active
+            _val = _ws['B2'].value
+            if _val and str(_val).strip() and str(_val).strip() != '-':
+                project_name = str(_val).strip()
+            _wb.close()
+        except Exception:
+            pass
 
         return jsonify({
             "status": "success",
             "message": f"檔案已上傳: {original_filename}",
             "file_path": file_path,
             "filename": filename,
-            "original_filename": original_filename  # 回傳真正的原始檔名
+            "original_filename": original_filename,  # 回傳真正的原始檔名
+            "project_name": project_name  # B2 的案場名稱（可能為 None）
         })
     except Exception as e:
         import traceback
@@ -846,11 +905,14 @@ def _format_price_rolling_result(tool_result, mode):
     response_parts = []
     response_parts.append(f"## 價金滾算結果 ({mode})\n")
 
-    # 格式化 IRR 加上 %
+    # 格式化 IRR 加上 %，固定顯示兩位小數
     def format_irr(val):
         if val is None or val == 'N/A':
             return 'N/A'
-        return f"{val}%"
+        try:
+            return f"{float(val):.2f}%"
+        except (TypeError, ValueError):
+            return f"{val}%"
 
     # 檢查是 execute_price_rolling 還是 calculate_price_rolling 的結果
     if "result" in tool_result:
@@ -957,6 +1019,7 @@ def calculate_price_rolling():
 
     # 獲取案場資訊
     case_name = data.get('case_name', '')
+    case_id = str(data.get('case_id', ''))
     original_filename = data.get('original_filename', '')
     sheet_name = data.get('sheet_name', None)
 
@@ -967,39 +1030,18 @@ def calculate_price_rolling():
     print(f"\n--- API 請求: 價金滾算 (直接調用工具) ---")
     print(f"模式: {mode}")
     print(f"參數: equipment_cost={equipment_cost}, profit_rate={profit_rate}, development_fee={development_fee}, boundary={boundary}")
-    print(f"案場資訊: case_name={case_name}, original_filename={original_filename}")
+    print(f"案場資訊: case_id={case_id}, case_name={case_name}, original_filename={original_filename}")
 
     try:
         # 獲取 Agent 實例
         agent = get_agent()
 
-        # 設定財務工具的 Excel 檔案
-        current_excel_path = None
-        excel_dir = _get_excel_dir()
-
-        if case_name and original_filename:
-            # 方法1: 使用完整的 case_name + original_filename
-            excel_filename = f"{case_name}_{original_filename}"
-            current_excel_path = os.path.join(excel_dir, excel_filename)
-
-            if not os.path.exists(current_excel_path):
-                print(f"警告: Excel 檔案不存在: {current_excel_path}")
-                current_excel_path = None
-
-        # 方法2: 只有 case_name，搜尋以 case_name 開頭的檔案
-        if not current_excel_path and case_name and os.path.exists(excel_dir):
-            excel_files = [f for f in os.listdir(excel_dir)
-                          if f.startswith(f"{case_name}_") and f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
-            if excel_files:
-                current_excel_path = os.path.join(excel_dir, excel_files[0])
-                print(f"根據案場名稱找到 Excel 檔案: {current_excel_path}")
-
-        # 方法3: 備用 - 使用目錄中的第一個 Excel 檔案
-        if not current_excel_path and os.path.exists(excel_dir):
-            excel_files = [f for f in os.listdir(excel_dir) if f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
-            if excel_files:
-                current_excel_path = os.path.join(excel_dir, excel_files[0])
-                print(f"使用備用 Excel 檔案: {current_excel_path}")
+        # 設定財務工具的 Excel 檔案（使用通用定址 helper）
+        current_excel_path = _find_excel_file(case_id=case_id, case_name=case_name, original_filename=original_filename)
+        if current_excel_path:
+            print(f"已找到 Excel 檔案: {current_excel_path}")
+        else:
+            print(f"警告: 找不到 Excel 檔案 (case_id={case_id}, case_name={case_name})")
 
         # 設定工具的 Excel 檔案
         if current_excel_path:
@@ -1096,8 +1138,8 @@ def calculate_price_rolling():
             _store_rolling_cache(current_excel_path, backend_mode, tool_args)
 
             # 儲存待確認保存的滾算結果，等待使用者決定是否寫回 Excel
-            if case_name:
-                _store_pending_rolling_save(case_name, backend_mode, tool_args, current_excel_path)
+            if case_name or case_id:
+                _store_pending_rolling_save(case_name, backend_mode, tool_args, current_excel_path, case_id=case_id, tool_result=tool_result)
 
             agent_response = _format_price_rolling_result(tool_result, mode)
 
@@ -1242,41 +1284,17 @@ def download_excel():
     """
     try:
         # 獲取案場資訊
+        case_id = request.args.get('case_id', '')
         case_name = request.args.get('case_name', '')
         original_filename = request.args.get('original_filename', '')
 
-        if not case_name:
-            return jsonify({
-                "status": "error",
-                "error": "缺少必要參數：case_name"
-            }), 400
+        print(f"[下載請求] case_id={case_id}, 案場: {case_name}, 檔案: {original_filename}")
 
-        excel_dir = _get_excel_dir()
-        excel_path = None
-        excel_filename = None
-
-        print(f"[下載請求] 案場: {case_name}, 檔案: {original_filename}")
-
-        # 方法1: 使用完整的 case_name + original_filename
-        if original_filename:
-            excel_filename = f"{case_name}_{original_filename}"
-            excel_path = os.path.join(excel_dir, excel_filename)
-            if not os.path.exists(excel_path):
-                print(f"[下載] 完整路徑不存在: {excel_path}")
-                excel_path = None
-
-        # 方法2: 搜尋以 case_name 開頭的檔案
-        if not excel_path and os.path.exists(excel_dir):
-            excel_files = [f for f in os.listdir(excel_dir)
-                          if f.startswith(f"{case_name}_") and f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
-            if excel_files:
-                excel_filename = excel_files[0]
-                excel_path = os.path.join(excel_dir, excel_filename)
-                print(f"[下載] 根據案場名稱找到: {excel_path}")
+        excel_path = _find_excel_file(case_id=case_id, case_name=case_name, original_filename=original_filename)
 
         # 檢查是否找到檔案
         if not excel_path or not os.path.exists(excel_path):
-            print(f"[下載錯誤] 找不到任何符合的檔案，case_name={case_name}")
+            print(f"[下載錯誤] 找不到任何符合的檔案，case_id={case_id}, case_name={case_name}")
             return jsonify({
                 "status": "error",
                 "error": f"找不到案場「{case_name}」的 Excel 檔案"
@@ -1288,7 +1306,7 @@ def download_excel():
         return send_file(
             excel_path,
             as_attachment=True,
-            download_name=excel_filename,
+            download_name=os.path.basename(excel_path),
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
 
@@ -1399,30 +1417,42 @@ def list_case_sheets():
             file_path = os.path.join(excel_dir, filename)
 
             try:
-                # 解析檔名，格式為 {case_name}_{original_filename}
-                # 例如：表 1_公版.xlsx
+                # 檔名格式為 {case_id}_{original_filename}，case_id 是數字前綴
                 parts = filename.rsplit('_', 1)
                 if len(parts) == 2:
-                    case_name = parts[0]
+                    case_name = parts[0]       # 數字 ID（用於路由）
                     original_filename = parts[1]
                 else:
                     case_name = filename.rsplit('.', 1)[0]
                     original_filename = filename
 
-                # 讀取 Excel 檔案的所有 sheet 名稱
-                workbook = openpyxl.load_workbook(file_path, read_only=True)
+                # 讀取 Excel 檔案的所有 sheet 名稱，順便讀 B2 取得真正的案場名稱
+                workbook = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
                 sheet_names = workbook.sheetnames
+                # 嘗試從第一個工作表的 B2 讀案場名稱
+                display_name = None
+                try:
+                    _first_ws = workbook[sheet_names[0]] if sheet_names else workbook.active
+                    _b2 = _first_ws['B2'].value if _first_ws else None
+                    if _b2 and str(_b2).strip() and str(_b2).strip() != '-':
+                        display_name = str(_b2).strip()
+                except Exception:
+                    pass
                 workbook.close()
+
+                if not display_name:
+                    display_name = original_filename.rsplit('.', 1)[0]  # 去副檔名
 
                 cases_data.append({
                     "case_name": case_name,
+                    "display_name": display_name,
                     "filename": filename,
                     "original_filename": original_filename,
                     "sheets": sheet_names,
                     "site_type": "single"  # 預設為單站，前端會根據 localStorage 更新
                 })
 
-                print(f"[list_case_sheets] {case_name}: {len(sheet_names)} sheets")
+                print(f"[list_case_sheets] {display_name} ({case_name}): {len(sheet_names)} sheets")
 
             except Exception as e:
                 print(f"[list_case_sheets] 讀取 {filename} 失敗: {e}")
@@ -1504,12 +1534,17 @@ def create_aggregation_sheet(target_wb, cases_info):
 
     # 建立（或清空重用）彙整總表
     SHEET_NAME = "多站彙整"
+    from openpyxl.styles import DEFAULT_FONT
+    _no_fill  = PatternFill(fill_type=None)
+    _def_font = Font()
     if SHEET_NAME in target_wb.sheetnames:
-        # 清空原有內容，保留工作表位置（通常在第一頁）
+        # 清空原有內容「值＋樣式」，避免舊顏色殘留到新位置
         agg_ws = target_wb[SHEET_NAME]
         for row in agg_ws.iter_rows():
             for cell in row:
                 cell.value = None
+                cell.fill  = _no_fill
+                cell.font  = _def_font
     else:
         agg_ws = target_wb.create_sheet(title=SHEET_NAME, index=0)
 
@@ -1527,13 +1562,17 @@ def create_aggregation_sheet(target_wb, cases_info):
         source_row  = item["row"]
         total_color = ITEM_TOTAL_COLORS.get(item_name, "FFFFFF")
 
-        # 項目名稱列
-        agg_ws.cell(row=current_row, column=3, value=item_name)
-        # 第一個項目不重複年份（row 4 已有），後續項目在同列補上年份數字並上色
+        # 每個項目上方都有一排獨立的年份列（深藍底 + 白字）
+        # item_idx == 0 已有 row 4 作為全域年份列，不重複插入
         if item_idx > 0:
+            agg_ws.cell(row=current_row, column=3, value="年份")
             for i, year in enumerate(year_axis):
                 agg_ws.cell(row=current_row, column=4 + i, value=year)
             fill_row(agg_ws, current_row, 3, last_col, YEAR_ROW_COLOR, font_color="FFFFFF")
+            current_row += 1
+
+        # 項目名稱列（無背景色）
+        agg_ws.cell(row=current_row, column=3, value=item_name)
         current_row += 1
 
         case_start_row = current_row
@@ -1552,8 +1591,9 @@ def create_aggregation_sheet(target_wb, cases_info):
                     src_col        = 4 + (year - case_start)
                     src_col_letter = get_column_letter(src_col)
                     safe_name      = sheet_name.replace("'", "''")
-                    agg_ws.cell(row=current_row, column=4 + i,
-                                value=f"=ABS('{safe_name}'!{src_col_letter}{source_row})")
+                    c = agg_ws.cell(row=current_row, column=4 + i,
+                                    value=f"=ROUND(ABS('{safe_name}'!{src_col_letter}{source_row}),0)")
+                    c.number_format = '#,##0'
                 # else: 留空
 
             current_row += 1
@@ -1565,8 +1605,9 @@ def create_aggregation_sheet(target_wb, cases_info):
         for i in range(n_years):
             col        = 4 + i
             col_letter = get_column_letter(col)
-            agg_ws.cell(row=current_row, column=col,
-                        value=f"=SUM({col_letter}{case_start_row}:{col_letter}{case_end_row})")
+            c = agg_ws.cell(row=current_row, column=col,
+                            value=f"=SUM({col_letter}{case_start_row}:{col_letter}{case_end_row})")
+            c.number_format = '#,##0'
         fill_row(agg_ws, current_row, 3, last_col, total_color)
         item_total_rows[item_name] = current_row  # 記錄此項目年總計列號
         current_row += 1
@@ -2253,6 +2294,14 @@ def import_sheets():
         # 儲存目標檔案
         target_wb.save(target_path)
         target_wb.close()
+
+        # 用 LibreOffice 重算公式（否則公式欄位顯示 0）
+        try:
+            from utils.recalc import recalc as _recalc
+            recalc_result = _recalc(target_path, timeout=90)
+            print(f"[import_sheets] LibreOffice recalc: {recalc_result}")
+        except Exception as _e:
+            print(f"[import_sheets] recalc 失敗（略過）: {_e}")
 
         print(f"[import_sheets] 完成，共匯入 {imported_count} 個 sheets")
 
