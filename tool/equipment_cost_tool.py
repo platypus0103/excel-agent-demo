@@ -1042,13 +1042,20 @@ class EquipmentCostTool:
             cost_structure_adjusted = cost_service.equipment_cost_calculation(adjustment_record)
             profit_record = cost_service.get_profit(adjustment_record)
             
-            # 5. 計算IRR（若有預計算結果則直接使用，避免重算導致數值不一致）
+            # 5. 計算IRR（含 cash_flow_details，供填入現金流量表各列）
+            # 無論是否有預計算結果，都必須執行完整計算以取得 cash_flow_details
+            print("正在計算IRR（含金流明細）...")
+            irr_results = self._calculate_irr_for_prices(excel_file, adjustment_record, profit_rate, development_fee, sheet_name)
+
+            # 若有預計算 IRR，用其數值覆蓋（保持與前端顯示一致），但保留 cash_flow_details
             if precomputed_irr_results and len(precomputed_irr_results) == len(adjustment_record):
-                print(f"使用預計算 IRR 結果，共 {len(precomputed_irr_results)} 筆")
-                irr_results = precomputed_irr_results
-            else:
-                print("正在計算IRR...")
-                irr_results = self._calculate_irr_for_prices(excel_file, adjustment_record, profit_rate, development_fee, sheet_name)
+                print(f"套用預計算 IRR 數值，共 {len(precomputed_irr_results)} 筆")
+                for i, precomputed in enumerate(precomputed_irr_results):
+                    irr_results[i]['project_irr']     = precomputed.get('project_irr',     irr_results[i].get('project_irr'))
+                    irr_results[i]['cost_method_irr'] = precomputed.get('cost_method_irr', irr_results[i].get('cost_method_irr'))
+                    irr_results[i]['equity_method_irr'] = precomputed.get('equity_method_irr', irr_results[i].get('equity_method_irr'))
+                    if precomputed.get('profit_per_kw') is not None:
+                        irr_results[i]['profit_per_kw'] = precomputed['profit_per_kw']
 
             # 檢查是否有 IRR 計算失敗
             for irr_data in irr_results:
