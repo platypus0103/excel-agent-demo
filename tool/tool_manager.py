@@ -2,7 +2,7 @@
 import json
 from typing import Dict, List, Callable, Any, Optional
 from tool.excel_tool import ExcelTool, EXCEL_TOOLS_SCHEMA
-from tool.finance_tool import FinanceTool, FINANCE_TOOLS_SCHEMA
+from tool.finance_tool import FinanceTool
 from tool.price_rolling_tool import PriceRollingTool, PRICE_ROLLING_TOOLS_SCHEMA
 from tool.equipment_cost_tool import EquipmentCostTool, EQUIPMENT_COST_TOOLS_SCHEMA
 
@@ -52,36 +52,14 @@ class ToolManager:
             function=self.excel_tool.read_sheet_by_field,
             schema=EXCEL_TOOLS_SCHEMA[5]
         )
+        self.register_tool(
+            name="query_financial_data",
+            function=self.excel_tool.query_financial_data,
+            schema=EXCEL_TOOLS_SCHEMA[6]
+        )
 
-        # 創建財務工具實例
+        # 財務工具實例（保留供內部呼叫使用，不再對 AI 暴露舊工具）
         self.finance_tool = FinanceTool()
-
-        # 註冊財務相關工具
-        self.register_tool(
-            name="calculate_irr",
-            function=self.finance_tool.calculate_irr,
-            schema=FINANCE_TOOLS_SCHEMA[0]
-        )
-        self.register_tool(
-            name="get_cash_flow",
-            function=self.finance_tool.get_cash_flow,
-            schema=FINANCE_TOOLS_SCHEMA[1]
-        )
-        self.register_tool(
-            name="get_net_profit",
-            function=self.finance_tool.get_net_profit,
-            schema=FINANCE_TOOLS_SCHEMA[2]
-        )
-        self.register_tool(
-            name="get_year_detail",
-            function=self.finance_tool.get_year_detail,
-            schema=FINANCE_TOOLS_SCHEMA[3]
-        )
-        self.register_tool(
-            name="get_project_summary",
-            function=self.finance_tool.get_project_summary,
-            schema=FINANCE_TOOLS_SCHEMA[4]
-        )
 
         # 創建價金滾算工具實例
         self.price_rolling_tool = PriceRollingTool()

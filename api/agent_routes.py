@@ -145,6 +145,127 @@ def _clear_pending_rolling_save(case_name: str, case_id: str = ''):
         print(f"[快取] 已清除待確認滾算: key={key}")
 
 
+# ========== 待確認修改快取 ==========
+_pending_modification = {}
+
+# 欄位名稱 → section_type 推斷對應表
+_FIELD_SECTION_MAP = {
+    '綜合損益表': ['保險費', '租金', '運維費', '回收費', '維運費', '管理費', '電費', '折舊', '利息',
+                   '稅', '收入', '費用', '修繕', '雜支', '人事', '水費'],
+    '公版':       ['設備費用', '開發費', '建置費', '容量', '利潤率', '裝置容量', '每kw', '價金'],
+    '現金流量表': ['現金流', '借款', '還款', '貸款', '融資', '資本'],
+}
+
+
+def _infer_section_type(field_keyword: str) -> str:
+    """根據欄位名稱推斷 section_type"""
+    if not field_keyword:
+        return None
+    for section, keywords in _FIELD_SECTION_MAP.items():
+        for kw in keywords:
+            if kw in field_keyword or field_keyword in kw:
+                return section
+    return None
+
+
+def _parse_modification(query: str, current_sheet: str = None) -> dict:
+    """從 query 解析修改參數，回傳 dict（參數不足時部分欄位為 None）"""
+    import re
+    result = {
+        'sheet_name': current_sheet,
+        'field_keyword': None,
+        'year_spec': '全部',
+        'new_value': None,
+        'section_type': None,
+        'year_value_map': None,
+    }
+
+    # 工作表名稱（p1/p2/p3 或其他格式）
+    sheet_m = re.search(r'\b(p\d+)\b', query, re.IGNORECASE)
+    if sheet_m:
+        result['sheet_name'] = sheet_m.group(1)
+
+    # 區域
+    if re.search(r'公版', query):
+        result['section_type'] = '公版'
+    elif re.search(r'綜合損益表|損益表', query):
+        result['section_type'] = '綜合損益表'
+    elif re.search(r'現金流量表|流量表', query):
+        result['section_type'] = '現金流量表'
+
+    # 多年份-數值對
+    yv_matches = re.findall(r'(\d{4})\s*(?:改[為成]|設[為成]|→|->)\s*(-?\d+(?:\.\d+)?)', query)
+    if len(yv_matches) >= 2:
+        result['year_value_map'] = {int(y): float(v) for y, v in yv_matches}
+        result['year_spec'] = 'multiple'
+    else:
+        # 年份範圍或單年
+        yr = re.search(r'(\d{4})\s*[~～\-到至]\s*(\d{4})', query)
+        if yr:
+            result['year_spec'] = f"{yr.group(1)}~{yr.group(2)}"
+        else:
+            sy = re.search(r'(\d{4})\s*年', query)
+            if sy:
+                result['year_spec'] = sy.group(1)
+            elif re.search(r'全部|所有|全年', query):
+                result['year_spec'] = '全部'
+
+        # 數值
+        vm = re.search(r'(?:改成|改為|設為|設成|變成|變為|→|->)\s*(-?\d+(?:\.\d+)?)', query)
+        if vm:
+            result['new_value'] = float(vm.group(1))
+        else:
+            # 末尾獨立數字
+            vm2 = re.search(r'(?<!\d)(-?\d{4,})(?!\d)', query)
+            if vm2:
+                candidate = float(vm2.group(1))
+                # 排除年份（1900~2100）
+                if not (1900 <= candidate <= 2100):
+                    result['new_value'] = candidate
+
+    # 欄位關鍵字：移除干擾詞後取最長詞
+    fq = query
+    for pattern in [r'\bp\d+\b', r'公版|綜合損益表|損益表|現金流量表|流量表',
+                    r'\d{4}\s*[~～\-到至]\s*\d{4}', r'\d{4}\s*年?',
+                    r'(?:改成|改為|設為|設成|變成|變為|→|->)\s*-?\d+(?:\.\d+)?',
+                    r'我想|想要|想|要|幫我|請|修改|更改|把|的|將|中|裡|內|改|成|為|變|設定|可以|能|麻煩']:
+        fq = re.sub(pattern, ' ', fq, flags=re.IGNORECASE)
+    words = [w.strip() for w in re.split(r'[\s，。、！？]+', fq) if len(w.strip()) >= 2]
+    if words:
+        result['field_keyword'] = max(words, key=len)
+
+    # 推斷 section_type
+    if not result['section_type'] and result['field_keyword']:
+        result['section_type'] = _infer_section_type(result['field_keyword'])
+
+    return result
+
+
+def _set_pending_modification(case_id: str, case_name: str, params: dict):
+    from datetime import datetime
+    key = case_id if case_id else case_name
+    _pending_modification[key] = {**params, 'timestamp': datetime.now()}
+    print(f"[修改快取] 已存入: key={key}, params={params}")
+
+
+def _get_pending_modification(case_id: str, case_name: str) -> dict:
+    from datetime import datetime
+    key = case_id if case_id else case_name
+    pending = _pending_modification.get(key)
+    if pending:
+        if (datetime.now() - pending['timestamp']).total_seconds() > 300:
+            del _pending_modification[key]
+            return None
+        return pending
+    return None
+
+
+def _clear_pending_modification(case_id: str, case_name: str):
+    key = case_id if case_id else case_name
+    _pending_modification.pop(key, None)
+    print(f"[修改快取] 已清除: key={key}")
+
+
 def _parse_edit_request_REMOVED(query: str, existing_params: dict = None) -> dict:  # 已廢棄，保留以備參考
     """
     解析修改工作表的請求，提取參數
@@ -447,6 +568,17 @@ def agent_chat():
                         for row in data_rows
                     ]
                     print(f"[快取] 使用預計算 IRR，共 {len(data_rows)} 筆")
+
+                    # CustomizeMode：從預計算價格反推實際 steps，避免儲存時重新隨機生成
+                    # 問題根源：execute_price_rolling 的參數是 adjustment_times（預設10），
+                    # 而 save_params 帶的是 adjust_times，導致重算出 11 筆且數字錯誤
+                    if save_params.get('mode') == 'customize':
+                        prices = [row[0] for row in data_rows]
+                        computed_steps = [prices[i] - prices[i + 1] for i in range(len(prices) - 1)]
+                        save_params['custom_steps'] = computed_steps
+                        save_params['auto_config'] = False
+                        save_params['adjustment_times'] = len(computed_steps)
+                        print(f"[CustomizeMode] 反推 steps：{computed_steps}")
                 else:
                     print(f"[快取] 無預計算 IRR，將重新計算（stored_tool_result keys: {list((stored_tool_result or {}).keys())})")
 
@@ -468,6 +600,38 @@ def agent_chat():
             else:
                 # 其他輸入視為不保存，繼續處理新請求
                 _clear_pending_rolling_save(case_name, case_id=case_id)
+
+        # ── 0b. 待確認修改快取 ──
+        pending_mod = _get_pending_modification(case_id, case_name)
+        if pending_mod:
+            is_confirm = re.search(r'^(是|好|要|對|y|yes|確認|ok)$', user_query.strip(), re.IGNORECASE)
+            is_decline = re.search(r'^(否|不|不要|取消|n|no|cancel)$', user_query.strip(), re.IGNORECASE)
+
+            if is_confirm:
+                _clear_pending_modification(case_id, case_name)
+                exec_params = {k: v for k, v in pending_mod.items() if k != 'timestamp'}
+                exec_result = agent.tool_manager.execute_tool("edit_sheet_by_field", exec_params)
+                if exec_result.get("success"):
+                    msg = f"調整已完成，請查收。\n（{exec_result.get('message', '')}）"
+                    return jsonify({"query": user_query, "response": msg, "excel_modified": True})
+                else:
+                    return jsonify({"query": user_query,
+                                    "response": f"修改失敗：{exec_result.get('message', '未知錯誤')}",
+                                    "excel_modified": False})
+
+            elif is_decline:
+                _clear_pending_modification(case_id, case_name)
+                clarify_query = (
+                    f"{sheet_names_prefix}"
+                    f"[使用者拒絕了修改確認，請詢問他想調整哪些地方。格式：請告訴我哪裡需要調整（分頁/區域/項目/金額/年份）]\n"
+                    f"{user_query}"
+                )
+                agent_response = agent.chat(clarify_query)
+                return jsonify({"query": user_query, "response": agent_response, "excel_modified": False})
+
+            else:
+                # 非確認/拒絕輸入 → 清除快取，視為新請求繼續往下處理
+                _clear_pending_modification(case_id, case_name)
 
         # ── 1. 價金滾算請求 → llm_service ──
         # 條件：明確的滾算動作關鍵字，且不包含修改/編輯意圖
@@ -491,11 +655,37 @@ def agent_chat():
         # ── 2. 所有其他請求（含 IRR 查詢、修改 Excel）→ LLM function calling ──
         else:
             print("交由 LLM function calling 處理...")
-            enhanced_query = f"{sheet_names_prefix}{user_query}"
-            agent_response = agent.chat(enhanced_query)
-            excel_tools = ['write_excel_cell', 'delete_excel_cell', 'read_excel_cell',
-                           'edit_sheet_by_field']
-            excel_modified = any(tool in agent.last_used_tools for tool in excel_tools)
+            _is_modify = re.search(r'修改|更改|改成|設定|把.+改|調整|變更', user_query)
+
+            if _is_modify and not _is_rolling_action:
+                # 路由層解析修改參數，存入快取，LLM 只負責呈現 Double Check
+                parsed = _parse_modification(user_query, current_sheet=sheet_name)
+                _set_pending_modification(case_id, case_name, parsed)
+
+                # 組成參數摘要注入給 LLM，讓它格式化成確認訊息
+                year_desc = (
+                    "、".join([f"{y}年={v}" for y, v in sorted(parsed['year_value_map'].items())])
+                    if parsed.get('year_value_map')
+                    else parsed.get('year_spec', '全部')
+                )
+                inject = (
+                    f"[系統已解析出以下修改參數，請用繁體中文呈現 Double Check 確認訊息，禁止呼叫任何工具：\n"
+                    f"分頁={parsed.get('sheet_name') or '未指定'}, "
+                    f"區域={parsed.get('section_type') or '未推斷出'}, "
+                    f"項目={parsed.get('field_keyword') or '未指定'}, "
+                    f"改為={parsed.get('new_value') if parsed.get('year_value_map') is None else '見年份對應'}, "
+                    f"年份={year_desc}]\n"
+                )
+                enhanced_query = f"{sheet_names_prefix}{inject}{user_query}"
+                agent_response = agent.chat(enhanced_query)
+                excel_modified = False
+            else:
+                current_sheet_info = f"[使用者目前觀看的工作表：{sheet_name}]\n" if sheet_name else ""
+                enhanced_query = f"{sheet_names_prefix}{current_sheet_info}{user_query}"
+                agent_response = agent.chat(enhanced_query)
+                excel_tools = ['write_excel_cell', 'delete_excel_cell', 'read_excel_cell',
+                               'edit_sheet_by_field']
+                excel_modified = any(tool in agent.last_used_tools for tool in excel_tools)
 
         print(f"Agent 回應成功 (Excel modified: {excel_modified})")
         return jsonify({
@@ -508,7 +698,7 @@ def agent_chat():
         import traceback
         print(f"AI Agent 處理錯誤: {e}")
         print(traceback.format_exc())
-        return jsonify({"error": f"Agent 處理請求時發生錯誤: {str(e)}"}), 500
+        return jsonify({"error": "系統處理時發生問題，請稍後再試。"}), 500
 
 AVAILABLE_MODELS = ['qwen3:4b', 'qwen3:14b', 'qwen3:32b']
 

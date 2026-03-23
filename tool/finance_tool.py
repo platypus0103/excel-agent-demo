@@ -80,7 +80,8 @@ class FinanceTool:
                         val = c_cell.value if c_cell else None
                         if val is not None:
                             try:
-                                found[key] = round(float(val), 2)
+                                # 值以小數儲存（0.0272 = 2.72%），乘以100轉為百分比數字，與 _round_irr 一致
+                                found[key] = round(float(val) * 100, 2)
                             except (ValueError, TypeError):
                                 pass
 
@@ -507,14 +508,23 @@ class FinanceTool:
             # 優先：從工作表 B/C 欄直接讀取預算 IRR（適用於滾算紀錄等已計算工作表）
             direct = self._read_irr_from_sheet(target_sheet) if target_sheet else None
             if direct:
+                p = direct["project_irr"]
+                c = direct["cost_method_irr"]
+                e = direct["equity_method_irr"]
                 return {
                     "success": True,
-                    "message": f"IRR 讀取完成 (工作表: {target_sheet})",
+                    "message": (
+                        f"IRR 讀取完成 (工作表: {target_sheet})。"
+                        f"專案法IRR: {p}%、成本法IRR: {c}%、權益法IRR: {e}%"
+                    ),
                     "data": {
                         "sheet_name": target_sheet,
-                        "project_irr": direct["project_irr"],
-                        "cost_method_irr": direct["cost_method_irr"],
-                        "equity_method_irr": direct["equity_method_irr"],
+                        "project_irr": p,
+                        "project_irr_pct": f"{p}%",
+                        "cost_method_irr": c,
+                        "cost_method_irr_pct": f"{c}%",
+                        "equity_method_irr": e,
+                        "equity_method_irr_pct": f"{e}%",
                     }
                 }
 
@@ -525,15 +535,24 @@ class FinanceTool:
 
             self._calculate_all()
 
+            _p = self._round_irr(self.data['project_irr'])
+            _c = self._round_irr(self.data['cost_method_irr'])
+            _e = self._round_irr(self.data['equity_method_irr'])
             result = {
                 "success": True,
-                "message": f"IRR 計算完成 (工作表: {self.sheet_name})",
+                "message": (
+                    f"IRR 計算完成 (工作表: {self.sheet_name})。"
+                    f"專案法IRR: {_p}%、成本法IRR: {_c}%、權益法IRR: {_e}%"
+                ),
                 "data": {
                     "project_name": self.data['project_name'],
                     "sheet_name": self.sheet_name,
-                    "project_irr": self._round_irr(self.data['project_irr']),
-                    "cost_method_irr": self._round_irr(self.data['cost_method_irr']),
-                    "equity_method_irr": self._round_irr(self.data['equity_method_irr']),
+                    "project_irr": _p,
+                    "project_irr_pct": f"{_p}%",
+                    "cost_method_irr": _c,
+                    "cost_method_irr_pct": f"{_c}%",
+                    "equity_method_irr": _e,
+                    "equity_method_irr_pct": f"{_e}%",
                     "raw_equipment_cost": self._round_decimal(self.data['raw_equipment_cost']),
                     "profit_rate": float(self.data['profit_rate'])
                 }
@@ -612,9 +631,10 @@ class FinanceTool:
 
             return result
         except Exception as e:
+            print(f"[get_cash_flow 錯誤] {str(e)}")
             return {
                 "success": False,
-                "message": f"獲取現金流失敗: {str(e)}"
+                "message": "查詢失敗，請確認工作表或年份是否正確。"
             }
 
     def get_net_profit(self, year: Optional[int] = None, sheet_name: str = None) -> Dict:
@@ -678,9 +698,10 @@ class FinanceTool:
 
             return result
         except Exception as e:
+            print(f"[get_net_profit 錯誤] {str(e)}")
             return {
                 "success": False,
-                "message": f"獲取稅後淨利失敗: {str(e)}"
+                "message": "查詢失敗，請確認工作表或年份是否正確。"
             }
 
     def get_year_detail(self, year: int, sheet_name: str = None) -> Dict:
@@ -736,9 +757,10 @@ class FinanceTool:
 
             return result
         except Exception as e:
+            print(f"[get_year_detail 錯誤] {str(e)}")
             return {
                 "success": False,
-                "message": f"獲取年度詳細資料失敗: {str(e)}"
+                "message": "查詢失敗，請確認工作表或年份是否正確。"
             }
 
     def get_project_summary(self, sheet_name: str = None) -> Dict:
@@ -760,9 +782,15 @@ class FinanceTool:
 
             self._calculate_all()
 
+            _p = self._round_irr(self.data['project_irr'])
+            _c = self._round_irr(self.data['cost_method_irr'])
+            _e = self._round_irr(self.data['equity_method_irr'])
             result = {
                 "success": True,
-                "message": f"專案摘要 (工作表: {self.sheet_name})",
+                "message": (
+                    f"專案摘要 (工作表: {self.sheet_name})。"
+                    f"專案法IRR: {_p}%、成本法IRR: {_c}%、權益法IRR: {_e}%"
+                ),
                 "data": {
                     "project_name": self.data['project_name'],
                     "sheet_name": self.sheet_name,
@@ -772,9 +800,12 @@ class FinanceTool:
                     "total_equipment_cost": self._round_decimal(self.data['total_equipment_cost']),
                     "loan_amount": self._round_decimal(self.data['loan_amount']),
                     "pay_back": self._round_decimal(self.data['pay_back']),
-                    "project_irr": self._round_irr(self.data['project_irr']),
-                    "cost_method_irr": self._round_irr(self.data['cost_method_irr']),
-                    "equity_method_irr": self._round_irr(self.data['equity_method_irr']),
+                    "project_irr": _p,
+                    "project_irr_pct": f"{_p}%",
+                    "cost_method_irr": _c,
+                    "cost_method_irr_pct": f"{_c}%",
+                    "equity_method_irr": _e,
+                    "equity_method_irr_pct": f"{_e}%",
                     "total_cash_flow": self._round_decimal(sum(self.data['cash_flows'])),
                     "raw_equipment_cost": self._round_decimal(self.data['raw_equipment_cost']),
                     "profit_rate": float(self.data['profit_rate'])
@@ -788,9 +819,10 @@ class FinanceTool:
 
             return result
         except Exception as e:
+            print(f"[get_project_summary 錯誤] {str(e)}")
             return {
                 "success": False,
-                "message": f"獲取專案摘要失敗: {str(e)}"
+                "message": "查詢失敗，請確認工作表或年份是否正確。"
             }
 
 

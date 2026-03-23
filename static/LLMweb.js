@@ -891,12 +891,30 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!text || !activeCaseId) return;
 
 
-        // 顯示使用者訊息
+        // 顯示使用者訊息（含停止按鈕）
         const userMessage = { role: 'user', text: text };
         cases[activeCaseId].messages.push(userMessage);
-        appendMessage(userMessage.role, userMessage.text);
+
+        const abortController = new AbortController();
+        const userMsgDiv = document.createElement('div');
+        userMsgDiv.className = 'message user';
+
+        const stopBtn = document.createElement('button');
+        stopBtn.className = 'stop-btn';
+        stopBtn.title = '停止回答';
+        stopBtn.textContent = '⏹';
+        stopBtn.onclick = () => abortController.abort();
+
+        const textSpan = document.createElement('span');
+        textSpan.textContent = text;
+
+        userMsgDiv.appendChild(stopBtn);
+        userMsgDiv.appendChild(textSpan);
+        chatMessages.appendChild(userMsgDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
         userInput.value = '';
-        userInput.placeholder = '輸入訊息...'; // 重置提示
+        userInput.placeholder = '輸入訊息...';
         saveCases();
 
         // 顯示 "思考中..." 提示
@@ -926,6 +944,7 @@ document.addEventListener('DOMContentLoaded', function() {
             headers: {
                 'Content-Type': 'application/json'
             },
+            signal: abortController.signal,
             body: JSON.stringify({
                 query: text,
                 equipment_cost_adj: costAdj,
@@ -933,7 +952,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 loan_amount: loanAmount,
                 case_id: cases[senderCaseId].id,
                 case_name: caseName,
-                original_filename: originalFilename
+                original_filename: originalFilename,
+                sheet_name: cases[senderCaseId].sheetName || null
             })
         })
         .then(response => {
@@ -945,6 +965,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return response.json();
         })
         .then(data => {
+            stopBtn.remove();
             const loadingElement = document.getElementById(loadingId);
             if (loadingElement) loadingElement.remove();
 
@@ -976,11 +997,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .catch(error => {
-            console.error('錯誤:', error);
+            stopBtn.remove();
             const loadingElement = document.getElementById(loadingId);
             if (loadingElement) loadingElement.remove();
 
-            const errorMessage = { role: 'bot', text: `發生錯誤: ${error.message}` };
+            // 使用者主動停止 → 安靜清理，不顯示錯誤
+            if (error.name === 'AbortError') {
+                return;
+            }
+
+            console.error('錯誤:', error);
+            const errorMessage = { role: 'bot', text: '系統發生問題，請稍後再試。如持續發生請聯繫管理員。' };
             if (cases[senderCaseId]) {
                 cases[senderCaseId].messages.push(errorMessage);
             }
@@ -1519,6 +1546,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         function renderSheetContent(idx) {
+            // 同步更新案場目前觀看的分頁名稱，讓 AI 知道使用者在看哪個分頁
+            if (cases[activeCaseId] && data[idx]) {
+                cases[activeCaseId].sheetName = data[idx].name || null;
+            }
             displaySheetData(data[idx], idx);
         }
 

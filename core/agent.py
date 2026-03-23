@@ -72,65 +72,67 @@ class AIAgent:
 
     def _handle_response(self, response: dict, messages: list) -> str:
         """
-        處理 AI 回應，包括工具調用
-
-        Args:
-            response: AI 的原始回應
-            messages: 當前的對話歷史
-
-        Returns:
-            最終的文字回應
+        處理 AI 回應，支援多輪工具調用。
+        最多執行 5 輪，防止無限迴圈。
         """
-        message = response.get('message', {})
-
-        # 檢查是否有工具調用
-        tool_calls = message.get('tool_calls')
-
-        if not tool_calls:
-            # 沒有工具調用，直接返回文字回應（移除思考過程標籤）
-            return self._strip_thinking(message.get('content', ''))
-
-        # 有工具調用，執行工具
-        print("\n🔧 AI 正在使用工具...")
-
-        for tool_call in tool_calls:
-            function_name = tool_call['function']['name']
-            arguments = tool_call['function']['arguments']
-
-            print(f"   調用工具: {function_name}")
-            print(f"   參數: {json.dumps(arguments, ensure_ascii=False)}")
-
-            # 執行工具
-            tool_result = self.tool_manager.execute_tool(function_name, arguments)
-            print(f"   結果: {tool_result.get('message', '執行完成')}\n")
-
-            # 追蹤使用的工具
-            self.last_used_tools.append(function_name)
-
-            # 將工具調用和結果加入對話歷史
-            messages.append({
-                'role': 'assistant',
-                'content': '',
-                'tool_calls': [tool_call]
-            })
-
-            messages.append({
-                'role': 'tool',
-                'content': json.dumps(tool_result, ensure_ascii=False)
-            })
-
-        # 將工具結果發送給 AI，獲取最終回應
         tools = self.tool_manager.get_tools_schema()
-        final_response = self.connection.send_message_with_tools(
-            messages=messages,
-            tools=tools,
-            temperature=self.config.temperature,
-            top_p=self.config.top_p,
-            top_k=self.config.top_k,
-            think=self.config.thinking_mode
-        )
+        max_rounds = 5
 
-        return self._strip_thinking(final_response.get('message', {}).get('content', ''))
+        for _ in range(max_rounds):
+            message = response.get('message', {})
+            tool_calls = message.get('tool_calls')
+
+            if not tool_calls:
+                # 沒有工具調用，取得文字內容
+                content = self._strip_thinking(message.get('content', ''))
+                if content:
+                    # 偵測模型把 tool call 輸出成純文字 JSON 的情況
+                    import re
+                    if re.search(r'"name"\s*:\s*"\w+".*"arguments"', content, re.DOTALL):
+                        print("[Agent] 偵測到模型輸出原始 JSON，攔截")
+                        return '系統暫時無法處理此請求，請換個方式重新提問。'
+                    return content
+                # 內容為空：給使用者一個 fallback 提示
+                print("[Agent] 最終回應為空，可能模型未生成內容")
+                return '查詢已完成，請確認結果是否正確。'
+
+            # 有工具調用，逐一執行
+            print("\n🔧 AI 正在使用工具...")
+            for tool_call in tool_calls:
+                function_name = tool_call['function']['name']
+                arguments = tool_call['function']['arguments']
+
+                print(f"   調用工具: {function_name}")
+                print(f"   參數: {json.dumps(arguments, ensure_ascii=False)}")
+
+                tool_result = self.tool_manager.execute_tool(function_name, arguments)
+                print(f"   結果: {tool_result.get('message', '執行完成')}\n")
+
+                self.last_used_tools.append(function_name)
+
+                messages.append({
+                    'role': 'assistant',
+                    'content': '',
+                    'tool_calls': [tool_call]
+                })
+                messages.append({
+                    'role': 'tool',
+                    'content': json.dumps(tool_result, ensure_ascii=False)
+                })
+
+            # 把工具結果送回給 AI，繼續下一輪
+            response = self.connection.send_message_with_tools(
+                messages=messages,
+                tools=tools,
+                temperature=self.config.temperature,
+                top_p=self.config.top_p,
+                top_k=self.config.top_k,
+                think=self.config.thinking_mode
+            )
+
+        # 超過最大輪次
+        print("[Agent] 工具調用超過最大輪次")
+        return '處理時間過長，請簡化查詢後再試。'
     
     def show_conversation(self):
         self.conversation.print_conversation()

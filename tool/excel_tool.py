@@ -438,7 +438,10 @@ class ExcelTool:
                     "new_value": final_value
                 })
 
-                # 儲存檔案
+                # 備註寫入（同一 wb，不另外 open/save）
+                self._write_remark_to_wb(wb, sheet_name, field_keyword, final_value)
+
+                # 儲存一次，recalc 一次
                 wb.save(self.file_path)
                 _recalc(self.file_path)
 
@@ -530,22 +533,23 @@ class ExcelTool:
                         "new_value": final_value
                     })
 
-            # 5. 儲存檔案
-            wb.save(self.file_path)
-            _recalc(self.file_path)
-
             # 6. 組織回應訊息
             if year_value_map:
-                # 多年份模式的訊息
                 years_values_str = ", ".join([f"{y}年={v}" for y, v in sorted(year_value_map.items())])
                 message = f"已修改「{sheet_name}」的「{matched_field}」，共 {len(modified_cells)} 個儲存格\n設定值：{years_values_str}"
-                # 取最後一個值來判斷類型（或可以用修改的值）
                 sample_value = list(year_value_map.values())[0]
-                final_value_for_return = sample_value  # 回傳第一個值作為代表
+                final_value_for_return = sample_value
             else:
                 years_str = f"{min(years_to_modify)}~{max(years_to_modify)}" if len(years_to_modify) > 1 else str(years_to_modify[0])
                 message = f"已修改「{sheet_name}」的「{matched_field}」，年份 {years_str}，共 {len(modified_cells)} 個儲存格，新值：{final_value}"
                 final_value_for_return = final_value
+
+            # 備註寫入（同一 wb，save 前寫入，避免多次 save 清除公式快取）
+            self._write_remark_to_wb(wb, sheet_name, field_keyword, final_value_for_return)
+
+            # 5. 儲存一次，recalc 一次
+            wb.save(self.file_path)
+            _recalc(self.file_path)
 
             return {
                 "success": True,
@@ -569,6 +573,47 @@ class ExcelTool:
                 "message": f"修改失敗: {str(e)}",
                 "traceback": traceback.format_exc()
             }
+
+    # ========== 備註追加 ==========
+
+    def _write_remark_to_wb(self, wb, sheet_name: str, field_keyword: str, new_value):
+        """若修改的是 pN 分頁，在已開啟的 wb 中追加備註到「滾算紀錄單(總紀錄)」。
+        不自行 open/save，由呼叫端統一存檔，避免多次 save 清除公式快取。"""
+        import re
+        from datetime import datetime
+
+        m = re.match(r'^p(\d+)$', sheet_name, re.IGNORECASE)
+        if not m:
+            return
+
+        record_number = int(m.group(1))
+
+        try:
+            if "滾算紀錄單(總紀錄)" not in wb.sheetnames:
+                return
+
+            summary = wb["滾算紀錄單(總紀錄)"]
+
+            target_row = None
+            for row in range(2, summary.max_row + 1):
+                if summary.cell(row=row, column=1).value == record_number:
+                    target_row = row
+                    break
+
+            if target_row is None:
+                return
+
+            now = datetime.now()
+            note = f"{now.month}/{now.day}，使用者將{field_keyword}調整為{new_value}"
+
+            current = summary.cell(row=target_row, column=10).value
+            summary.cell(row=target_row, column=10).value = (
+                f"{current}\n{note}" if current else note
+            )
+            print(f"[備註] 已寫入 滾算紀錄單(總紀錄) 第 {target_row} 列：{note}")
+
+        except Exception as e:
+            print(f"[備註] 寫入備註時發生錯誤: {str(e)}")
 
     # ========== 查詢功能 ==========
 
@@ -594,40 +639,45 @@ class ExcelTool:
                 "message": f"讀取工作表清單失敗: {str(e)}"
             }
 
+    def _format_query_value(self, value, field_keyword: str):
+        """格式化查詢值：IRR 類保留兩位小數並轉百分比，其他四捨五入到整數"""
+        if value is None:
+            return None
+        if not isinstance(value, (int, float)):
+            return value
+        fk_lower = field_keyword.lower()
+        is_irr = 'irr' in fk_lower
+        v = float(value)
+        if is_irr:
+            # 若以小數儲存（如 0.0272）則轉為百分比（2.72）
+            if abs(v) < 1:
+                v = v * 100
+            return round(v, 2)
+        return round(v)
+
     def read_sheet_by_field(
         self,
         sheet_name: str,
         field_keyword: str,
-        section_type: str,
-        year_spec: str = None
+        section_type: str = None,
+        year: str = None
     ) -> dict:
         """
-        根據欄位名稱查詢工作表數值，邏輯與 edit_by_field_and_year 相同但為讀取。
+        全表動態掃描，根據欄位名稱查詢數值。
+        - 掃描整個 B 欄找欄位標籤（模糊匹配），不限定固定行範圍
+        - 往上搜尋最近的年份行，動態確定年份對應欄位
+        - 若找不到年份行，視為單一值欄位，讀 C 欄（D 欄備用）
+        - section_type 保留參數但忽略（向下相容）
 
         Args:
             sheet_name: 工作表名稱
             field_keyword: B 欄標頭關鍵字，支援模糊匹配
-            section_type: 區域類型，"公版" / "綜合損益表" / "現金流量表"
+            section_type: 忽略（向下相容保留）
             year_spec: 年份規格（選填）。不填 = 回傳全部年份；
-                       填 "2025" = 只回傳該年；填 "2020~2025" = 回傳範圍
-
-        Returns:
-            操作結果字典
+                       「2025」= 只回傳該年；「2020~2025」= 回傳範圍
         """
         try:
-            if section_type is None:
-                return {
-                    "success": False,
-                    "need_clarification": True,
-                    "message": (
-                        "請指定要查詢的區域：\n"
-                        "- 「公版」（第1-36行）\n"
-                        "- 「綜合損益表」（第37-64行）\n"
-                        "- 「現金流量表」（第86-115行）"
-                    )
-                }
-
-            wb = load_workbook(self.file_path, read_only=True)
+            wb = load_workbook(self.file_path, data_only=True)
 
             # 模糊匹配 sheet 名稱
             if sheet_name not in wb.sheetnames:
@@ -637,129 +687,136 @@ class ExcelTool:
                         matched_sheet = name
                         break
                 if not matched_sheet:
+                    wb.close()
                     return {
                         "success": False,
                         "message": f"找不到工作表「{sheet_name}」",
-                        "available_sheets": wb.sheetnames
+                        "available_sheets": list(wb.sheetnames)
                     }
                 sheet_name = matched_sheet
 
             ws = wb[sheet_name]
 
-            # 根據 section_type 決定搜索範圍和年份行（與 edit_by_field_and_year 相同）
-            if section_type == "公版":
-                row_start, row_end = 1, 36
-            elif section_type == "綜合損益表":
-                row_start, row_end = 37, 64
-                year_row = 37
-            elif section_type == "現金流量表":
-                row_start, row_end = 86, 115
-                year_row = 87
-            else:
-                row_start, row_end = 1, ws.max_row
-                year_row = 37
-
-            # 掃描 B 欄找欄位候選清單
+            # 掃描整個 B 欄建立候選清單
             field_candidates = []
-            for row in range(row_start, min(row_end + 1, ws.max_row + 1)):
-                cell_value = ws.cell(row=row, column=2).value  # B 欄
-                if cell_value and isinstance(cell_value, str):
-                    field_candidates.append((row, cell_value))
+            for row in range(1, ws.max_row + 1):
+                cell_value = ws.cell(row=row, column=2).value
+                if cell_value and isinstance(cell_value, str) and cell_value.strip():
+                    field_candidates.append((row, cell_value.strip()))
 
             if not field_candidates:
+                wb.close()
                 return {
                     "success": False,
-                    "message": f"在工作表「{sheet_name}」的 B 欄（{section_type}區域，第{row_start}-{row_end}行）中找不到任何欄位名稱"
+                    "message": f"在工作表「{sheet_name}」中找不到任何欄位標籤"
                 }
 
             # 模糊匹配欄位
             match_result = self._fuzzy_match(field_keyword, field_candidates)
             if not match_result:
-                field_names = [f[1] for f in field_candidates]
+                wb.close()
                 return {
                     "success": False,
-                    "message": f"在「{section_type}」區域找不到與「{field_keyword}」匹配的欄位",
-                    "available_fields": field_names[:20]
+                    "message": f"找不到與「{field_keyword}」匹配的欄位",
+                    "available_fields": [f[1] for f in field_candidates[:20]]
                 }
 
             field_row, matched_field, similarity = match_result
 
-            # 公版：單一值在 D 欄
-            if section_type == "公版":
-                value = ws.cell(row=field_row, column=4).value  # D 欄
+            # 往上搜尋最近的年份行（含 3 個以上年份值的行）
+            year_columns = {}
+            for r in range(field_row - 1, max(0, field_row - 50), -1):
+                cols = {}
+                for col in range(3, min(ws.max_column + 1, 70)):
+                    val = ws.cell(row=r, column=col).value
+                    if val is not None:
+                        try:
+                            y = int(float(str(val)))
+                            if 1900 < y < 2100:
+                                cols[y] = col
+                        except (ValueError, TypeError):
+                            pass
+                if len(cols) >= 3:
+                    year_columns = cols
+                    break
+
+            if year_columns:
+                # 有年份行：逐年讀取
+                available_years = sorted(year_columns.keys())
+                if year:
+                    years_to_read = self._parse_year_spec(year, available_years)
+                    if not years_to_read:
+                        wb.close()
+                        return {
+                            "success": False,
+                            "message": f"年份「{year}」不存在，可用年份：{available_years[0]}~{available_years[-1]}"
+                        }
+                else:
+                    years_to_read = available_years
+
+                result_values = {}
+                for yr in years_to_read:
+                    col = year_columns[yr]
+                    raw = ws.cell(row=field_row, column=col).value
+                    result_values[yr] = self._format_query_value(raw, matched_field)
+
+                # 年份欄位全為 null → 視為單一值欄位，改讀 C 欄
+                if all(v is None for v in result_values.values()):
+                    value = ws.cell(row=field_row, column=3).value
+                    if value is None:
+                        value = ws.cell(row=field_row, column=4).value
+                    wb.close()
+                    return {
+                        "success": True,
+                        "sheet_name": sheet_name,
+                        "matched_field": matched_field,
+                        "value": self._format_query_value(value, matched_field)
+                    }
+
                 wb.close()
                 return {
                     "success": True,
-                    "message": f"已查詢「{sheet_name}」公版的「{matched_field}」",
                     "sheet_name": sheet_name,
                     "matched_field": matched_field,
-                    "field_keyword": field_keyword,
-                    "similarity_score": round(similarity, 2),
-                    "section_type": "公版",
-                    "value": value
+                    "years_queried": years_to_read,
+                    "values": result_values
                 }
-
-            # 綜合損益表 / 現金流量表：依年份讀取
-            year_columns = {}
-            for col in range(4, ws.max_column + 1):  # D 欄起
-                cell_value = ws.cell(row=year_row, column=col).value
-                if cell_value is not None:
-                    try:
-                        year = int(cell_value)
-                        if 1900 < year < 2100:
-                            year_columns[year] = col
-                    except (ValueError, TypeError):
-                        continue
-
-            if not year_columns:
+            else:
+                # 無年份行：單一值，先讀 C 欄，空則讀 D 欄
+                value = ws.cell(row=field_row, column=3).value
+                if value is None:
+                    value = ws.cell(row=field_row, column=4).value
                 wb.close()
                 return {
-                    "success": False,
-                    "message": f"在工作表「{sheet_name}」的第 {year_row} 行找不到年份資料"
+                    "success": True,
+                    "sheet_name": sheet_name,
+                    "matched_field": matched_field,
+                    "value": self._format_query_value(value, matched_field)
                 }
 
-            available_years = sorted(year_columns.keys())
-
-            # 決定要查哪些年份
-            if year_spec:
-                years_to_read = self._parse_year_spec(year_spec, available_years)
-                if not years_to_read:
-                    wb.close()
-                    return {
-                        "success": False,
-                        "message": f"無法解析年份規格「{year_spec}」或指定的年份不存在",
-                        "available_years": available_years
-                    }
-            else:
-                years_to_read = available_years  # 不指定年份則回傳全部
-
-            # 讀取各年份的值
-            result_values = {}
-            for year in years_to_read:
-                col = year_columns[year]
-                result_values[year] = ws.cell(row=field_row, column=col).value
-
-            wb.close()
-
-            return {
-                "success": True,
-                "message": f"已查詢「{sheet_name}」{section_type}的「{matched_field}」",
-                "sheet_name": sheet_name,
-                "matched_field": matched_field,
-                "field_keyword": field_keyword,
-                "similarity_score": round(similarity, 2),
-                "section_type": section_type,
-                "years_queried": years_to_read,
-                "values": result_values
-            }
-
         except Exception as e:
-            import traceback
+            print(f"[read_sheet_by_field 錯誤] {str(e)}")
             return {
                 "success": False,
-                "message": f"查詢失敗: {str(e)}",
-                "traceback": traceback.format_exc()
+                "message": "查詢失敗，請確認工作表是否正確。"
             }
+
+    def query_financial_data(
+        self,
+        sheet_name: str,
+        field_keyword: str,
+        year: str = None
+    ) -> dict:
+        """
+        查詢工作表財務數據。全表動態掃描，無需指定區域。
+        直接委派給 read_sheet_by_field。
+
+        Args:
+            sheet_name: 工作表名稱，如「p1」、「工作表1」
+            field_keyword: 欄位關鍵字，如「IRR」、「現金流」、「保險費」、「稅後淨利」
+            year: （選填）年份規格。不填 = 全部年份；「2025」= 單年；「2020~2025」= 範圍
+        """
+        return self.read_sheet_by_field(sheet_name, field_keyword, year=year)
 
 
 # 定義工具的 schema（用於 function calling）
@@ -873,7 +930,7 @@ EXCEL_TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "read_sheet_by_field",
-            "description": "根據欄位名稱查詢工作表中的數值。支援模糊匹配欄位名稱。【區域限定】「公版」=1-36行（D欄單一值），「綜合損益表」=37-64行（D欄起依年份），「現金流量表」=86-115行（D欄起依年份）。不指定年份時回傳全部年份。",
+            "description": "根據欄位名稱查詢工作表中的數值。全表動態掃描，無需指定區域。支援模糊匹配。",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -885,17 +942,48 @@ EXCEL_TOOLS_SCHEMA = [
                         "type": "string",
                         "description": "欄位關鍵字，對應 B 欄的標頭文字，如「專案法IRR」、「現金流」、「租金」。支援模糊匹配"
                     },
-                    "section_type": {
+                    "year": {
                         "type": "string",
-                        "enum": ["公版", "綜合損益表", "現金流量表"],
-                        "description": "【必填】查詢區域：「公版」→ 1-36行；「綜合損益表」→ 37-64行；「現金流量表」→ 86-115行"
-                    },
-                    "year_spec": {
-                        "type": "string",
-                        "description": "（選填）年份規格。不填 = 回傳全部年份；「2025」= 只回傳該年；「2020~2025」= 回傳範圍。公版不需填此參數"
+                        "description": "（選填）年份規格。不填 = 回傳全部年份；「2025」= 只回傳該年；「2020~2025」= 回傳範圍"
                     }
                 },
-                "required": ["sheet_name", "field_keyword", "section_type"]
+                "required": ["sheet_name", "field_keyword"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "query_financial_data",
+            "description": (
+                "查詢工作表中的財務數據，自動判斷對應區域，無需指定 section_type。"
+                "適用於查詢 IRR、現金流、稅後淨利、保險費、租金等任意欄位。"
+                "支援所有工作表（工作表1、p1、p2 等）。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sheet_name": {
+                        "type": "string",
+                        "description": "工作表名稱，如「p1」、「p3」、「工作表1」"
+                    },
+                    "field_keyword": {
+                        "type": "string",
+                        "description": (
+                            "欄位關鍵字，支援模糊匹配。例如：「IRR」、「專案法IRR」、"
+                            "「現金流」、「稅後淨利」、「保險費」、「租金」、「運維費」"
+                        )
+                    },
+                    "year": {
+                        "type": "string",
+                        "description": (
+                            "（選填）年份規格。不填 = 回傳全部年份；"
+                            "「2025」= 只回傳該年；「2020~2025」= 回傳範圍。"
+                            "IRR 等單一值欄位不需填"
+                        )
+                    }
+                },
+                "required": ["sheet_name", "field_keyword"]
             }
         }
     }

@@ -169,13 +169,14 @@ class EquipmentCostTool:
 
     def _get_next_record_number(self, wb) -> int:
         """取得下一個可用的滾算紀錄編號（統一編號系統）"""
+        import re
         existing_numbers = []
         for sheet_name in wb.sheetnames:
-            # 檢查「滾算紀錄X」格式（不包含「滾算紀錄單」）
-            if sheet_name.startswith("滾算紀錄") and not sheet_name.startswith("滾算紀錄單"):
-                number_part = sheet_name.replace("滾算紀錄", "")
+            # 檢查「pN」格式，如 p1, p2, p3
+            m = re.match(r'^p(\d+)$', sheet_name, re.IGNORECASE)
+            if m:
                 try:
-                    existing_numbers.append(int(number_part))
+                    existing_numbers.append(int(m.group(1)))
                 except ValueError:
                     pass
 
@@ -338,7 +339,7 @@ class EquipmentCostTool:
 
                 # === 3. 在右側空白區域填入滾算摘要 ===
                 summary_col = 13  # 列M
-                new_sheet.cell(row=4, column=summary_col, value=f"滾算紀錄編號: {record_number}")
+                new_sheet.cell(row=4, column=summary_col, value=f"情境編號: {record_number}")
 
                 if rolling_idx == 0:
                     new_sheet.cell(row=5, column=summary_col, value="初始價金摘要")
@@ -558,7 +559,7 @@ class EquipmentCostTool:
         try:
             # 獲取下一個滾算紀錄編號（使用統一的編號方法）
             base_record_number = self._get_next_record_number(wb)
-            sheet_name = f"滾算紀錄{base_record_number}"
+            sheet_name = f"p{base_record_number}"
 
             # 創建或獲取工作表
             if sheet_name not in wb.sheetnames:
@@ -836,7 +837,7 @@ class EquipmentCostTool:
                         sheet.cell(row=current_row, column=10, value=remark)            # 備註
 
                         # === 創建對應編號的滾算紀錄工作表 ===
-                        new_sheet_name = f"滾算紀錄{record_number}"
+                        new_sheet_name = f"p{record_number}"
                         new_sheet = None
                         template_copied = False
 
@@ -1109,7 +1110,7 @@ EQUIPMENT_COST_TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "execute_price_rolling",
-            "description": "【完整流程】執行設備成本價金滾算，包含完整流程：1) 從指定的Excel檔案讀取數據, 2) 執行價金滾算計算, 3) 計算每個價金的 IRR, 4) 將結果直接寫入原Excel檔案（新增工作表）。此工具會在原Excel檔案中累積滾算記錄，每次執行會新增「滾算紀錄X」和「開始滾算紀錄X」等工作表。如只需要計算分析不寫入檔案，請使用 calculate_price_rolling 工具。",
+            "description": "【完整流程】執行設備成本價金滾算，包含完整流程：1) 從指定的Excel檔案讀取數據, 2) 執行價金滾算計算, 3) 計算每個價金的 IRR, 4) 將結果直接寫入原Excel檔案（新增工作表）。此工具會在原Excel檔案中累積滾算記錄，每次執行會新增「pX」（如 p1、p2）等工作表。如只需要計算分析不寫入檔案，請使用 calculate_price_rolling 工具。",
             "parameters": {
                 "type": "object",
                 "properties": {

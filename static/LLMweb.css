@@ -367,6 +367,25 @@ body, html {
     color: white;
     margin-left: auto;
     text-align: right;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.stop-btn {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.55);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 0;
+    line-height: 1;
+    margin-top: 2px;
+    transition: color 0.15s;
+}
+.stop-btn:hover {
+    color: #fff;
 }
 
 .message.bot,
