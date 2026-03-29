@@ -661,6 +661,10 @@ class ExcelTool:
                 print(f"[備註] 驗證讀回 row={target_row} col={remark_col}: {verified!r}")
             wb2.close()
 
+            # 備註 save 後重新用 LibreOffice 計算，恢復公式快取（data_only 讀取才不會是 null）
+            print(f"[備註] 備註寫入後重新 recalc，恢復公式快取")
+            _recalc(self.file_path)
+
         except Exception as e:
             import traceback
             print(f"[備註] 寫入失敗: {e}")
@@ -889,11 +893,15 @@ class ExcelTool:
                     raw = ws.cell(row=field_row, column=col).value
                     result_values[yr] = self._format_query_value(raw, matched_field)
 
-                # 年份欄位全為 null → 視為單一值欄位，改讀 C 欄
+                # 年份欄位全為 null → 視為單一值欄位，掃描整列找非空值
                 if all(v is None for v in result_values.values()):
-                    value = ws.cell(row=field_row, column=3).value
-                    if value is None:
-                        value = ws.cell(row=field_row, column=4).value
+                    value = None
+                    scan_max = max(ws.max_column or 1, 20)
+                    for col in range(3, scan_max + 1):
+                        v = ws.cell(row=field_row, column=col).value
+                        if v is not None:
+                            value = v
+                            break
                     wb.close()
                     return {
                         "success": True,
@@ -911,10 +919,14 @@ class ExcelTool:
                     "values": result_values
                 }
             else:
-                # 無年份行：單一值，先讀 C 欄，空則讀 D 欄
-                value = ws.cell(row=field_row, column=3).value
-                if value is None:
-                    value = ws.cell(row=field_row, column=4).value
+                # 無年份行：單一值，掃描整列找非空值
+                value = None
+                scan_max = max(ws.max_column or 1, 20)
+                for col in range(3, scan_max + 1):
+                    v = ws.cell(row=field_row, column=col).value
+                    if v is not None:
+                        value = v
+                        break
                 wb.close()
                 return {
                     "success": True,
