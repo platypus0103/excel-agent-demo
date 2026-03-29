@@ -523,6 +523,36 @@ body, html {
     background-color: #2980b9;
 }
 
+/* 思考中（停止）按鈕 */
+.chat-input button.thinking {
+    background: transparent;
+    color: #888;
+    font-size: 22px;
+    padding: 6px;
+    min-width: 40px;
+    width: 40px;
+    height: 40px;
+    position: relative;
+    overflow: visible;
+}
+.chat-input button.thinking:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+.chat-input button.thinking::after {
+    content: '';
+    position: absolute;
+    top: -2px; right: -2px; bottom: -2px; left: -2px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    border-top-color: #888;
+    border-right-color: #888;
+    animation: btn-spin 0.7s linear infinite;
+    pointer-events: none;
+}
+@keyframes btn-spin {
+    to { transform: rotate(360deg); }
+}
+
 /* 動畫效果 */
 @keyframes fadeIn {
     from {

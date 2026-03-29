@@ -57,6 +57,11 @@ class ToolManager:
             function=self.excel_tool.query_financial_data,
             schema=EXCEL_TOOLS_SCHEMA[6]
         )
+        self.register_tool(
+            name="compare_irr_across_sheets",
+            function=self.excel_tool.compare_irr_across_sheets,
+            schema=EXCEL_TOOLS_SCHEMA[7]
+        )
 
         # 財務工具實例（保留供內部呼叫使用，不再對 AI 暴露舊工具）
         self.finance_tool = FinanceTool()

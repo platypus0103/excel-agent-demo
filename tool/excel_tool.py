@@ -438,12 +438,10 @@ class ExcelTool:
                     "new_value": final_value
                 })
 
-                # 備註寫入（同一 wb，不另外 open/save）
-                self._write_remark_to_wb(wb, sheet_name, field_keyword, final_value)
-
-                # 儲存一次，recalc 一次
+                # 先存檔、recalc，再寫備註（避免 LibreOffice store() 覆蓋備註）
                 wb.save(self.file_path)
                 _recalc(self.file_path)
+                self._write_remark_to_file(sheet_name, field_keyword, final_value)
 
                 return {
                     "success": True,
@@ -544,12 +542,10 @@ class ExcelTool:
                 message = f"已修改「{sheet_name}」的「{matched_field}」，年份 {years_str}，共 {len(modified_cells)} 個儲存格，新值：{final_value}"
                 final_value_for_return = final_value
 
-            # 備註寫入（同一 wb，save 前寫入，避免多次 save 清除公式快取）
-            self._write_remark_to_wb(wb, sheet_name, field_keyword, final_value_for_return)
-
-            # 5. 儲存一次，recalc 一次
+            # 先存檔、recalc，再寫備註（避免 LibreOffice store() 覆蓋備註）
             wb.save(self.file_path)
             _recalc(self.file_path)
+            self._write_remark_to_file(sheet_name, field_keyword, final_value_for_return)
 
             return {
                 "success": True,
@@ -576,6 +572,100 @@ class ExcelTool:
 
     # ========== 備註追加 ==========
 
+    def _write_remark_to_file(self, sheet_name: str, field_keyword: str, new_value):
+        """recalc 結束後，獨立 load/save 寫備註，確保不被 LibreOffice store() 覆蓋。
+        內建驗證：save 後讀回確認實際寫入。"""
+        import re
+        from datetime import datetime
+        from openpyxl.styles import Alignment
+
+        m = re.match(r'^p(\d+)$', sheet_name, re.IGNORECASE)
+        if not m:
+            print(f"[備註] {sheet_name} 不是 pN 格式，略過")
+            return
+        record_number = int(m.group(1))
+        print(f"[備註] 開始寫入 record={record_number}, file={self.file_path}")
+
+        try:
+            wb = load_workbook(self.file_path)
+            print(f"[備註] 載入成功，工作表清單: {wb.sheetnames}")
+
+            # 找總紀錄工作表
+            ws = None
+            for sn in wb.sheetnames:
+                if sn == "滾算紀錄單(總紀錄)" or sn == "滾算紀錄單（總紀錄）" or ("總紀錄" in sn and "滾算" in sn):
+                    ws = wb[sn]
+                    print(f"[備註] 找到工作表: {sn}")
+                    break
+            if ws is None:
+                print(f"[備註] 找不到總紀錄工作表，放棄")
+                wb.close()
+                return
+
+            # 找備註欄（掃到第 25 欄保底）
+            remark_col = None
+            for col in range(1, 26):
+                h = ws.cell(row=1, column=col).value
+                if h and "備註" in str(h):
+                    remark_col = col
+                    break
+            if remark_col is None:
+                remark_col = 10
+                print(f"[備註] 未找到備註標題，使用預設 col={remark_col}")
+            else:
+                print(f"[備註] 備註欄在 col={remark_col}")
+
+            # 找目標列（col A 搜尋，掃 max_row+5 防止 openpyxl 低估）
+            target_row = None
+            scan_end = (ws.max_row or 1) + 5
+            for row in range(2, scan_end + 1):
+                cv = ws.cell(row=row, column=1).value
+                if cv is None:
+                    continue
+                try:
+                    if int(float(str(cv))) == record_number:
+                        target_row = row
+                        break
+                except (ValueError, TypeError):
+                    pass
+            if target_row is None:
+                print(f"[備註] 找不到 record={record_number}，col A 前幾列值：")
+                for r in range(2, min(scan_end + 1, 15)):
+                    print(f"  row{r}: {ws.cell(row=r, column=1).value!r}")
+                wb.close()
+                return
+
+            # 組備註文字並寫入
+            now = datetime.now()
+            note = f"{now.month}/{now.day}，使用者將{field_keyword}調整為{new_value}"
+            current = ws.cell(row=target_row, column=remark_col).value
+            new_text = f"{current}\n{note}" if current else note
+            ws.cell(row=target_row, column=remark_col).value = new_text
+            ws.cell(row=target_row, column=remark_col).alignment = Alignment(
+                wrap_text=True, vertical='top'
+            )
+            # 解除固定列高，讓 Excel 自動依內容展開
+            ws.row_dimensions[target_row].height = None
+            print(f"[備註] 準備 save，target_row={target_row} col={remark_col}")
+            print(f"[備註] 寫入內容: {new_text!r}")
+
+            wb.save(self.file_path)
+            wb.close()
+            print(f"[備註] save 完成")
+
+            # 讀回驗證
+            wb2 = load_workbook(self.file_path, data_only=True)
+            ws2_name = next((sn for sn in wb2.sheetnames if "總紀錄" in sn and "滾算" in sn), None)
+            if ws2_name:
+                verified = wb2[ws2_name].cell(row=target_row, column=remark_col).value
+                print(f"[備註] 驗證讀回 row={target_row} col={remark_col}: {verified!r}")
+            wb2.close()
+
+        except Exception as e:
+            import traceback
+            print(f"[備註] 寫入失敗: {e}")
+            print(traceback.format_exc())
+
     def _write_remark_to_wb(self, wb, sheet_name: str, field_keyword: str, new_value):
         """若修改的是 pN 分頁，在已開啟的 wb 中追加備註到「滾算紀錄單(總紀錄)」。
         不自行 open/save，由呼叫端統一存檔，避免多次 save 清除公式快取。"""
@@ -584,36 +674,75 @@ class ExcelTool:
 
         m = re.match(r'^p(\d+)$', sheet_name, re.IGNORECASE)
         if not m:
+            print(f"[備註] 分頁名稱「{sheet_name}」不符合 pN 格式，略過備註")
             return
 
         record_number = int(m.group(1))
 
         try:
-            if "滾算紀錄單(總紀錄)" not in wb.sheetnames:
+            # 模糊比對工作表名稱（容錯全形/半形括號差異）
+            target_sheet_name = None
+            for sn in wb.sheetnames:
+                if sn == "滾算紀錄單(總紀錄)" or sn == "滾算紀錄單（總紀錄）":
+                    target_sheet_name = sn
+                    break
+                if "總紀錄" in sn and "滾算" in sn:
+                    target_sheet_name = sn
+                    break
+            if target_sheet_name is None:
+                print(f"[備註] 找不到總紀錄工作表，可用工作表: {wb.sheetnames}")
                 return
 
-            summary = wb["滾算紀錄單(總紀錄)"]
+            summary = wb[target_sheet_name]
 
-            target_row = None
-            for row in range(2, summary.max_row + 1):
-                if summary.cell(row=row, column=1).value == record_number:
-                    target_row = row
+            # 動態找備註欄位（掃描第 1 行找「備註」標題，至少掃到第 20 欄）
+            scan_max = max(summary.max_column or 0, 20)
+            remark_col = None
+            for col in range(1, scan_max + 1):
+                header = summary.cell(row=1, column=col).value
+                if header and "備註" in str(header):
+                    remark_col = col
                     break
+            if remark_col is None:
+                remark_col = 10  # fallback: 預設 J 欄
+                print(f"[備註] 找不到備註欄標題，使用預設 column={remark_col}")
+            else:
+                print(f"[備註] 備註欄位在 column={remark_col}")
+
+            # 找對應的紀錄列（容錯：接受 int / float / str 型別的欄位值）
+            target_row = None
+            for row in range(2, summary.max_row + 2):
+                cell_val = summary.cell(row=row, column=1).value
+                if cell_val is None:
+                    continue
+                try:
+                    if int(float(str(cell_val))) == record_number:
+                        target_row = row
+                        break
+                except (ValueError, TypeError):
+                    if str(cell_val).strip().lower() == sheet_name.lower():
+                        target_row = row
+                        break
 
             if target_row is None:
+                print(f"[備註] 在 滾算紀錄單(總紀錄) 找不到紀錄編號 {record_number}，略過備註")
                 return
 
             now = datetime.now()
             note = f"{now.month}/{now.day}，使用者將{field_keyword}調整為{new_value}"
 
-            current = summary.cell(row=target_row, column=10).value
-            summary.cell(row=target_row, column=10).value = (
-                f"{current}\n{note}" if current else note
-            )
-            print(f"[備註] 已寫入 滾算紀錄單(總紀錄) 第 {target_row} 列：{note}")
+            from openpyxl.styles import Alignment
+            current = summary.cell(row=target_row, column=remark_col).value
+            cell = summary.cell(row=target_row, column=remark_col)
+            # 先換行再寫入：有既有內容則加 \n 分隔，否則直接寫
+            cell.value = f"{current}\n{note}" if current else note
+            cell.alignment = Alignment(wrap_text=True)
+            print(f"[備註] 已寫入 滾算紀錄單(總紀錄) 第 {target_row} 列 col={remark_col}：{note}")
 
         except Exception as e:
+            import traceback
             print(f"[備註] 寫入備註時發生錯誤: {str(e)}")
+            print(traceback.format_exc())
 
     # ========== 查詢功能 ==========
 
@@ -818,6 +947,65 @@ class ExcelTool:
         """
         return self.read_sheet_by_field(sheet_name, field_keyword, year=year)
 
+    def compare_irr_across_sheets(self, irr_type: str = "全部") -> dict:
+        """
+        比較所有 pN 分頁的 IRR 數值，找出最高的情境。
+
+        Args:
+            irr_type: "全部" | "專案法IRR" | "成本法IRR" | "權益法IRR"
+        """
+        try:
+            wb = load_workbook(self.file_path, data_only=True)
+            all_sheets = wb.sheetnames
+            wb.close()
+
+            # 篩選 pN 分頁並按數字排序
+            p_sheets = sorted(
+                [s for s in all_sheets if re.match(r'^p\d+$', s, re.IGNORECASE)],
+                key=lambda x: int(re.search(r'\d+', x).group())
+            )
+
+            if not p_sheets:
+                return {"success": False, "message": "找不到任何 pN 分頁（p1, p2, p3 等）"}
+
+            irr_fields = ["專案法IRR", "成本法IRR", "權益法IRR"] if irr_type == "全部" else [irr_type]
+
+            results = {}
+            for sheet in p_sheets:
+                sheet_data = {}
+                for field in irr_fields:
+                    res = self.read_sheet_by_field(sheet, field)
+                    val = None
+                    if res.get("success"):
+                        val = res.get("value")
+                        if val is None:
+                            vals = res.get("values", {})
+                            val = next((v for v in vals.values() if v is not None), None)
+                    sheet_data[field] = val
+                results[sheet] = sheet_data
+
+            # 找各 IRR 類型的最高值
+            best = {}
+            for field in irr_fields:
+                max_val, max_sheet = None, None
+                for sheet, data in results.items():
+                    v = data.get(field)
+                    if v is not None and (max_val is None or v > max_val):
+                        max_val, max_sheet = v, sheet
+                best[field] = {"sheet": max_sheet, "value": max_val}
+
+            return {
+                "success": True,
+                "message": f"已比較 {len(p_sheets)} 個情境的 IRR",
+                "sheets_compared": p_sheets,
+                "irr_types_compared": irr_fields,
+                "results": results,
+                "best": best
+            }
+
+        except Exception as e:
+            return {"success": False, "message": f"比較 IRR 失敗: {str(e)}"}
+
 
 # 定義工具的 schema（用於 function calling）
 EXCEL_TOOLS_SCHEMA = [
@@ -984,6 +1172,32 @@ EXCEL_TOOLS_SCHEMA = [
                     }
                 },
                 "required": ["sheet_name", "field_keyword"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "compare_irr_across_sheets",
+            "description": (
+                "比較所有 pN 情境分頁（p1, p2, p3...）的 IRR 數值，找出最高的情境。"
+                "可指定單一 IRR 類型，或同時比較三種（專案法、成本法、權益法）。"
+                "適用於：「哪個情境 IRR 最高」、「比較所有案例的成本法 IRR」等查詢。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "irr_type": {
+                        "type": "string",
+                        "enum": ["全部", "專案法IRR", "成本法IRR", "權益法IRR"],
+                        "description": (
+                            "要比較的 IRR 類型。"
+                            "「全部」= 同時比較三種 IRR（預設值）；"
+                            "「專案法IRR」/「成本法IRR」/「權益法IRR」= 只比較指定類型。"
+                        )
+                    }
+                },
+                "required": []
             }
         }
     }

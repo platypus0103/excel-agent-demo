@@ -181,7 +181,7 @@ def _parse_modification(query: str, current_sheet: str = None) -> dict:
     }
 
     # 工作表名稱（p1/p2/p3 或其他格式）
-    sheet_m = re.search(r'\b(p\d+)\b', query, re.IGNORECASE)
+    sheet_m = re.search(r'(?<![a-zA-Z\d])(p\d+)(?![a-zA-Z\d])', query, re.IGNORECASE)
     if sheet_m:
         result['sheet_name'] = sheet_m.group(1)
 
@@ -204,11 +204,16 @@ def _parse_modification(query: str, current_sheet: str = None) -> dict:
         if yr:
             result['year_spec'] = f"{yr.group(1)}~{yr.group(2)}"
         else:
-            sy = re.search(r'(\d{4})\s*年', query)
-            if sy:
-                result['year_spec'] = sy.group(1)
-            elif re.search(r'全部|所有|全年', query):
-                result['year_spec'] = '全部'
+            # 支援「年份是2025」、「年分是2025」、「年份=2025」等格式
+            sy_labeled = re.search(r'年[份分]?\s*[是為=:：]\s*(\d{4})', query)
+            if sy_labeled:
+                result['year_spec'] = sy_labeled.group(1)
+            else:
+                sy = re.search(r'(\d{4})\s*年', query)
+                if sy:
+                    result['year_spec'] = sy.group(1)
+                elif re.search(r'全部|所有|全年', query):
+                    result['year_spec'] = '全部'
 
         # 數值
         vm = re.search(r'(?:改成|改為|設為|設成|變成|變為|→|->)\s*(-?\d+(?:\.\d+)?)', query)
@@ -225,10 +230,10 @@ def _parse_modification(query: str, current_sheet: str = None) -> dict:
 
     # 欄位關鍵字：移除干擾詞後取最長詞
     fq = query
-    for pattern in [r'\bp\d+\b', r'公版|綜合損益表|損益表|現金流量表|流量表',
+    for pattern in [r'p\d+', r'公版|綜合損益表|損益表|現金流量表|流量表',
                     r'\d{4}\s*[~～\-到至]\s*\d{4}', r'\d{4}\s*年?',
                     r'(?:改成|改為|設為|設成|變成|變為|→|->)\s*-?\d+(?:\.\d+)?',
-                    r'我想|想要|想|要|幫我|請|修改|更改|把|的|將|中|裡|內|改|成|為|變|設定|可以|能|麻煩']:
+                    r'我想|想要|想|要|幫我|請|調整|變更|修改|更改|把|的|將|中|裡|內|改|成|為|變|設定|可以|能|麻煩']:
         fq = re.sub(pattern, ' ', fq, flags=re.IGNORECASE)
     words = [w.strip() for w in re.split(r'[\s，。、！？]+', fq) if len(w.strip()) >= 2]
     if words:
@@ -604,8 +609,20 @@ def agent_chat():
         # ── 0b. 待確認修改快取 ──
         pending_mod = _get_pending_modification(case_id, case_name)
         if pending_mod:
+            # 取消語境偵測
+            _cancel_keywords = ['取消修改', '算了，不改了', '不做調整', '取消本次調整', '不弄了']
+            _is_cancel = (
+                user_query.strip() in ['取消', '算了'] or
+                any(kw in user_query for kw in _cancel_keywords)
+            )
+            if _is_cancel:
+                _clear_pending_modification(case_id, case_name)
+                return jsonify({"query": user_query,
+                                "response": "收到，已為你取消本次調整，如需任何協助，請告訴我。",
+                                "excel_modified": False})
+
             is_confirm = re.search(r'^(是|好|要|對|y|yes|確認|ok)$', user_query.strip(), re.IGNORECASE)
-            is_decline = re.search(r'^(否|不|不要|取消|n|no|cancel)$', user_query.strip(), re.IGNORECASE)
+            is_decline = re.search(r'^(否|不|不要|n|no|cancel)$', user_query.strip(), re.IGNORECASE)
 
             if is_confirm:
                 _clear_pending_modification(case_id, case_name)
@@ -630,8 +647,58 @@ def agent_chat():
                 return jsonify({"query": user_query, "response": agent_response, "excel_modified": False})
 
             else:
-                # 非確認/拒絕輸入 → 清除快取，視為新請求繼續往下處理
-                _clear_pending_modification(case_id, case_name)
+                # 非確認/拒絕 → 嘗試合併補充資料
+                _pending_has_value = (
+                    pending_mod.get('new_value') is not None or
+                    pending_mod.get('year_value_map') is not None
+                )
+                supplement = _parse_modification(user_query, current_sheet=pending_mod.get('sheet_name'))
+                _supp_has_value = (
+                    supplement.get('new_value') is not None or
+                    supplement.get('year_value_map') is not None
+                )
+                _supp_new_field = (
+                    supplement.get('field_keyword') and
+                    supplement.get('field_keyword') != pending_mod.get('field_keyword')
+                )
+                _supp_year = supplement.get('year_spec') and supplement['year_spec'] != '全部'
+
+                # 判斷是否為補充（數值補充 or 年份修正），而非全新請求
+                _is_new_modify_request = bool(
+                    re.search(r'修改|更改|改成|把.+改|變更', user_query) and _supp_new_field
+                )
+
+                if not _is_new_modify_request and (_supp_has_value or _supp_year):
+                    # 合併補充資料
+                    merged = {k: v for k, v in pending_mod.items() if k != 'timestamp'}
+                    if supplement.get('new_value') is not None:
+                        merged['new_value'] = supplement['new_value']
+                    if supplement.get('year_value_map') is not None:
+                        merged['year_value_map'] = supplement['year_value_map']
+                    if _supp_year:
+                        merged['year_spec'] = supplement['year_spec']
+                    # 合併後若資料完整，直接執行
+                    _merged_has_value = (
+                        merged.get('new_value') is not None or
+                        merged.get('year_value_map') is not None
+                    )
+                    if bool(merged.get('field_keyword')) and _merged_has_value:
+                        _clear_pending_modification(case_id, case_name)
+                        exec_result = agent.tool_manager.execute_tool("edit_sheet_by_field", merged)
+                        if exec_result.get("success"):
+                            msg = f"調整已完成，請查收。\n（{exec_result.get('message', '')}）"
+                            return jsonify({"query": user_query, "response": msg, "excel_modified": True})
+                        else:
+                            return jsonify({"query": user_query,
+                                            "response": f"修改失敗：{exec_result.get('message', '未知錯誤')}",
+                                            "excel_modified": False})
+                    else:
+                        # 更新快取，繼續等待補充
+                        _set_pending_modification(case_id, case_name, merged)
+                        _clear_pending_modification(case_id, case_name)
+                else:
+                    # 視為新請求，清除快取後繼續往下處理
+                    _clear_pending_modification(case_id, case_name)
 
         # ── 1. 價金滾算請求 → llm_service ──
         # 條件：明確的滾算動作關鍵字，且不包含修改/編輯意圖
@@ -658,27 +725,62 @@ def agent_chat():
             _is_modify = re.search(r'修改|更改|改成|設定|把.+改|調整|變更', user_query)
 
             if _is_modify and not _is_rolling_action:
-                # 路由層解析修改參數，存入快取，LLM 只負責呈現 Double Check
+                # 路由層解析修改參數
                 parsed = _parse_modification(user_query, current_sheet=sheet_name)
-                _set_pending_modification(case_id, case_name, parsed)
 
-                # 組成參數摘要注入給 LLM，讓它格式化成確認訊息
-                year_desc = (
-                    "、".join([f"{y}年={v}" for y, v in sorted(parsed['year_value_map'].items())])
-                    if parsed.get('year_value_map')
-                    else parsed.get('year_spec', '全部')
+                _has_field = bool(parsed.get('field_keyword'))
+                _has_value = (
+                    parsed.get('new_value') is not None or
+                    parsed.get('year_value_map') is not None
                 )
-                inject = (
-                    f"[系統已解析出以下修改參數，請用繁體中文呈現 Double Check 確認訊息，禁止呼叫任何工具：\n"
-                    f"分頁={parsed.get('sheet_name') or '未指定'}, "
-                    f"區域={parsed.get('section_type') or '未推斷出'}, "
-                    f"項目={parsed.get('field_keyword') or '未指定'}, "
-                    f"改為={parsed.get('new_value') if parsed.get('year_value_map') is None else '見年份對應'}, "
-                    f"年份={year_desc}]\n"
-                )
-                enhanced_query = f"{sheet_names_prefix}{inject}{user_query}"
-                agent_response = agent.chat(enhanced_query)
-                excel_modified = False
+
+                if not _has_field:
+                    # 找不到修改目標 → 告知使用者
+                    inject = (
+                        "[系統無法識別修改目標，請用以下格式原文回覆（禁止呼叫工具）：\n"
+                        "對不起，我找不到你要調的資料項目，可能原因如下：\n"
+                        "1. 資料不存在當前分頁。\n"
+                        "2. 設定資訊嚴重不完整。\n"
+                        "3. 要調的內容不符合表格結構。\n"
+                        "請確認原因後重新送出回覆，我會盡力為你提供協助。]\n"
+                    )
+                    enhanced_query = f"{sheet_names_prefix}{inject}{user_query}"
+                    agent_response = agent.chat(enhanced_query)
+                    excel_modified = False
+
+                elif not _has_value:
+                    # 找到欄位但缺少數值 → 存入快取，詢問數值
+                    _set_pending_modification(case_id, case_name, parsed)
+                    _sheet_disp = parsed.get('sheet_name') or sheet_name or '目前分頁'
+                    _field_disp = parsed.get('field_keyword')
+                    inject = (
+                        f"[系統已找到修改目標，但缺少修改數值：\n"
+                        f"分頁={_sheet_disp}，項目={_field_disp}\n"
+                        f"請用繁體中文詢問使用者要將「{_field_disp}」改為多少，禁止呼叫工具]\n"
+                    )
+                    enhanced_query = f"{sheet_names_prefix}{inject}{user_query}"
+                    agent_response = agent.chat(enhanced_query)
+                    excel_modified = False
+
+                else:
+                    # 資訊完整 → 存入快取，呈現確認訊息
+                    _set_pending_modification(case_id, case_name, parsed)
+                    year_desc = (
+                        "、".join([f"{y}年={v}" for y, v in sorted(parsed['year_value_map'].items())])
+                        if parsed.get('year_value_map')
+                        else parsed.get('year_spec', '全部')
+                    )
+                    inject = (
+                        f"[系統已解析出以下修改參數，請用繁體中文呈現 Double Check 確認訊息，禁止呼叫任何工具：\n"
+                        f"分頁={parsed.get('sheet_name') or '未指定'}, "
+                        f"區域={parsed.get('section_type') or '未推斷出'}, "
+                        f"項目={parsed.get('field_keyword') or '未指定'}, "
+                        f"改為={parsed.get('new_value') if parsed.get('year_value_map') is None else '見年份對應'}, "
+                        f"年份={year_desc}]\n"
+                    )
+                    enhanced_query = f"{sheet_names_prefix}{inject}{user_query}"
+                    agent_response = agent.chat(enhanced_query)
+                    excel_modified = False
             else:
                 current_sheet_info = f"[使用者目前觀看的工作表：{sheet_name}]\n" if sheet_name else ""
                 enhanced_query = f"{sheet_names_prefix}{current_sheet_info}{user_query}"
@@ -1608,7 +1710,7 @@ def list_case_sheets():
 
             try:
                 # 檔名格式為 {case_id}_{original_filename}，case_id 是數字前綴
-                parts = filename.rsplit('_', 1)
+                parts = filename.split('_', 1)
                 if len(parts) == 2:
                     case_name = parts[0]       # 數字 ID（用於路由）
                     original_filename = parts[1]

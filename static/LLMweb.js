@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const excelBox = document.getElementById('excelBox');
     const chatMessages = document.getElementById('chatMessages');
     const userInput = document.getElementById('userInput');
-    const sendBtn = document.querySelector('.chat-input button');
+    const sendBtn = document.getElementById('sendBtn');
     const fileInput = document.getElementById('fileInput');
     const importBtn = document.getElementById('importBtn');
     const excelContainer = document.getElementById('luckysheet-container');
@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let isLuckysheetReady = false;
     let luckysheetInitialized = false;
     let activeTypeMenu = null; // 追蹤當前開啟的類型選單
+    let currentAbortController = null;
 
     // 初始化
     init();
@@ -891,24 +892,25 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!text || !activeCaseId) return;
 
 
-        // 顯示使用者訊息（含停止按鈕）
+        // 顯示使用者訊息
         const userMessage = { role: 'user', text: text };
         cases[activeCaseId].messages.push(userMessage);
 
-        const abortController = new AbortController();
+        currentAbortController = new AbortController();
+
+        // 切換送出按鈕為「停止」模式
+        if (sendBtn) {
+            sendBtn.textContent = '■';
+            sendBtn.classList.add('thinking');
+            sendBtn.title = '停止回答';
+        }
+
         const userMsgDiv = document.createElement('div');
         userMsgDiv.className = 'message user';
-
-        const stopBtn = document.createElement('button');
-        stopBtn.className = 'stop-btn';
-        stopBtn.title = '停止回答';
-        stopBtn.textContent = '⏹';
-        stopBtn.onclick = () => abortController.abort();
 
         const textSpan = document.createElement('span');
         textSpan.textContent = text;
 
-        userMsgDiv.appendChild(stopBtn);
         userMsgDiv.appendChild(textSpan);
         chatMessages.appendChild(userMsgDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -944,7 +946,7 @@ document.addEventListener('DOMContentLoaded', function() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            signal: abortController.signal,
+            signal: currentAbortController.signal,
             body: JSON.stringify({
                 query: text,
                 equipment_cost_adj: costAdj,
@@ -965,7 +967,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return response.json();
         })
         .then(data => {
-            stopBtn.remove();
+            if (sendBtn) { sendBtn.textContent = '送出'; sendBtn.classList.remove('thinking'); sendBtn.title = ''; }
+            currentAbortController = null;
             const loadingElement = document.getElementById(loadingId);
             if (loadingElement) loadingElement.remove();
 
@@ -997,7 +1000,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .catch(error => {
-            stopBtn.remove();
+            if (sendBtn) { sendBtn.textContent = '送出'; sendBtn.classList.remove('thinking'); sendBtn.title = ''; }
+            currentAbortController = null;
             const loadingElement = document.getElementById(loadingId);
             if (loadingElement) loadingElement.remove();
 
@@ -1405,14 +1409,22 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 聊天相關事件
         if (sendBtn) {
-            sendBtn.addEventListener('click', sendMessage);
+            sendBtn.addEventListener('click', () => {
+                if (sendBtn.classList.contains('thinking')) {
+                    if (currentAbortController) currentAbortController.abort();
+                } else {
+                    sendMessage();
+                }
+            });
         }
-        
+
         if (userInput) {
             userInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    sendMessage();
+                    if (!sendBtn || !sendBtn.classList.contains('thinking')) {
+                        sendMessage();
+                    }
                 }
             });
         }
@@ -1609,7 +1621,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        let tbl = '<div style="overflow:auto;height:100%;"><table style="border-collapse:collapse;font-size:12px;table-layout:fixed;">';
+        let tbl = '<div style="min-height:100%;"><table style="border-collapse:collapse;font-size:12px;table-layout:fixed;">';
 
         // colgroup
         tbl += '<colgroup><col style="width:36px">';
@@ -1643,8 +1655,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 const cell = cellMap.get(`${r}-${c}`);
                 const v = cell ? cell.v : null;
 
+                const colW = colWidths[c] || 80;
                 let tdStyle = 'border:1px solid #bdc3c7;padding:3px 6px;overflow:hidden;vertical-align:middle;';
-                tdStyle += `max-width:${colWidths[c] || 80}px;`;
+                tdStyle += `max-width:${colW}px;width:${colW}px;`;
 
                 if (v) {
                     if (v.bg) {
@@ -1684,9 +1697,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
 
+                // HTML 跳脫後，將 \n 轉為 <br> 並允許 td 換行顯示
+                const hasNewline = String(displayVal).includes('\n');
                 const safe = String(displayVal)
                     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-                    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+                    .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+                    .replace(/\n/g, '<br>');
+
+                if (hasNewline) {
+                    // 備註類多行欄位：允許換行、加高、不裁切
+                    tdStyle = tdStyle
+                        .replace('overflow:hidden;', 'overflow:visible;')
+                        .replace('white-space:nowrap;', 'white-space:pre-wrap;')
+                        .replace('white-space:normal;word-break:break-all;', 'white-space:pre-wrap;');
+                    tdStyle += 'min-width:160px;';
+                }
 
                 const rsAttr = rowspan > 1 ? ` rowspan="${rowspan}"` : '';
                 const csAttr = colspan > 1 ? ` colspan="${colspan}"` : '';
@@ -1762,9 +1787,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // 過濾掉當前案場
         const filteredCases = casesData.filter(c => {
-            // 比對案場名稱，排除當前案場
+            // 比對案場 ID，排除當前案場
             if (activeCaseId && cases[activeCaseId]) {
-                return c.case_name !== cases[activeCaseId].name;
+                return c.case_name !== String(cases[activeCaseId].id);
             }
             return true;
         });

@@ -36,7 +36,14 @@ class AIAgent:
 
             # 強制注入系統提醒（防止長對話導致 System Prompt 被截斷）
             if messages and messages[-1]['role'] == 'user':
-                reminder = "\n\n[System Reminder]\n1. Respond in Traditional Chinese (繁體中文).\n2. Use tool data strictly. Do not hallucinate.\n3. If this is a rolling calculation, show the Base IRR first."
+                reminder = (
+                "\n\n[System Reminder — MUST FOLLOW]\n"
+                "1. ALL output MUST be in Traditional Chinese (繁體中文). "
+                "Simplified Chinese (简体字) is STRICTLY FORBIDDEN — this includes tool return values. "
+                "If a tool returns simplified Chinese, translate it to Traditional Chinese before responding.\n"
+                "2. Use tool data strictly. Do not hallucinate.\n"
+                "3. If this is a rolling calculation, show the Base IRR first."
+            )
                 messages[-1]['content'] += reminder
 
             # 3. 獲取工具 schema
@@ -119,6 +126,15 @@ class AIAgent:
                     'role': 'tool',
                     'content': json.dumps(tool_result, ensure_ascii=False)
                 })
+
+            # 工具執行完畢，補注語言提醒，確保最終回應為繁體中文
+            if messages and messages[-1]['role'] == 'tool':
+                messages[-1]['content'] += (
+                    '\n\n[LANGUAGE REMINDER] Your final response MUST be entirely in '
+                    'Traditional Chinese (繁體中文). Do NOT use Simplified Chinese under any circumstances. '
+                    'When formatting a Markdown table, do NOT use ** bold markers inside table cells — '
+                    'they break the table layout. Mark the best value with (最高) text instead.'
+                )
 
             # 把工具結果送回給 AI，繼續下一輪
             response = self.connection.send_message_with_tools(
