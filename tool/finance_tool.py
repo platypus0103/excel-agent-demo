@@ -235,8 +235,6 @@ class FinanceTool:
             if rent_mode == 2:
                 ratio = excel_data.get('rent_method2_ratio', Decimal('0'))
                 rent_list.append(_all_elec_income[year - 1] * ratio)
-            elif year == 1:
-                rent_list.append(Decimal('0'))
             else:
                 rent_list.append(annual_rent)
 

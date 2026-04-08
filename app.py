@@ -4,8 +4,10 @@ AI Agent Web 介面
 """
 import os
 import sys
-from flask import Flask, render_template, jsonify
+import time
+from flask import Flask, render_template, jsonify, request, session, g
 from flask_cors import CORS
+from utils.app_logger import get_logger, log_action, log_error
 
 # 將當前目錄添加到 Python 路徑
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -60,6 +62,43 @@ def create_app():
         print("Case 路由註冊成功")
     except ImportError as e:
         print(f"警告: 無法匯入 api.case_routes: {e}")
+
+    # ── 請求日誌 ──
+    logger = get_logger()
+    logger.info("=" * 60)
+    logger.info("財模助手 啟動")
+    logger.info("=" * 60)
+
+    @app.before_request
+    def _before():
+        g._req_start = time.time()
+
+    @app.after_request
+    def _after(response):
+        user = session.get('user_email', 'anonymous')
+        elapsed = int((time.time() - getattr(g, '_req_start', time.time())) * 1000)
+        status = 'ERROR' if response.status_code >= 400 else 'OK'
+
+        # 跳過靜態資源，避免日誌過多
+        if not request.path.startswith('/static'):
+            detail = f"method={request.method} path={request.path} status={response.status_code} time={elapsed}ms"
+            # agent_chat 額外記錄查詢內容
+            if request.path == '/api/agent_chat' and request.is_json:
+                try:
+                    query = (request.get_json(silent=True) or {}).get('query', '')
+                    if query:
+                        detail += f" | query={query[:120]}"
+                except Exception:
+                    pass
+            log_action(user, 'http_request', detail, status)
+
+        return response
+
+    @app.teardown_request
+    def _teardown(exc):
+        if exc is not None:
+            user = session.get('user_email', 'anonymous') if session else 'anonymous'
+            log_error(user, 'request_teardown', exc)
 
     # 主頁路由
     @app.route('/')

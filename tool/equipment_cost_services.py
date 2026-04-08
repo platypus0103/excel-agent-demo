@@ -1,9 +1,8 @@
 """
 1. CostStructureService：將滾算完的價金(設備費用)，進行成本結構變動計算(信邦利潤率profit_rate、開發費用development_fee)
-2. CashMod-現金模式：Step為設定現金的計算模式
+2. CashMode-現金模式：Step為設定現金的計算模式
 3. RatioMode-比率模式：Step為設定比例的計算模式
-4. ConditionalMode-條件模式：Step採取條件是設定的計算模式(可參考，未必會實作)
-5. CustomizeMode-自訂模式：User可自行決定滾算次數、每一次的Step值(或採取隨機自動配置)
+4. CustomizeMode-自訂模式：User可自行決定滾算次數、每一次的Step值(或採取隨機自動配置)
 """
 import random
 from typing import List
@@ -121,60 +120,6 @@ class RatioMode:
 
         return adjustment_record 
 
-
-class ConditionalMode:
-    """
-    規格描述：條件模式下的價金滾算功能，Step為現金，但由User設定的最大最小值來決定，最多會有三種，函數說明如下
-    __init__()：類別建構子
-    calculation()：滾算函數(公式：價金 - 調整步幅)
-    """
-    def __init__(self, boundary:int, maximum_value:int, minimum_value:int, condition_step_1:int, condition_step_2:int, condition_step_3:int) -> None:
-        """
-        建構子參數：
-        boundary：價金調整的邊界
-        maximum_value：判斷價金範圍決定step的最大值
-        minimum_value：判斷價金範圍決定step的最小值
-        condition_step_1：價金 > maximum_value的step
-        condition_step_2：minimum < 價金 < maximum_value的step
-        condition_step_3：價金 < minimum_value的step
-        """
-        self.boundary = boundary
-        self.maximum_value = maximum_value
-        self.minimum_value = minimum_value
-        self.condition_step_1 = condition_step_1
-        self.condition_step_2 = condition_step_2
-        self.condition_step_3 = condition_step_3
-
-    def calculation(self, equipment_cost:int) -> List[int]:
-        """
-        規格描述：此功能用來滾算設備費用並記錄每次滾算的結果。
-        equipment_cost：初始價金(初始設備費用)
-        adjustable_range：判斷是否還可繼續調整，若不行則停止調整
-        adjustment_record：紀錄調整過後的價金變化
-
-        請注意!!minimum_value不可以小於boundary
-        """   
-        adjustment_record = [equipment_cost]
-
-        while True:
-            # Step設定判斷式
-            if equipment_cost > self.maximum_value:
-                step = self.condition_step_1 # 價金 > maximum_value的step
-            elif self.minimum_value <= equipment_cost <= self.maximum_value:
-                step = self.condition_step_2 # minimum < 價金 < maximum_value的step
-            else:
-                step = self.condition_step_3 # 價金 < minimum_value的step
-
-            # 檢查是否達到邊界
-            adjustable_range = equipment_cost - self.boundary
-            if equipment_cost <= self.boundary or adjustable_range < step:
-                break
-
-            equipment_cost -= step # 將價金減一個Step
-            adjustment_record.append(equipment_cost) # 將滾算後的價金記錄下來
-
-        return adjustment_record
-    
 
 class CustomizeMode:
     """

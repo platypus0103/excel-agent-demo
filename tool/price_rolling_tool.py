@@ -3,7 +3,6 @@ from typing import List, Dict, Union, Optional, Any
 from tool.equipment_cost_services import (
     CashMode,
     RatioMode,
-    ConditionalMode,
     CustomizeMode,
     CostStructureService
 )
@@ -40,18 +39,13 @@ class PriceRollingTool:
         執行價金滾算
 
         Args:
-            mode: 模式 ("CashMode", "RatioMode", "ConditionalMode", "CustomizeMode")
+            mode: 模式 ("CashMode", "RatioMode", "CustomizeMode")
             boundary: 邊界價格
             equipment_cost: 初始價金 / kW (若未提供則嘗試從 Excel 讀取)
             profit_rate: 信邦利潤率 (例如 0.05) (若未提供則嘗試從 Excel 讀取)
             development_fee: 開發費用 (預設為 None，若未提供則嘗試從 Excel 讀取)
             sheet_name: Excel 工作表名稱 (用於計算 IRR)
             step: 調整 Step (CashMode) 或 調整比例 (RatioMode)
-            max_value: 最大價格值 (ConditionalMode)
-            min_value: 最小價格值 (ConditionalMode)
-            step1: 價金 > 最大值 的 Step (ConditionalMode)
-            step2: 最小值 <= 價金 <= 最大值 的 Step (ConditionalMode)
-            step3: 價金 < 最小值 的 Step (ConditionalMode)
             adjust_times: 調整次數 (CustomizeMode)
             steps: 自訂 Step 列表 (CustomizeMode)
         """
@@ -130,19 +124,6 @@ class PriceRollingTool:
                 if step is None:
                     return {"success": False, "message": "RatioMode 需要 step 參數"}
                 mode_instance = RatioMode(boundary, float(step))
-                adjustment_record = mode_instance.calculation(equipment_cost)
-                
-            elif mode == "ConditionalMode":
-                if not all([max_value is not None, min_value is not None, step1 is not None, step2 is not None, step3 is not None]):
-                     return {"success": False, "message": "ConditionalMode 需要 max_value, min_value, step1, step2, step3 參數"}
-                mode_instance = ConditionalMode(
-                    boundary,
-                    max_value,
-                    min_value,
-                    step1,
-                    step2,
-                    step3
-                )
                 adjustment_record = mode_instance.calculation(equipment_cost)
                 
             elif mode == "CustomizeMode":
@@ -224,13 +205,13 @@ PRICE_ROLLING_TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "calculate_price_rolling",
-            "description": "【純計算分析】執行價金滾算分析，計算不同價金下的 IRR 變化。此工具僅進行計算和分析，不會寫入任何檔案。支援多種模式：CashMode(固定金額調整), RatioMode(比例調整), ConditionalMode(條件調整), CustomizeMode(自訂調整)。回傳結果包含原始 Excel IRR (base_irr) 以及滾算後的專案法 IRR、成本法 IRR 和權益法 IRR。如需將結果寫入 Excel 檔案，請使用 execute_price_rolling 工具。",
+            "description": "【純計算分析】執行價金滾算分析，計算不同價金下的 IRR 變化。此工具僅進行計算和分析，不會寫入任何檔案。支援多種模式：CashMode(固定金額調整), RatioMode(比例調整), CustomizeMode(自訂調整)。回傳結果包含原始 Excel IRR (base_irr) 以及滾算後的專案法 IRR、成本法 IRR 和權益法 IRR。如需將結果寫入 Excel 檔案，請使用 execute_price_rolling 工具。",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "mode": {
                         "type": "string",
-                        "enum": ["CashMode", "RatioMode", "ConditionalMode", "CustomizeMode"],
+                        "enum": ["CashMode", "RatioMode", "CustomizeMode"],
                         "description": "滾算模式"
                     },
                     "equipment_cost": {
@@ -256,26 +237,6 @@ PRICE_ROLLING_TOOLS_SCHEMA = [
                     "step": {
                         "type": "number",
                         "description": "調整 Step (CashMode 用整數) 或 調整比例 (RatioMode 用小數 0~1)"
-                    },
-                    "max_value": {
-                        "type": "integer",
-                        "description": "最大價格值 (ConditionalMode)"
-                    },
-                    "min_value": {
-                        "type": "integer",
-                        "description": "最小價格值 (ConditionalMode)"
-                    },
-                    "step1": {
-                        "type": "integer",
-                        "description": "價金 > 最大值 的 Step (ConditionalMode)"
-                    },
-                    "step2": {
-                        "type": "integer",
-                        "description": "最小值 <= 價金 <= 最大值 的 Step (ConditionalMode)"
-                    },
-                    "step3": {
-                        "type": "integer",
-                        "description": "價金 < 最小值 的 Step (ConditionalMode)"
                     },
                     "adjust_times": {
                         "type": "integer",

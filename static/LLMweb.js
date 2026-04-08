@@ -462,12 +462,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const dbId = cases[caseId].id;
         const originalFileName = cases[caseId].excelOriginalFileName;
 
-        // 刪除後端 Excel 檔案
+        // 刪除後端 Excel 檔案（後端儲存格式為 {case_id}_{originalFileName}）
         if (originalFileName) {
             fetch('/api/delete_excel', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ filename: `${cases[caseId].name}_${originalFileName}` })
+                body: JSON.stringify({ filename: `${dbId}_${originalFileName}` })
             }).catch(() => {});
         }
 

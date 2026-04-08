@@ -89,7 +89,7 @@ def process_user_query(query, simulation_amount=0, excel_path=None, rolling_mode
         query (str): 使用者查詢
         simulation_amount (float): 模擬金額（來自網頁輸入）
         excel_path (str, optional): 使用者上傳的 Excel 檔案路徑（當前聊天室的 Excel）
-        rolling_mode (str, optional): 價金滾算模式（CashMode, RatioMode, ConditionalMode, CustomizeMode）
+        rolling_mode (str, optional): 價金滾算模式（CashMode, RatioMode, CustomizeMode）
         rolling_params (dict, optional): 價金滾算參數（從網頁傳來）
         sheet_name (str, optional): Excel 工作表名稱
     """
@@ -143,7 +143,6 @@ def process_user_query(query, simulation_amount=0, excel_path=None, rolling_mode
             mode_display = {
                 "cash": "CashMode（固定金額）",
                 "ratio": "RatioMode（比例調整）",
-                "conditional": "ConditionalMode（條件調整）",
                 "customize": "CustomizeMode（自訂調整）"
             }.get(mode, mode)
             boundary = params.get("boundary", "N/A")
@@ -161,7 +160,7 @@ def process_user_query(query, simulation_amount=0, excel_path=None, rolling_mode
             return result, False
 
     # 情況 2b: 其他滾算相關關鍵字 - 提示使用對話框（不寫入 Excel）
-    elif re.search(r'價金\s*滾算|price.*rolling|設備成本|cashmode|ratiomode|conditionalmode|customizemode', query, re.IGNORECASE):
+    elif re.search(r'價金\s*滾算|price.*rolling|設備成本|cashmode|ratiomode|customizemode', query, re.IGNORECASE):
         print(f"檢測到滾算相關請求，提示用戶使用對話框...")
         return """請點擊上方的「價金滾算」按鈕來執行滾算計算。
 
@@ -182,7 +181,6 @@ def process_user_query(query, simulation_amount=0, excel_path=None, rolling_mode
 |------|------|
 | CashMode | 固定金額調整 |
 | RatioMode | 比例調整 |
-| ConditionalMode | 條件調整 |
 | CustomizeMode | 自訂調整 |
 """, False
 
@@ -201,13 +199,6 @@ def _parse_query_for_rolling_params(query, simulation_amount):
     if re.search(r'比率|比例|ratio', query, re.IGNORECASE):
         params["mode"] = "ratio"
         params["step"] = 0.05
-    elif re.search(r'條件|conditional', query, re.IGNORECASE):
-        params["mode"] = "conditional"
-        params["maximum_value"] = 50000
-        params["minimum_value"] = 30000
-        params["condition_step_1"] = 2000
-        params["condition_step_2"] = 1000
-        params["condition_step_3"] = 500
     elif re.search(r'自訂|customize', query, re.IGNORECASE):
         params["mode"] = "customize"
         params["adjustment_times"] = 10
@@ -312,7 +303,7 @@ def _execute_equipment_cost_tool(mode, params, excel_path, sheet_name=None):
 
     # 準備工具參數
     tool_params = {
-        "mode": mode.lower() if mode.lower() in ["cash", "ratio", "conditional", "customize"] else "cash",
+        "mode": mode.lower() if mode.lower() in ["cash", "ratio", "customize"] else "cash",
         "boundary": params.get("boundary", 20000),
         "step": params.get("step", 1000),
     }
@@ -439,7 +430,7 @@ def _convert_web_params_to_tool_params(rolling_mode, rolling_params):
     將網頁參數轉換為工具所需的參數格式
     
     Args:
-        rolling_mode: 網頁指定的模式 (CashMode, RatioMode, ConditionalMode, CustomizeMode)
+        rolling_mode: 網頁指定的模式 (CashMode, RatioMode, CustomizeMode)
         rolling_params: 網頁提供的參數字典
     
     Returns:
@@ -449,11 +440,9 @@ def _convert_web_params_to_tool_params(rolling_mode, rolling_params):
     mode_map = {
         "CashMode": "cash",
         "RatioMode": "ratio", 
-        "ConditionalMode": "conditional",
         "CustomizeMode": "customize",
         "cash": "cash",
         "ratio": "ratio",
-        "conditional": "conditional",
         "customize": "customize"
     }
     
@@ -482,13 +471,6 @@ def _convert_web_params_to_tool_params(rolling_mode, rolling_params):
     
     elif rolling_mode in ["RatioMode", "ratio"]:
         tool_params["step"] = rolling_params.get("step", 0.05)
-    
-    elif rolling_mode in ["ConditionalMode", "conditional"]:
-        tool_params["maximum_value"] = rolling_params.get("max_value", rolling_params.get("maximum_value", 50000))
-        tool_params["minimum_value"] = rolling_params.get("min_value", rolling_params.get("minimum_value", 30000))
-        tool_params["condition_step_1"] = rolling_params.get("step1", rolling_params.get("condition_step_1", 2000))
-        tool_params["condition_step_2"] = rolling_params.get("step2", rolling_params.get("condition_step_2", 1000))
-        tool_params["condition_step_3"] = rolling_params.get("step3", rolling_params.get("condition_step_3", 500))
     
     elif rolling_mode in ["CustomizeMode", "customize"]:
         tool_params["adjustment_times"] = rolling_params.get("adjust_times", rolling_params.get("adjustment_times", 10))

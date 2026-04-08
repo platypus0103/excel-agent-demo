@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, session
 from models.database import db
 from models.db_models import Case, ChatMessage
+from utils.app_logger import log_action, log_error
 
 case_bp = Blueprint('case_bp', __name__)
 
@@ -22,18 +23,22 @@ def get_cases():
     err = _require_login()
     if err: return err
 
-    cases = (Case.query
-             .filter_by(user_id=_current_user_id())
-             .order_by(Case.created_at)
-             .all())
-    return jsonify({'status': 'success', 'cases': [
-        {
-            'id':             c.id,
-            'name':           c.name,
-            'site_type':      c.site_type,
-            'excel_filename': c.excel_filename,
-        } for c in cases
-    ]})
+    try:
+        cases = (Case.query
+                 .filter_by(user_id=_current_user_id())
+                 .order_by(Case.created_at)
+                 .all())
+        return jsonify({'status': 'success', 'cases': [
+            {
+                'id':             c.id,
+                'name':           c.name,
+                'site_type':      c.site_type,
+                'excel_filename': c.excel_filename,
+            } for c in cases
+        ]})
+    except Exception as e:
+        log_error(session.get('user_email', 'anonymous'), 'get_cases', e)
+        return jsonify({'status': 'error', 'error': str(e)}), 500
 
 
 @case_bp.route('/cases', methods=['POST'])
@@ -41,21 +46,27 @@ def create_case():
     err = _require_login()
     if err: return err
 
-    data = request.json or {}
-    case = Case(
-        user_id        = _current_user_id(),
-        name           = data.get('name', '新試算表'),
-        site_type      = data.get('site_type', 'single'),
-        excel_filename = data.get('excel_filename'),
-    )
-    db.session.add(case)
-    db.session.commit()
-    return jsonify({'status': 'success', 'case': {
-        'id':             case.id,
-        'name':           case.name,
-        'site_type':      case.site_type,
-        'excel_filename': case.excel_filename,
-    }})
+    try:
+        data = request.json or {}
+        case = Case(
+            user_id        = _current_user_id(),
+            name           = data.get('name', '新試算表'),
+            site_type      = data.get('site_type', 'single'),
+            excel_filename = data.get('excel_filename'),
+        )
+        db.session.add(case)
+        db.session.commit()
+        log_action(session.get('user_email', 'anonymous'), 'create_case',
+                   f"case_id={case.id} name={case.name}")
+        return jsonify({'status': 'success', 'case': {
+            'id':             case.id,
+            'name':           case.name,
+            'site_type':      case.site_type,
+            'excel_filename': case.excel_filename,
+        }})
+    except Exception as e:
+        log_error(session.get('user_email', 'anonymous'), 'create_case', e)
+        return jsonify({'status': 'error', 'error': str(e)}), 500
 
 
 @case_bp.route('/cases/<int:case_id>', methods=['PUT'])
@@ -63,16 +74,22 @@ def update_case(case_id):
     err = _require_login()
     if err: return err
 
-    case = Case.query.filter_by(id=case_id, user_id=_current_user_id()).first()
-    if not case:
-        return jsonify({'status': 'error', 'error': '案場不存在'}), 404
+    try:
+        case = Case.query.filter_by(id=case_id, user_id=_current_user_id()).first()
+        if not case:
+            return jsonify({'status': 'error', 'error': '案場不存在'}), 404
 
-    data = request.json or {}
-    if 'name'           in data: case.name           = data['name']
-    if 'excel_filename' in data: case.excel_filename = data['excel_filename']
-    if 'site_type'      in data: case.site_type      = data['site_type']
-    db.session.commit()
-    return jsonify({'status': 'success'})
+        data = request.json or {}
+        if 'name'           in data: case.name           = data['name']
+        if 'excel_filename' in data: case.excel_filename = data['excel_filename']
+        if 'site_type'      in data: case.site_type      = data['site_type']
+        db.session.commit()
+        log_action(session.get('user_email', 'anonymous'), 'update_case',
+                   f"case_id={case_id} name={case.name}")
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        log_error(session.get('user_email', 'anonymous'), 'update_case', e, f"case_id={case_id}")
+        return jsonify({'status': 'error', 'error': str(e)}), 500
 
 
 @case_bp.route('/cases/<int:case_id>', methods=['DELETE'])
@@ -80,13 +97,20 @@ def delete_case(case_id):
     err = _require_login()
     if err: return err
 
-    case = Case.query.filter_by(id=case_id, user_id=_current_user_id()).first()
-    if not case:
-        return jsonify({'status': 'error', 'error': '案場不存在'}), 404
+    try:
+        case = Case.query.filter_by(id=case_id, user_id=_current_user_id()).first()
+        if not case:
+            return jsonify({'status': 'error', 'error': '案場不存在'}), 404
 
-    db.session.delete(case)
-    db.session.commit()
-    return jsonify({'status': 'success'})
+        case_name = case.name
+        db.session.delete(case)
+        db.session.commit()
+        log_action(session.get('user_email', 'anonymous'), 'delete_case',
+                   f"case_id={case_id} name={case_name}")
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        log_error(session.get('user_email', 'anonymous'), 'delete_case', e, f"case_id={case_id}")
+        return jsonify({'status': 'error', 'error': str(e)}), 500
 
 
 # ── 聊天紀錄 ───────────────────────────────────────────────
@@ -96,17 +120,21 @@ def get_messages(case_id):
     err = _require_login()
     if err: return err
 
-    case = Case.query.filter_by(id=case_id, user_id=_current_user_id()).first()
-    if not case:
-        return jsonify({'status': 'error', 'error': '案場不存在'}), 404
+    try:
+        case = Case.query.filter_by(id=case_id, user_id=_current_user_id()).first()
+        if not case:
+            return jsonify({'status': 'error', 'error': '案場不存在'}), 404
 
-    msgs = (ChatMessage.query
-            .filter_by(case_id=case_id)
-            .order_by(ChatMessage.created_at)
-            .all())
-    return jsonify({'status': 'success', 'messages': [
-        {'role': m.role, 'content': m.content} for m in msgs
-    ]})
+        msgs = (ChatMessage.query
+                .filter_by(case_id=case_id)
+                .order_by(ChatMessage.created_at)
+                .all())
+        return jsonify({'status': 'success', 'messages': [
+            {'role': m.role, 'content': m.content} for m in msgs
+        ]})
+    except Exception as e:
+        log_error(session.get('user_email', 'anonymous'), 'get_messages', e, f"case_id={case_id}")
+        return jsonify({'status': 'error', 'error': str(e)}), 500
 
 
 @case_bp.route('/cases/<int:case_id>/messages', methods=['POST'])
@@ -114,15 +142,22 @@ def save_messages(case_id):
     err = _require_login()
     if err: return err
 
-    case = Case.query.filter_by(id=case_id, user_id=_current_user_id()).first()
-    if not case:
-        return jsonify({'status': 'error', 'error': '案場不存在'}), 404
+    try:
+        case = Case.query.filter_by(id=case_id, user_id=_current_user_id()).first()
+        if not case:
+            return jsonify({'status': 'error', 'error': '案場不存在'}), 404
 
-    for msg in (request.json or {}).get('messages', []):
-        db.session.add(ChatMessage(
-            case_id = case_id,
-            role    = msg['role'],
-            content = msg['content'],
-        ))
-    db.session.commit()
-    return jsonify({'status': 'success'})
+        messages = (request.json or {}).get('messages', [])
+        for msg in messages:
+            db.session.add(ChatMessage(
+                case_id = case_id,
+                role    = msg['role'],
+                content = msg['content'],
+            ))
+        db.session.commit()
+        log_action(session.get('user_email', 'anonymous'), 'save_messages',
+                   f"case_id={case_id} count={len(messages)}")
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        log_error(session.get('user_email', 'anonymous'), 'save_messages', e, f"case_id={case_id}")
+        return jsonify({'status': 'error', 'error': str(e)}), 500

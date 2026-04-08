@@ -318,7 +318,8 @@ class ExcelTool:
         year_spec: str,
         new_value: Union[int, float] = None,
         section_type: str = None,
-        year_value_map: dict = None
+        year_value_map: dict = None,
+        row_hint: int = None
     ) -> dict:
         """
         根據欄位名稱和年份智慧修改儲存格
@@ -330,13 +331,15 @@ class ExcelTool:
             new_value: 新的數值，正負號完全依照使用者輸入。當 year_value_map 有值時可為 None
             section_type: 區域類型，"公版"=1-36行，"現金流量表"或"綜合損益表"=37-64行，None=全部
             year_value_map: 年份-數值映射，如 {2020: -40000, 2023: -20000}，支持非連續年份
+            row_hint: （選填）使用者指定的行號（如 48），直接定位該行，跳過 B 欄掃描
 
         Returns:
             操作結果字典
         """
         try:
             # 強制要求 section_type：避免 LLM 猜測錯誤區域
-            if section_type is None:
+            # 例外：若提供 row_hint，可由行號自動推斷區域，免除 section_type 要求
+            if section_type is None and row_hint is None:
                 return {
                     "success": False,
                     "need_clarification": True,
@@ -379,36 +382,80 @@ class ExcelTool:
                 row_start, row_end = 86, 115
                 year_row = 87  # 現金流量表的年份在第 87 行
             else:
-                # 預設搜索全部範圍
-                row_start, row_end = 1, ws.max_row
-                year_row = 37  # 預設年份行
+                # row_hint 有值時，由行號自動推斷所在區域
+                if row_hint is not None:
+                    hint_row = int(row_hint)
+                    if hint_row <= 36:
+                        row_start, row_end = 1, 36
+                        year_row = 37
+                    elif hint_row <= 85:
+                        row_start, row_end = 37, 85
+                        year_row = 37
+                    else:
+                        row_start, row_end = 86, 115
+                        year_row = 87
+                else:
+                    # 預設搜索全部範圍
+                    row_start, row_end = 1, ws.max_row
+                    year_row = 37  # 預設年份行
 
-            # 1. 掃描 B 列找出指定範圍內的欄位名稱
-            field_candidates = []
-            for row in range(row_start, min(row_end + 1, ws.max_row + 1)):
-                cell_value = ws.cell(row=row, column=2).value  # B 列
-                if cell_value and isinstance(cell_value, str):
-                    field_candidates.append((row, cell_value))
+            # 1. 定位目標行
+            field_row = None
+            matched_field = None
+            similarity = 1.0
 
-            if not field_candidates:
-                section_info = f"（{section_type}區域，第{row_start}-{row_end}行）" if section_type else ""
-                return {
-                    "success": False,
-                    "message": f"在工作表「{sheet_name}」的 B 列{section_info}中找不到任何欄位名稱"
-                }
+            if row_hint is not None:
+                hint_row = int(row_hint)
+                hint_label = ws.cell(row=hint_row, column=2).value
+                if hint_label and isinstance(hint_label, str):
+                    # B 欄有標籤，直接定位，不做 fuzzy match
+                    field_row = hint_row
+                    matched_field = hint_label.strip()
+                elif field_keyword:
+                    # B 欄為空但有欄位關鍵字，退回掃描整個區域
+                    field_candidates = []
+                    for row in range(row_start, min(row_end + 1, ws.max_row + 1)):
+                        cell_value = ws.cell(row=row, column=2).value
+                        if cell_value and isinstance(cell_value, str):
+                            field_candidates.append((row, cell_value))
+                    match_result = self._fuzzy_match(field_keyword, field_candidates) if field_candidates else None
+                    if not match_result:
+                        return {
+                            "success": False,
+                            "message": f"第 {hint_row} 行的 B 欄為空，且找不到與「{field_keyword}」匹配的欄位"
+                        }
+                    field_row, matched_field, similarity = match_result
+                else:
+                    # B 欄為空且無欄位關鍵字，無法定位
+                    return {
+                        "success": False,
+                        "message": f"第 {hint_row} 行的 B 欄為空，請補充欄位名稱"
+                    }
+            else:
+                # 無 row_hint，靠欄位名稱掃描
+                field_candidates = []
+                for row in range(row_start, min(row_end + 1, ws.max_row + 1)):
+                    cell_value = ws.cell(row=row, column=2).value
+                    if cell_value and isinstance(cell_value, str):
+                        field_candidates.append((row, cell_value))
 
-            # 2. 模糊匹配欄位
-            match_result = self._fuzzy_match(field_keyword, field_candidates)
-            if not match_result:
-                field_names = [f[1] for f in field_candidates]
-                section_info = f"（{section_type}區域）" if section_type else ""
-                return {
-                    "success": False,
-                    "message": f"在{section_info}找不到與「{field_keyword}」匹配的欄位",
-                    "available_fields": field_names[:20]  # 最多顯示 20 個
-                }
+                if not field_candidates:
+                    section_info = f"（{section_type}區域，第{row_start}-{row_end}行）" if section_type else ""
+                    return {
+                        "success": False,
+                        "message": f"在工作表「{sheet_name}」的 B 列{section_info}中找不到任何欄位名稱"
+                    }
 
-            field_row, matched_field, similarity = match_result
+                match_result = self._fuzzy_match(field_keyword, field_candidates)
+                if not match_result:
+                    field_names = [f[1] for f in field_candidates]
+                    section_info = f"（{section_type}區域）" if section_type else ""
+                    return {
+                        "success": False,
+                        "message": f"在{section_info}找不到與「{field_keyword}」匹配的欄位",
+                        "available_fields": field_names[:20]
+                    }
+                field_row, matched_field, similarity = match_result
 
             # 判斷是否為支出
             is_outflow = 'outflow' in matched_field.lower()
@@ -1108,6 +1155,10 @@ EXCEL_TOOLS_SCHEMA = [
                     "year_value_map": {
                         "type": "object",
                         "description": "【多年份模式】年份與數值的映射，如 {\"2020\": -40000, \"2023\": -20000, \"2027\": -50000}。使用此參數時 year_spec 設為「multiple」，new_value 可省略"
+                    },
+                    "row_hint": {
+                        "type": "integer",
+                        "description": "（選填）使用者明確指定的 Excel 行號，如 48。提供後直接定位該行，無需掃描 B 欄，可提升精確度。當使用者說「第 N 行」或「位置在 N 行」時傳入此值"
                     }
                 },
                 "required": ["sheet_name", "field_keyword", "year_spec"]

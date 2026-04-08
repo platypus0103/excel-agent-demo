@@ -7,10 +7,9 @@ from openpyxl import load_workbook, Workbook
 from utils.recalc import recalc as _recalc
 from typing import Dict, List, Optional, Any, Union
 from tool.equipment_cost_services import (
-    CostStructureService, 
-    CashMode, 
-    RatioMode, 
-    ConditionalMode, 
+    CostStructureService,
+    CashMode,
+    RatioMode,
     CustomizeMode
 )
 from tool.finance_tool import FinanceTool
@@ -355,7 +354,6 @@ class EquipmentCostTool:
                 mode_desc = {
                     "cash": f"現金模式，每次減少 {step} 元",
                     "ratio": f"比率模式，每次減少 {step*100}%",
-                    "conditional": "條件模式，依價金範圍調整步幅",
                     "customize": "自訂模式，自動或手動配置步幅"
                 }.get(mode, f"{mode}模式")
 
@@ -537,7 +535,7 @@ class EquipmentCostTool:
                 mode_desc = {
                     "cash": f"現金模式，每次減少 {step} 元",
                     "ratio": f"比率模式，每次減少 {step*100}%",
-                    "conditional": "條件模式，依價金範圍調整步幅",
+
                     "customize": "自訂模式，自動或手動配置步幅"
                 }.get(mode, f"{mode}模式")
                 
@@ -566,11 +564,11 @@ class EquipmentCostTool:
                 # 嘗試從模板複製
                 template_copied = False
 
-                # 優先從輸入檔案中已有的「滾算紀錄1」複製
-                if "滾算紀錄1" in wb.sheetnames:
-                    sheet = wb.copy_worksheet(wb["滾算紀錄1"])
+                # 優先從輸入檔案中已有的「空白範例」複製
+                if "空白範例" in wb.sheetnames:
+                    sheet = wb.copy_worksheet(wb["空白範例"])
                     sheet.title = sheet_name
-                    print(f"已從輸入檔案的「滾算紀錄1」複製為「{sheet_name}」")
+                    print(f"已從輸入檔案的「空白範例」複製為「{sheet_name}」")
                     template_copied = True
                 else:
                     # 從 Excel Generic Template/excel公版.xlsx 複製模板
@@ -578,9 +576,9 @@ class EquipmentCostTool:
                     if os.path.exists(template_file):
                         try:
                             template_wb = load_workbook(template_file)
-                            if "滾算紀錄1" in template_wb.sheetnames:
+                            if "空白範例" in template_wb.sheetnames:
                                 # 複製工作表內容
-                                template_sheet = template_wb["滾算紀錄1"]
+                                template_sheet = template_wb["空白範例"]
                                 sheet = wb.create_sheet(sheet_name)
 
                                 # 複製所有單元格內容和格式
@@ -778,7 +776,7 @@ class EquipmentCostTool:
                     mode_desc = {
                         "cash": f"現金模式，每次減少 {step} 元",
                         "ratio": f"比率模式，每次減少 {step*100}%",
-                        "conditional": "條件模式，依價金範圍調整步幅",
+    
                         "customize": "自訂模式，自動或手動配置步幅"
                     }.get(mode, f"{mode}模式")
 
@@ -842,7 +840,7 @@ class EquipmentCostTool:
                         template_copied = False
 
                         # 方法1: 優先從輸入檔案中已有的模板工作表複製
-                        for template_name in ["輸入公版(輸入模擬)", "輸入公版", "滾算紀錄1"]:
+                        for template_name in ["空白範例"]:
                             if template_name in wb.sheetnames:
                                 new_sheet = wb.copy_worksheet(wb[template_name])
                                 new_sheet.title = new_sheet_name
@@ -857,7 +855,7 @@ class EquipmentCostTool:
                                 try:
                                     template_wb = load_workbook(template_file)
                                     # 嘗試從模板檔案中尋找合適的工作表
-                                    for template_name in ["輸入公版(輸入模擬)", "輸入公版", "滾算紀錄1"]:
+                                    for template_name in ["空白範例"]:
                                         if template_name in template_wb.sheetnames:
                                             template_sheet = template_wb[template_name]
                                             new_sheet = wb.create_sheet(new_sheet_name)
@@ -942,7 +940,7 @@ class EquipmentCostTool:
         執行價金滾算
 
         Args:
-            mode: 滾算模式 ("cash", "ratio", "conditional", "customize")
+            mode: 滾算模式 ("cash", "ratio", "customize")
             boundary: 價金調整邊界
             step: 調整步幅（現金模式為整數，比率模式為小數）
             profit_rate: 信邦利潤率（如未指定，將從Excel檔案讀取）
@@ -1005,23 +1003,6 @@ class EquipmentCostTool:
                 
             elif mode == "ratio":
                 calculator = RatioMode(boundary=boundary, step=float(step))
-                adjustment_record = calculator.calculation(initial_cost)
-                
-            elif mode == "conditional":
-                maximum_value = kwargs.get("maximum_value", 50000)
-                minimum_value = kwargs.get("minimum_value", 30000)
-                condition_step_1 = kwargs.get("condition_step_1", 2000)
-                condition_step_2 = kwargs.get("condition_step_2", 1000)
-                condition_step_3 = kwargs.get("condition_step_3", 500)
-                
-                calculator = ConditionalMode(
-                    boundary=boundary,
-                    maximum_value=maximum_value,
-                    minimum_value=minimum_value,
-                    condition_step_1=condition_step_1,
-                    condition_step_2=condition_step_2,
-                    condition_step_3=condition_step_3
-                )
                 adjustment_record = calculator.calculation(initial_cost)
                 
             elif mode == "customize":
@@ -1116,8 +1097,8 @@ EQUIPMENT_COST_TOOLS_SCHEMA = [
                 "properties": {
                     "mode": {
                         "type": "string",
-                        "enum": ["cash", "ratio", "conditional", "customize"],
-                        "description": "滾算模式：cash(現金模式), ratio(比率模式), conditional(條件模式), customize(自訂模式)"
+                        "enum": ["cash", "ratio", "customize"],
+                        "description": "滾算模式：cash(現金模式), ratio(比率模式), customize(自訂模式)"
                     },
                     "boundary": {
                         "type": "integer",

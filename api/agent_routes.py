@@ -12,6 +12,8 @@ parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
+from utils.app_logger import log_action, log_error
+
 
 def _get_excel_dir():
     """根據登入用戶回傳用戶專屬的 Excel 目錄（以 email 命名），若未登入則使用根目錄"""
@@ -81,6 +83,61 @@ except ImportError as e:
     DEFAULT_CONFIG = None
 
 agent_bp = Blueprint('agent_bp', __name__)
+
+# ── 使用說明文字 ──────────────────────────────────────────────
+_HELP_TEXT = """## 財模助手 使用說明
+
+歡迎使用財模助手！以下是主要功能的操作方式。
+
+---
+
+### 一、建立案場與上傳 Excel
+1. 點擊左側「＋ 新增案場」建立案場
+2. 在案場中點擊「上傳 Excel」，選擇財務模型檔案（.xlsx）
+3. 上傳後系統會自動載入試算表
+
+---
+
+### 二、查詢財務數據
+直接用自然語言詢問，例如：
+- `p1 的專案法 IRR 是多少？`
+- `查詢 p2 的 2025 年現金流`
+- `比較所有情境的 IRR`
+
+---
+
+### 三、修改 Excel 數值
+直接說明要改什麼，例如：
+- `把 p3 的保險費 2025~2030 改成 -50000`
+- `修改第 48 行 2026 年改成 -40000`
+- `p2 公版的設備費用改成 28000`
+
+系統會顯示確認訊息，回覆「**是**」後執行修改。
+
+---
+
+### 四、價金滾算
+點擊畫面上方的「**滾算**」按鈕，選擇模式並填入參數：
+
+| 模式 | 說明 |
+|------|------|
+| 現金模式 | 以固定金額逐步遞減 |
+| 比率模式 | 以固定比率逐步遞減 |
+| 自訂模式 | 手動輸入每次遞減金額 |
+
+計算完成後可選擇是否存入 Excel。
+
+---
+
+### 五、多站彙整
+在「匯入表格」功能中，選取多個案場的工作表合併，系統自動產生「多站彙整」總表。
+
+---
+
+### 支援的關鍵字
+輸入以下任一關鍵字可重新顯示此說明：
+`使用說明`、`說明`、`help`、`如何使用`、`怎麼用`
+"""
 
 # 全域 Agent 實例
 _agent_instance = None
@@ -178,12 +235,18 @@ def _parse_modification(query: str, current_sheet: str = None) -> dict:
         'new_value': None,
         'section_type': None,
         'year_value_map': None,
+        'row_hint': None,
     }
 
     # 工作表名稱（p1/p2/p3 或其他格式）
     sheet_m = re.search(r'(?<![a-zA-Z\d])(p\d+)(?![a-zA-Z\d])', query, re.IGNORECASE)
     if sheet_m:
         result['sheet_name'] = sheet_m.group(1)
+
+    # 行號提取（優先，避免行號被當成欄位名稱）：「第48行」或「48行」（1-3位數，避免誤抓年份）
+    row_m = re.search(r'第?\s*(\d{1,3})\s*行', query)
+    if row_m:
+        result['row_hint'] = int(row_m.group(1))
 
     # 區域
     if re.search(r'公版', query):
@@ -232,6 +295,7 @@ def _parse_modification(query: str, current_sheet: str = None) -> dict:
     fq = query
     for pattern in [r'p\d+', r'公版|綜合損益表|損益表|現金流量表|流量表',
                     r'\d{4}\s*[~～\-到至]\s*\d{4}', r'\d{4}\s*年?',
+                    r'第?\s*\d{1,3}\s*行',   # 行號（如「第48行」「48行」），避免誤判為欄位名
                     r'(?:改成|改為|設為|設成|變成|變為|→|->)\s*-?\d+(?:\.\d+)?',
                     r'我想|想要|想|要|幫我|請|調整|變更|修改|更改|把|的|將|中|裡|內|改|成|為|變|設定|可以|能|麻煩']:
         fq = re.sub(pattern, ' ', fq, flags=re.IGNORECASE)
@@ -505,9 +569,22 @@ def agent_chat():
     if not user_query:
         return jsonify({"error": "請提供 'query' 參數"}), 400
 
+    # ── 使用說明快捷回應（不走 AI，直接回傳固定說明）──
+    _HELP_KEYWORDS = {'使用說明', '說明', 'help', '幫助', '如何使用', '怎麼用', '功能介紹', '教學'}
+    if user_query.strip().lower() in _HELP_KEYWORDS or user_query.strip() in _HELP_KEYWORDS:
+        return jsonify({
+            "query": user_query,
+            "response": _HELP_TEXT,
+            "excel_modified": False
+        })
+
     print(f"\n--- API 請求: 執行 Agent 對話 ---")
     print(f"收到查詢: {user_query}")
     print(f"案場資訊: case_id={case_id}, case_name={case_name}, original_filename={original_filename}, sheet_name={sheet_name}")
+
+    user_email = session.get('user_email', 'anonymous')
+    log_action(user_email, 'agent_chat',
+               f"case={case_name}({case_id}) query={user_query[:200]}")
 
     try:
         # 獲取 Agent 實例
@@ -552,7 +629,7 @@ def agent_chat():
                 save_params['excel_file'] = pending_rolling.get('excel_path')
                 mode_mapping = {
                     "CashMode": "cash", "RatioMode": "ratio",
-                    "ConditionalMode": "conditional", "CustomizeMode": "customize"
+                    "CustomizeMode": "customize"
                 }
                 save_params['mode'] = mode_mapping.get(
                     save_params.get('mode', ''), save_params.get('mode', '').lower())
@@ -709,7 +786,7 @@ def agent_chat():
             r'|價金\s*滾算'                             # 價金滾算
             r'|price\s*rolling'                         # 英文
             r'|設備成本'                                # 設備成本滾算
-            r'|cashmode|ratiomode|conditionalmode|customizemode',  # 模式關鍵字
+            r'|cashmode|ratiomode|customizemode',  # 模式關鍵字
             user_query, re.IGNORECASE
         )
 
@@ -728,7 +805,7 @@ def agent_chat():
                 # 路由層解析修改參數
                 parsed = _parse_modification(user_query, current_sheet=sheet_name)
 
-                _has_field = bool(parsed.get('field_keyword'))
+                _has_field = bool(parsed.get('field_keyword')) or parsed.get('row_hint') is not None
                 _has_value = (
                     parsed.get('new_value') is not None or
                     parsed.get('year_value_map') is not None
@@ -770,11 +847,17 @@ def agent_chat():
                         if parsed.get('year_value_map')
                         else parsed.get('year_spec', '全部')
                     )
+                    _location_desc = (
+                        f"第{parsed['row_hint']}行"
+                        if parsed.get('row_hint') and not parsed.get('field_keyword')
+                        else (parsed.get('field_keyword') or '未指定')
+                    )
                     inject = (
                         f"[系統已解析出以下修改參數，請用繁體中文呈現 Double Check 確認訊息，禁止呼叫任何工具：\n"
                         f"分頁={parsed.get('sheet_name') or '未指定'}, "
                         f"區域={parsed.get('section_type') or '未推斷出'}, "
-                        f"項目={parsed.get('field_keyword') or '未指定'}, "
+                        f"{'行號=第' + str(parsed['row_hint']) + '行, ' if parsed.get('row_hint') else ''}"
+                        f"項目={_location_desc}, "
                         f"改為={parsed.get('new_value') if parsed.get('year_value_map') is None else '見年份對應'}, "
                         f"年份={year_desc}]\n"
                     )
@@ -790,6 +873,9 @@ def agent_chat():
                 excel_modified = any(tool in agent.last_used_tools for tool in excel_tools)
 
         print(f"Agent 回應成功 (Excel modified: {excel_modified})")
+        log_action(user_email, 'agent_chat_done',
+                   f"case={case_name}({case_id}) excel_modified={excel_modified} "
+                   f"tools_used={agent.last_used_tools} response_len={len(agent_response)}")
         return jsonify({
             "query": user_query,
             "response": agent_response,
@@ -800,6 +886,8 @@ def agent_chat():
         import traceback
         print(f"AI Agent 處理錯誤: {e}")
         print(traceback.format_exc())
+        log_error(user_email, 'agent_chat',
+                  e, f"case={case_name}({case_id}) query={user_query[:200]}")
         return jsonify({"error": "系統處理時發生問題，請稍後再試。"}), 500
 
 AVAILABLE_MODELS = ['qwen3:4b', 'qwen3:14b', 'qwen3:32b']
@@ -811,6 +899,7 @@ def get_model():
         agent = get_agent()
         return jsonify({"status": "success", "model": agent.config.model_name})
     except Exception as e:
+        log_error(session.get('user_email', 'anonymous'), 'get_model', e)
         return jsonify({"status": "error", "error": str(e)}), 500
 
 @agent_bp.route('/agent/model', methods=['POST'])
@@ -824,9 +913,11 @@ def set_model():
         agent = get_agent()
         agent.config.model_name = model
         agent.connection.model_name = model
+        log_action(session.get('user_email', 'anonymous'), 'set_model', f"model={model}")
         print(f"[模型切換] → {model}")
         return jsonify({"status": "success", "model": model})
     except Exception as e:
+        log_error(session.get('user_email', 'anonymous'), 'set_model', e, f"model={data.get('model', '') if 'data' in dir() else ''}")
         return jsonify({"status": "error", "error": str(e)}), 500
 
 @agent_bp.route('/reset', methods=['POST'])
@@ -835,11 +926,13 @@ def reset_agent():
     try:
         agent = get_agent()
         agent.reset(keep_system=True)
+        log_action(session.get('user_email', 'anonymous'), 'reset_agent', '')
         return jsonify({
             "status": "success",
             "message": "對話已重置"
         })
     except Exception as e:
+        log_error(session.get('user_email', 'anonymous'), 'reset_agent', e)
         return jsonify({"error": str(e)}), 500
 
 @agent_bp.route('/history', methods=['GET'])
@@ -853,6 +946,7 @@ def get_history():
             "history": messages
         })
     except Exception as e:
+        log_error(session.get('user_email', 'anonymous'), 'get_history', e)
         return jsonify({"error": str(e)}), 500
 
 @agent_bp.route('/get_excel_defaults', methods=['GET'])
@@ -906,6 +1000,7 @@ def get_excel_defaults():
         })
 
     except Exception as e:
+        log_error(session.get('user_email', 'anonymous'), 'get_excel_defaults', e)
         return jsonify({
             "status": "error",
             "message": f"讀取 Excel 預設值時發生錯誤: {str(e)}"
@@ -969,18 +1064,21 @@ def upload_excel():
         except Exception:
             pass
 
+        log_action(session.get('user_email', 'anonymous'), 'upload_excel',
+                   f"case={case_name}({case_id}) file={original_filename}")
         return jsonify({
             "status": "success",
             "message": f"檔案已上傳: {original_filename}",
             "file_path": file_path,
             "filename": filename,
-            "original_filename": original_filename,  # 回傳真正的原始檔名
-            "project_name": project_name  # B2 的案場名稱（可能為 None）
+            "original_filename": original_filename,
+            "project_name": project_name
         })
     except Exception as e:
         import traceback
         print(f"檔案上傳錯誤: {e}")
         print(traceback.format_exc())
+        log_error(session.get('user_email', 'anonymous'), 'upload_excel', e)
         return jsonify({"error": f"檔案上傳失敗: {str(e)}"}), 500
 
 
@@ -1071,7 +1169,8 @@ def read_excel(case_id):
             })
 
         print(f"成功讀取 Excel: {excel_file}, 共 {len(sheets_data)} 個工作表")
-
+        log_action(session.get('user_email', 'anonymous'), 'read_excel',
+                   f"case_id={case_id} file={os.path.basename(excel_file)} sheets={len(sheets_data)}")
         return jsonify({
             'status': 'success',
             'data': sheets_data,
@@ -1082,6 +1181,7 @@ def read_excel(case_id):
         import traceback
         print(f"讀取 Excel 錯誤: {e}")
         print(traceback.format_exc())
+        log_error(session.get('user_email', 'anonymous'), 'read_excel', e, f"case_id={case_id}")
         return jsonify({"error": f"讀取 Excel 失敗: {str(e)}"}), 500
 
 @agent_bp.route('/rename_excel', methods=['POST'])
@@ -1121,7 +1221,8 @@ def rename_excel():
         os.rename(old_path, new_path)
 
         print(f"檔案已重新命名: {old_filename} -> {new_filename}")
-
+        log_action(session.get('user_email', 'anonymous'), 'rename_excel',
+                   f"old={old_filename} new={new_filename}")
         return jsonify({
             "status": "success",
             "message": "檔案重新命名成功",
@@ -1132,6 +1233,8 @@ def rename_excel():
         import traceback
         print(f"🚨 重新命名錯誤: {e}")
         print(traceback.format_exc())
+        log_error(session.get('user_email', 'anonymous'), 'rename_excel', e,
+                  f"old={old_filename if 'old_filename' in dir() else ''}")
         return jsonify({"error": f"重新命名失敗: {str(e)}"}), 500
 
 @agent_bp.route('/delete_excel', methods=['POST'])
@@ -1166,6 +1269,8 @@ def delete_excel():
         os.remove(file_path)
 
         print(f"檔案已刪除: {filename}")
+        log_action(session.get('user_email', 'anonymous'), 'delete_excel',
+                   f"file={filename}")
 
         return jsonify({
             "status": "success",
@@ -1177,6 +1282,8 @@ def delete_excel():
         import traceback
         print(f"🚨 刪除檔案錯誤: {e}")
         print(traceback.format_exc())
+        log_error(session.get('user_email', 'anonymous'), 'delete_excel', e,
+                  f"file={filename if 'filename' in dir() else ''}")
         return jsonify({"error": f"刪除檔案失敗: {str(e)}"}), 500
 
 def _format_price_rolling_result(tool_result, mode):
@@ -1206,6 +1313,15 @@ def _format_price_rolling_result(tool_result, mode):
         except (TypeError, ValueError):
             return f"{val}%"
 
+    # 格式化金額，加千分位逗號
+    def fmt_money(val):
+        if val is None or val == 'N/A':
+            return 'N/A'
+        try:
+            return f"{int(round(float(val))):,}"
+        except (TypeError, ValueError):
+            return str(val)
+
     # 檢查是 execute_price_rolling 還是 calculate_price_rolling 的結果
     if "result" in tool_result:
         # execute_price_rolling 格式 - 從 result 字段提取數據
@@ -1213,9 +1329,9 @@ def _format_price_rolling_result(tool_result, mode):
         summary = tool_result.get("summary", {})
 
         response_parts.append("### 滾算摘要")
-        response_parts.append(f"- **初始價金**: {summary.get('initial_cost', 'N/A')} 元/kW")
-        response_parts.append(f"- **最終價金**: {summary.get('final_cost', 'N/A')} 元/kW")
-        response_parts.append(f"- **總降幅**: {summary.get('total_reduction', 'N/A')} 元/kW\n")
+        response_parts.append(f"- **初始價金**: {fmt_money(summary.get('initial_cost'))} 元/kW")
+        response_parts.append(f"- **最終價金**: {fmt_money(summary.get('final_cost'))} 元/kW")
+        response_parts.append(f"- **總降幅**: {fmt_money(summary.get('total_reduction'))} 元/kW\n")
 
         # 顯示結果表格
         adjustment_record = result_data.get("adjustment_record", [])
@@ -1234,7 +1350,7 @@ def _format_price_rolling_result(tool_result, mode):
                 cost_irr = format_irr(irr_data.get('cost_method_irr'))
                 equity_irr = format_irr(irr_data.get('equity_method_irr'))
 
-                response_parts.append(f"| {price} | {profit} | {project_irr} | {cost_irr} | {equity_irr} |")
+                response_parts.append(f"| {fmt_money(price)} | {fmt_money(profit)} | {project_irr} | {cost_irr} | {equity_irr} |")
 
         return "\n".join(response_parts)
 
@@ -1250,9 +1366,9 @@ def _format_price_rolling_result(tool_result, mode):
         total_reduction = initial_cost - final_cost if isinstance(initial_cost, (int, float)) and isinstance(final_cost, (int, float)) else 'N/A'
 
         response_parts.append("### 滾算摘要")
-        response_parts.append(f"- **初始價金**: {initial_cost} 元/kW")
-        response_parts.append(f"- **最終價金**: {final_cost} 元/kW")
-        response_parts.append(f"- **總降幅**: {total_reduction} 元/kW\n")
+        response_parts.append(f"- **初始價金**: {fmt_money(initial_cost)} 元/kW")
+        response_parts.append(f"- **最終價金**: {fmt_money(final_cost)} 元/kW")
+        response_parts.append(f"- **總降幅**: {fmt_money(total_reduction)} 元/kW\n")
 
     # 顯示結果表格（移除次數列，只顯示需要的欄位）
     response_parts.append("### 滾算明細")
@@ -1267,7 +1383,7 @@ def _format_price_rolling_result(tool_result, mode):
         cost_irr = format_irr(row[4]) if len(row) > 4 else 'N/A'
         equity_irr = format_irr(row[5]) if len(row) > 5 else 'N/A'
 
-        response_parts.append(f"| {price} | {profit} | {project_irr} | {cost_irr} | {equity_irr} |")
+        response_parts.append(f"| {fmt_money(price)} | {fmt_money(profit)} | {project_irr} | {cost_irr} | {equity_irr} |")
 
     return "\n".join(response_parts)
 
@@ -1284,7 +1400,7 @@ def calculate_price_rolling():
     data = request.json
 
     # 獲取基本參數（優先使用網頁傳來的數值）
-    mode = data.get('mode')  # CashMode, RatioMode, ConditionalMode, CustomizeMode
+    mode = data.get('mode')  # CashMode, RatioMode, CustomizeMode
     equipment_cost = data.get('equipment_cost')
     profit_rate = data.get('profit_rate')
     development_fee = data.get('development_fee')  # 開發費，None表示用戶未輸入
@@ -1323,10 +1439,13 @@ def calculate_price_rolling():
     print(f"模式: {mode}")
     print(f"參數: equipment_cost={equipment_cost}, profit_rate={profit_rate}, development_fee={development_fee}, boundary={boundary}")
     print(f"案場資訊: case_id={case_id}, case_name={case_name}, original_filename={original_filename}")
+    log_action(session.get('user_email', 'anonymous'), 'calculate_price_rolling',
+               f"case={case_name}({case_id}) mode={mode} boundary={boundary}")
 
     try:
-        # 獲取 Agent 實例
-        agent = get_agent()
+        # 直接建立 ToolManager，不依賴 AIAgent（滾算不需要 LLM）
+        from tool.tool_manager import ToolManager
+        tool_manager = ToolManager()
 
         # 設定財務工具的 Excel 檔案（使用通用定址 helper）
         current_excel_path = _find_excel_file(case_id=case_id, case_name=case_name, original_filename=original_filename)
@@ -1337,8 +1456,8 @@ def calculate_price_rolling():
 
         # 設定工具的 Excel 檔案
         if current_excel_path:
-            agent.tool_manager.set_finance_excel_file(current_excel_path, sheet_name)
-            agent.tool_manager.price_rolling_tool.set_excel_file(current_excel_path, sheet_name)
+            tool_manager.set_finance_excel_file(current_excel_path, sheet_name)
+            tool_manager.price_rolling_tool.set_excel_file(current_excel_path, sheet_name)
             print(f"已設定 Excel 檔案: {current_excel_path}")
         else:
             print(f"錯誤: 找不到任何 Excel 檔案，case_name={case_name}, original_filename={original_filename}")
@@ -1351,7 +1470,6 @@ def calculate_price_rolling():
         mode_mapping = {
             "CashMode": "cash",
             "RatioMode": "ratio",
-            "ConditionalMode": "conditional",
             "CustomizeMode": "customize"
         }
         backend_mode = mode_mapping.get(mode, mode.lower())
@@ -1386,27 +1504,6 @@ def calculate_price_rolling():
                 tool_args["step"] = float(step)
                 query_desc += f" (比例={step})"
 
-        elif mode == "ConditionalMode":
-            max_value = data.get('max_value')
-            min_value = data.get('min_value')
-            step1 = data.get('step1')
-            step2 = data.get('step2')
-            step3 = data.get('step3')
-
-            # calculate_price_rolling 使用這些參數名稱
-            if max_value is not None:
-                tool_args["max_value"] = max_value
-            if min_value is not None:
-                tool_args["min_value"] = min_value
-            if step1 is not None:
-                tool_args["step1"] = step1
-            if step2 is not None:
-                tool_args["step2"] = step2
-            if step3 is not None:
-                tool_args["step3"] = step3
-
-            query_desc += f" (max={max_value}, min={min_value}, step1={step1}, step2={step2}, step3={step3})"
-
         elif mode == "CustomizeMode":
             adjust_times = data.get('adjust_times')
             steps = data.get('steps')
@@ -1421,7 +1518,7 @@ def calculate_price_rolling():
         print(f"工具參數: {tool_args}")
 
         # 使用 calculate_price_rolling 工具（純計算，不寫入 Excel，讓用戶自己決定是否儲存）
-        tool_result = agent.tool_manager.execute_tool("calculate_price_rolling", tool_args)
+        tool_result = tool_manager.execute_tool("calculate_price_rolling", tool_args)
 
         # 格式化結果
         if tool_result.get("success"):
@@ -1439,6 +1536,8 @@ def calculate_price_rolling():
                 # 詢問使用者是否確認將滾算結果寫回 Excel
                 agent_response += "\n\n---\n**是否要將此滾算結果儲存到 Excel？**\n請回覆「是」或「儲存」來保存，或直接進行下一步操作。"
 
+                log_action(session.get('user_email', 'anonymous'), 'calculate_price_rolling_done',
+                           f"case={case_name}({case_id}) mode={mode}")
                 print(f"{mode} 工具調用成功")
                 return jsonify({
                     "status": "success",
@@ -1463,6 +1562,8 @@ def calculate_price_rolling():
         import traceback
         print(f"🚨 價金滾算處理錯誤: {e}")
         print(traceback.format_exc())
+        log_error(session.get('user_email', 'anonymous'), 'calculate_price_rolling', e,
+                  f"case={case_name}({case_id}) mode={mode}")
         return jsonify({
             "status": "error",
             "error": f"處理請求時發生錯誤: {str(e)}"
@@ -1559,12 +1660,16 @@ def save_excel():
         workbook.close()
 
         print(f"[save_excel] 保存成功，保留了 {formulas_preserved} 個公式")
+        log_action(session.get('user_email', 'anonymous'), 'save_excel',
+                   f"case={case_name} file={os.path.basename(excel_path)} formulas_preserved={formulas_preserved}")
         return jsonify({"status": "success", "message": f"Excel 已保存（保留了 {formulas_preserved} 個公式）"})
 
     except Exception as e:
         import traceback
         print(f"[save_excel] 保存失敗: {e}")
         print(traceback.format_exc())
+        log_error(session.get('user_email', 'anonymous'), 'save_excel', e,
+                  f"case={case_name if 'case_name' in dir() else ''}")
         return jsonify({"status": "error", "error": f"保存失敗: {str(e)}"}), 500
 
 
@@ -1593,7 +1698,8 @@ def download_excel():
             }), 404
 
         print(f"[下載] 發送檔案: {excel_path}")
-
+        log_action(session.get('user_email', 'anonymous'), 'download_excel',
+                   f"case={case_name}({case_id}) file={os.path.basename(excel_path)}")
         # 發送檔案
         return send_file(
             excel_path,
@@ -1606,6 +1712,8 @@ def download_excel():
         import traceback
         print(f"🚨 下載 Excel 錯誤: {e}")
         print(traceback.format_exc())
+        log_error(session.get('user_email', 'anonymous'), 'download_excel', e,
+                  f"case={case_name}({case_id})")
         return jsonify({
             "status": "error",
             "error": f"下載失敗: {str(e)}"
@@ -1632,10 +1740,10 @@ def download_template():
         # 以 data_only=False 開啟，保留所有公式字串
         wb_src = openpyxl.load_workbook(template_path, data_only=False)
 
-        if len(wb_src.sheetnames) < 3:
-            return jsonify({'status': 'error', 'error': f'公版檔案只有 {len(wb_src.sheetnames)} 個工作表，無法取得第三個'}), 400
+        if '空白範例' not in wb_src.sheetnames:
+            return jsonify({'status': 'error', 'error': f'公版檔案中找不到「空白範例」工作表，可用工作表: {wb_src.sheetnames}'}), 400
 
-        src_sheet = wb_src.worksheets[2]  # 第三個工作表（工作表1）
+        src_sheet = wb_src['空白範例']
 
         # 建立新 workbook，將來源工作表的儲存格逐一複製
         wb_new = Workbook()
@@ -1680,6 +1788,7 @@ def download_template():
     except Exception as e:
         import traceback
         print(f"下載公版錯誤: {e}\n{traceback.format_exc()}")
+        log_error(session.get('user_email', 'anonymous'), 'download_template', e)
         return jsonify({'status': 'error', 'error': str(e)}), 500
 
 
@@ -1701,11 +1810,28 @@ def list_case_sheets():
                 "cases": []
             })
 
+        # 取得資料庫中仍有效的 case id 集合，過濾孤立檔案
+        valid_case_ids = set()
+        try:
+            from models.db_models import Case
+            from models.database import db
+            user_id = session.get('user_id')
+            if user_id:
+                valid_case_ids = {str(c.id) for c in Case.query.filter_by(user_id=user_id).all()}
+        except Exception as _dbe:
+            print(f"[list_case_sheets] 無法查詢 DB，略過驗證: {_dbe}")
+
         # 掃描 Excel 目錄中的所有檔案
         excel_files = [f for f in os.listdir(excel_dir)
                       if f.endswith(('.xlsx', '.xls')) and not f.startswith('~$')]
 
         for filename in excel_files:
+            # 若能取得 valid_case_ids，跳過已刪除案場的孤立檔案
+            if valid_case_ids:
+                file_case_id = filename.split('_', 1)[0]
+                if file_case_id not in valid_case_ids:
+                    print(f"[list_case_sheets] 跳過孤立檔案（case 已刪除）: {filename}")
+                    continue
             file_path = os.path.join(excel_dir, filename)
 
             try:
@@ -1759,6 +1885,7 @@ def list_case_sheets():
         import traceback
         print(f"🚨 列出案場 sheets 錯誤: {e}")
         print(traceback.format_exc())
+        log_error(session.get('user_email', 'anonymous'), 'list_case_sheets', e)
         return jsonify({
             "status": "error",
             "error": f"列出案場失敗: {str(e)}"
@@ -1958,7 +2085,7 @@ def create_income_cashflow_section(target_wb, cases_info, agg_last_row, item_tot
     n_years       = overall_end - overall_start + 1
 
     template_wb = openpyxl.load_workbook(template_path)
-    template_ws = template_wb['滾算紀錄1']
+    template_ws = template_wb['空白範例']
     agg_ws = target_wb["多站彙整"]
 
     print(f"[損益/現金流] 使用工作表: {template_ws.title}, agg_last_row={agg_last_row}, income_start={agg_last_row + 6}")
@@ -2465,8 +2592,11 @@ def import_sheets():
 
                 source_sheet = source_wb[source_sheet_name]
 
-                # 新 sheet 名稱：案場名稱_原sheet名稱
-                new_sheet_name = f"{source_case_name}_{source_sheet_name}"
+                # 從 C2 讀電站名稱，作為 sheet 命名與彙整總表標題
+                plant_name = str(source_sheet['C2'].value).strip() if source_sheet['C2'].value else source_case_name
+
+                # 新 sheet 名稱：電站名稱_原sheet名稱（例：台中電站_p2）
+                new_sheet_name = f"{plant_name}_{source_sheet_name}"
 
                 # 確保名稱不重複（Excel sheet 名稱最多 31 字元）
                 if len(new_sheet_name) > 31:
@@ -2536,12 +2666,12 @@ def import_sheets():
                     end_year   = int(_ws_data['E5'].value)
                     _wb_data.close()
                     cases_info.append({
-                        'display_name': source_case_name,
+                        'display_name': plant_name,
                         'sheet_name':   new_sheet_name,
                         'start_year':   start_year,
                         'end_year':     end_year,
                     })
-                    print(f"[import_sheets] 年份讀取成功: {source_case_name} {start_year}~{end_year}")
+                    print(f"[import_sheets] 年份讀取成功: {plant_name} {start_year}~{end_year}")
                 except (TypeError, ValueError) as e:
                     print(f"[import_sheets] 無法讀取 {new_sheet_name} 的年份資料（C5/E5）: {e}")
 
@@ -2552,6 +2682,27 @@ def import_sheets():
             except Exception as e:
                 print(f"[import_sheets] 匯入 {source_case_name}/{source_sheet_name} 失敗: {e}")
                 continue
+
+        # 補入目標檔案中已存在的 sheet（追加彙總時保留舊紀錄）
+        new_sheet_names = {c['sheet_name'] for c in cases_info}
+        _system_sheets = {"多站彙整"}
+        for sn in target_wb.sheetnames:
+            if sn in _system_sheets or sn in new_sheet_names:
+                continue
+            try:
+                _ws = target_wb[sn]
+                _plant = str(_ws['C2'].value).strip() if _ws['C2'].value else sn
+                _start = int(_ws['C5'].value)
+                _end   = int(_ws['E5'].value)
+                cases_info.insert(0, {
+                    'display_name': _plant,
+                    'sheet_name':   sn,
+                    'start_year':   _start,
+                    'end_year':     _end,
+                })
+                print(f"[import_sheets] 已存在 sheet 納入彙整: {sn} ({_plant}) {_start}~{_end}")
+            except Exception:
+                pass  # 非資料 sheet，略過
 
         # 建立彙整總表（自動觸發）
         print(f"[import_sheets] cases_info 共 {len(cases_info)} 筆: {[c['display_name'] for c in cases_info]}")
@@ -2596,7 +2747,8 @@ def import_sheets():
             print(f"[import_sheets] recalc 失敗（略過）: {_e}")
 
         print(f"[import_sheets] 完成，共匯入 {imported_count} 個 sheets")
-
+        log_action(session.get('user_email', 'anonymous'), 'import_sheets',
+                   f"target={target_case_name} imported={imported_count}")
         return jsonify({
             "status": "success",
             "message": f"成功匯入 {imported_count} 個 sheets",
@@ -2608,6 +2760,8 @@ def import_sheets():
         import traceback
         print(f"🚨 匯入 sheets 錯誤: {e}")
         print(traceback.format_exc())
+        log_error(session.get('user_email', 'anonymous'), 'import_sheets', e,
+                  f"target={target_case_name if 'target_case_name' in dir() else ''}")
         return jsonify({
             "status": "error",
             "error": f"匯入失敗: {str(e)}"

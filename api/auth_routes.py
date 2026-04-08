@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, session
 from models.database import db
 from models.db_models import User
+from utils.app_logger import log_action
 
 auth_bp = Blueprint('auth_bp', __name__)
 
@@ -19,8 +20,10 @@ def login():
         db.session.add(user)
         db.session.commit()
         print(f"[Auth] 新使用者建立: {email}")
+        log_action(email, 'register', '新帳號建立')
     else:
         print(f"[Auth] 使用者登入: {email}")
+        log_action(email, 'login', '登入成功')
 
     session['user_id']    = user.id
     session['user_email'] = user.email
@@ -29,6 +32,8 @@ def login():
 
 @auth_bp.route('/auth/logout', methods=['POST'])
 def logout():
+    email = session.get('user_email', 'anonymous')
+    log_action(email, 'logout', '登出')
     session.clear()
     return jsonify({'status': 'success'})
 
