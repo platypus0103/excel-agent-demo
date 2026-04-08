@@ -1,0 +1,60 @@
+[2026-04-08 18:47:30] [INFO] ============================================================
+[2026-04-08 18:47:30] [INFO] 財模助手 啟動
+[2026-04-08 18:47:30] [INFO] ============================================================
+[2026-04-08 18:47:32] [INFO] ============================================================
+[2026-04-08 18:47:32] [INFO] 財模助手 啟動
+[2026-04-08 18:47:32] [INFO] ============================================================
+[2026-04-08 18:47:53] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=12ms
+[2026-04-08 18:47:54] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
+[2026-04-08 18:47:54] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=15ms
+[2026-04-08 18:47:54] [INFO] [OK] user=123@gmail.com action=create_case | case_id=1 name=表 1
+[2026-04-08 18:47:54] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=69ms
+[2026-04-08 18:47:54] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/1/messages status=200 time=5ms
+[2026-04-08 18:48:02] [INFO] [OK] user=123@gmail.com action=upload_excel | case=表 1(1) file=模擬輸入.xlsx
+[2026-04-08 18:48:02] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/upload_excel status=200 time=49ms
+[2026-04-08 18:48:02] [INFO] [OK] user=123@gmail.com action=update_case | case_id=1 name=淡江大學-財務模擬案場
+[2026-04-08 18:48:02] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/1 status=200 time=23ms
+[2026-04-08 18:48:02] [INFO] [OK] user=123@gmail.com action=update_case | case_id=1 name=淡江大學-財務模擬案場
+[2026-04-08 18:48:02] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/1 status=200 time=41ms
+[2026-04-08 18:48:02] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=1 count=1
+[2026-04-08 18:48:02] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/1/messages status=200 time=46ms
+[2026-04-08 18:48:04] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=65ms
+[2026-04-08 18:48:15] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling | case=表 1(1) mode=CashMode boundary=20000
+[2026-04-08 18:48:15] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling_done | case=表 1(1) mode=CashMode
+[2026-04-08 18:48:15] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/calculate_price_rolling status=200 time=836ms
+[2026-04-08 18:48:15] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=1 count=1
+[2026-04-08 18:48:15] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/1/messages status=200 time=12ms
+[2026-04-08 18:48:18] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學-財務模擬案場(1) query=是
+[2026-04-08 18:48:35] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=16723ms | query=是
+[2026-04-08 18:48:35] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學-財務模擬案場(1) file=1_模擬輸入.xlsx
+[2026-04-08 18:48:35] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=6ms
+[2026-04-08 18:48:35] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=1 count=2
+[2026-04-08 18:48:35] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/1/messages status=200 time=16ms
+[2026-04-08 18:48:39] [INFO] [OK] user=123@gmail.com action=create_case | case_id=2 name=表 2
+[2026-04-08 18:48:39] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=11ms
+[2026-04-08 18:48:39] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/2/messages status=200 time=4ms
+[2026-04-08 18:48:40] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/list_case_sheets status=200 time=116ms
+[2026-04-08 18:48:52] [INFO] [OK] user=123@gmail.com action=import_sheets | target=表 2 imported=3
+[2026-04-08 18:48:52] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/import_sheets status=200 time=7660ms
+[2026-04-08 18:48:52] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 2(2) file=表 2_整合表格.xlsx
+[2026-04-08 18:48:52] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=2ms
+[2026-04-08 18:49:53] [INFO] [OK] user=123@gmail.com action=agent_chat | case=表 2(2) query=我想把還款期數改成14 年底減資攤還期數改成6
+[2026-04-08 18:49:53] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=100ms | query=我想把還款期數改成14 年底減資攤還期數改成6
+[2026-04-08 18:49:53] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=2 count=2
+[2026-04-08 18:49:53] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/2/messages status=200 time=12ms
+[2026-04-08 18:50:03] [INFO] [OK] user=123@gmail.com action=agent_chat | case=表 2(2) query=y
+[2026-04-08 18:50:10] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=6694ms | query=y
+[2026-04-08 18:50:10] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 2(2) file=表 2_整合表格.xlsx
+[2026-04-08 18:50:10] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=7ms
+[2026-04-08 18:50:10] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=2 count=2
+[2026-04-08 18:50:10] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/2/messages status=200 time=14ms
+[2026-04-08 18:50:58] [INFO] [OK] user=123@gmail.com action=agent_chat | case=表 2(2) query=我想將年底減資攤還期數改成6
+[2026-04-08 18:50:58] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=54ms | query=我想將年底減資攤還期數改成6
+[2026-04-08 18:50:58] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=2 count=2
+[2026-04-08 18:50:58] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/2/messages status=200 time=10ms
+[2026-04-08 18:51:02] [INFO] [OK] user=123@gmail.com action=agent_chat | case=表 2(2) query=y
+[2026-04-08 18:51:06] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=3707ms | query=y
+[2026-04-08 18:51:06] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 2(2) file=表 2_整合表格.xlsx
+[2026-04-08 18:51:06] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=6ms
+[2026-04-08 18:51:06] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=2 count=2
+[2026-04-08 18:51:06] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/2/messages status=200 time=12ms

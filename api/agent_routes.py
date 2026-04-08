@@ -335,6 +335,176 @@ def _clear_pending_modification(case_id: str, case_name: str):
     print(f"[修改快取] 已清除: key={key}")
 
 
+# ── 現金流量表參數關鍵字定義 ──
+_CASHFLOW_PARAM_KEYWORDS = {
+    '貸款成數': '貸款成數(%)',
+    '還款期數': '還款期數',
+    '股利比率': '股利比率(%)',
+    '年底減資': '年底減資攤還期數',
+    '減資攤還': '年底減資攤還期數',
+    '銀行利率': '銀行利率(%)',
+}
+
+def _detect_cashflow_param(query: str):
+    """
+    偵測 query 是否為修改現金流量表參數的請求。
+    回傳 (canonical_name, new_value) 或 (None, None)。
+    canonical_name 為 B 欄實際字串，new_value 為浮點數或 None。
+    """
+    import re
+    from difflib import SequenceMatcher
+
+    matched_key = None
+    best_score = 0.0
+
+    for kw, canonical in _CASHFLOW_PARAM_KEYWORDS.items():
+        # 完全包含
+        if kw in query:
+            matched_key = canonical
+            break
+        # 模糊相似度
+        score = SequenceMatcher(None, kw, query).ratio()
+        if score > best_score:
+            best_score = score
+            if score >= 0.6:
+                matched_key = canonical
+
+    if not matched_key:
+        return None, None
+
+    # 提取數值
+    vm = re.search(r'(?:改成|改為|設為|設成|變成|變為|→|->|=|：|:)\s*(-?\d+(?:\.\d+)?)', query)
+    new_value = float(vm.group(1)) if vm else None
+    if new_value is None:
+        vm2 = re.search(r'(?<!\d)(\d{1,3})(?!\d)', query)
+        if vm2:
+            new_value = float(vm2.group(1))
+
+    return matched_key, new_value
+
+
+def _update_cashflow_params(excel_path: str, param_name: str, new_value: float) -> dict:
+    """
+    修改「多站彙整」工作表中的現金流量表參數（B 欄搜尋），
+    並在修改「還款期數」或「年底減資攤還期數」時重填對應公式列。
+    回傳 {'success': bool, 'message': str}
+    """
+    import openpyxl
+    from openpyxl.utils import get_column_letter
+    from difflib import SequenceMatcher
+
+    try:
+        wb = openpyxl.load_workbook(excel_path)
+        if '多站彙整' not in wb.sheetnames:
+            return {'success': False, 'message': '找不到「多站彙整」工作表'}
+
+        ws = wb['多站彙整']
+
+        # ── 1. 掃 B 欄找「貸款成數(%)」定位參數區起點 ──
+        param_start_row = None
+        for row in ws.iter_rows(min_col=2, max_col=2):
+            cell = row[0]
+            if cell.value and '貸款成數' in str(cell.value):
+                param_start_row = cell.row
+                break
+
+        if param_start_row is None:
+            return {'success': False, 'message': '找不到現金流量表參數區（B 欄缺少「貸款成數」）'}
+
+        # ── 2. 在參數區 5 列中找目標列（模糊比對）──
+        target_row = None
+        for offset in range(5):
+            r = param_start_row + offset
+            b_val = str(ws.cell(row=r, column=2).value or '')
+            # 完全包含
+            if param_name in b_val or b_val in param_name:
+                target_row = r
+                break
+            # 模糊
+            if SequenceMatcher(None, param_name, b_val).ratio() >= 0.6:
+                target_row = r
+                break
+
+        if target_row is None:
+            return {'success': False, 'message': f'在參數區找不到「{param_name}」'}
+
+        old_value = ws.cell(row=target_row, column=3).value
+        ws.cell(row=target_row, column=3).value = new_value
+        print(f"[cashflow_param] {param_name} 第 {target_row} 列: {old_value} → {new_value}")
+
+        # ── 3. 讀 row 4 年份標題，算 n_years ──
+        n_years = 0
+        for col in range(4, ws.max_column + 1):
+            if ws.cell(row=4, column=col).value is not None:
+                n_years += 1
+            else:
+                break
+        if n_years == 0:
+            wb.save(excel_path)
+            wb.close()
+            return {'success': True, 'message': f'已更新「{param_name}」為 {new_value}（無法讀取年份，跳過公式重填）'}
+
+        # ── 4. 找出 r93（還款列）和 r96（年底減資列）的實際列號 ──
+        # 策略：掃 B 欄找「理財活動」區塊後的「還款」和「年底減資」
+        r93_actual = None  # 還款公式列
+        r96_actual = None  # 年底減資公式列
+        p_repay_cell = f"C{param_start_row + 1}"   # 還款期數的 C 欄位置（固定 offset）
+        p_cap_cell   = f"C{param_start_row + 3}"   # 年底減資攤還期數
+
+        # 找 r92（借款列）→ 往下一列就是 r93（還款）
+        for row in ws.iter_rows(min_col=2, max_col=2):
+            b = str(row[0].value or '')
+            if '借款' in b and '理財' in b:
+                r93_actual = row[0].row + 1
+            if '年底減資' in b:
+                r96_actual = row[0].row
+
+        # ── 5. 重填公式 ──
+        new_int = int(new_value)
+
+        if '還款' in param_name and r93_actual is not None:
+            # 清空 r93 整列（D 欄起到最後年份）
+            for col in range(4, 4 + n_years):
+                ws.cell(row=r93_actual, column=col).value = None
+
+            # r92 的借款在 D 欄
+            r92_actual = r93_actual - 1
+            for i in range(min(new_int, n_years - 1)):
+                ws.cell(row=r93_actual, column=5 + i,
+                        value=f"=-D{r92_actual}/{p_repay_cell}")
+            print(f"[cashflow_param] 重填還款公式 r93={r93_actual}，期數={new_int}")
+
+        if '減資' in param_name and r96_actual is not None:
+            # 清空 r96 整列
+            for col in range(4, 4 + n_years):
+                ws.cell(row=r96_actual, column=col).value = None
+
+            # r94（現金增資）在 D 欄
+            r94_actual = r96_actual - 2
+            for i in range(min(new_int, n_years)):
+                col = 3 + n_years - i   # 從最後一欄往前
+                ws.cell(row=r96_actual, column=col,
+                        value=f"=-D{r94_actual}/{p_cap_cell}")
+            print(f"[cashflow_param] 重填年底減資公式 r96={r96_actual}，期數={new_int}")
+
+        wb.save(excel_path)
+        wb.close()
+
+        # LibreOffice recalc
+        try:
+            from utils.recalc import recalc as _recalc
+            _recalc(excel_path, timeout=90)
+        except Exception:
+            pass
+
+        return {'success': True, 'message': f'已將「{param_name}」從 {old_value} 更新為 {new_value}'}
+
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return {'success': False, 'message': f'更新失敗：{e}'}
+
+
 def _parse_edit_request_REMOVED(query: str, existing_params: dict = None) -> dict:  # 已廢棄，保留以備參考
     """
     解析修改工作表的請求，提取參數
@@ -703,6 +873,18 @@ def agent_chat():
 
             if is_confirm:
                 _clear_pending_modification(case_id, case_name)
+
+                # 現金流量表參數修改走專屬函式
+                if pending_mod.get('is_cashflow_param'):
+                    cf_excel = pending_mod.get('excel_path') or current_excel_path
+                    cf_result = _update_cashflow_params(
+                        cf_excel,
+                        pending_mod['field_keyword'],
+                        pending_mod['new_value']
+                    )
+                    msg = f"調整已完成。\n（{cf_result['message']}）" if cf_result['success'] else f"修改失敗：{cf_result['message']}"
+                    return jsonify({"query": user_query, "response": msg, "excel_modified": cf_result['success']})
+
                 exec_params = {k: v for k, v in pending_mod.items() if k != 'timestamp'}
                 exec_result = agent.tool_manager.execute_tool("edit_sheet_by_field", exec_params)
                 if exec_result.get("success"):
@@ -776,6 +958,53 @@ def agent_chat():
                 else:
                     # 視為新請求，清除快取後繼續往下處理
                     _clear_pending_modification(case_id, case_name)
+
+        # ── 0c. 現金流量表參數修改（多站彙整專用）──
+        _is_edit_intent_cf = re.search(r'修改|更改|改成|設定|編輯|把.+改|變更|調整', user_query)
+        if _is_edit_intent_cf:
+            cf_param, cf_value = _detect_cashflow_param(user_query)
+            if cf_param:
+                # 驗證：必須在多站彙整工作表，或 query 中明確指定「多站彙整」
+                is_agg_sheet = (sheet_name == '多站彙整') or ('多站彙整' in user_query)
+                if not is_agg_sheet:
+                    agent_response = f'「{cf_param}」參數只存在於「多站彙整」工作表，請先切換到該分頁再操作。'
+                    return jsonify({"query": user_query, "response": agent_response, "excel_modified": False})
+
+                if cf_value is None:
+                    # 缺少數值，先詢問
+                    agent_response = f'已找到「{cf_param}」參數，請問要改為多少？'
+                    _set_pending_modification(case_id, case_name, {
+                        'sheet_name': '多站彙整',
+                        'field_keyword': cf_param,
+                        'year_spec': '全部',
+                        'new_value': None,
+                        'section_type': '現金流量表參數',
+                        'year_value_map': None,
+                        'row_hint': None,
+                        'is_cashflow_param': True,
+                    })
+                    return jsonify({"query": user_query, "response": agent_response, "excel_modified": False})
+
+                # 有完整資訊，先確認再執行
+                _set_pending_modification(case_id, case_name, {
+                    'sheet_name': '多站彙整',
+                    'field_keyword': cf_param,
+                    'year_spec': '全部',
+                    'new_value': cf_value,
+                    'section_type': '現金流量表參數',
+                    'year_value_map': None,
+                    'row_hint': None,
+                    'is_cashflow_param': True,
+                    'excel_path': current_excel_path,
+                })
+                agent_response = (
+                    f'請問這是你要調整的方式嗎：\n'
+                    f'1. 調整目標分頁：多站彙整\n'
+                    f'2. 調整項目：{cf_param}\n'
+                    f'3. 調整後數值：{cf_value}\n'
+                    f'目標資料已經鎖定，確定要執行修改嗎？(y / n)'
+                )
+                return jsonify({"query": user_query, "response": agent_response, "excel_modified": False})
 
         # ── 1. 價金滾算請求 → llm_service ──
         # 條件：明確的滾算動作關鍵字，且不包含修改/編輯意圖
