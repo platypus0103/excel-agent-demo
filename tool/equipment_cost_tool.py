@@ -853,60 +853,50 @@ class EquipmentCostTool:
                         new_sheet = None
                         template_copied = False
 
-                        # 方法1: 優先從輸入檔案中已有的模板工作表複製
-                        for template_name in ["空白範例"]:
-                            if template_name in wb.sheetnames:
-                                new_sheet = wb.copy_worksheet(wb[template_name])
-                                new_sheet.title = new_sheet_name
-                                print(f"已從「{template_name}」複製為「{new_sheet_name}」(編號 {record_number})")
-                                template_copied = True
-                                break
+                        # 永遠從外部 excel公版.xlsx 讀取「空白範例」模板
+                        # 不使用使用者上傳的檔案內的同名 sheet，避免撞名導致版面錯誤
+                        template_file = os.path.join(self.excel_final_folder, "excel公版.xlsx")
+                        if os.path.exists(template_file):
+                            try:
+                                template_wb = load_workbook(template_file)
+                                if "空白範例" in template_wb.sheetnames:
+                                    template_sheet = template_wb["空白範例"]
+                                    new_sheet = wb.create_sheet(new_sheet_name)
 
-                        # 方法2: 如果輸入檔案沒有模板，從外部模板檔案複製
-                        if not template_copied:
-                            template_file = os.path.join(self.excel_final_folder, "excel公版.xlsx")
-                            if os.path.exists(template_file):
-                                try:
-                                    template_wb = load_workbook(template_file)
-                                    # 嘗試從模板檔案中尋找合適的工作表
-                                    for template_name in ["空白範例"]:
-                                        if template_name in template_wb.sheetnames:
-                                            template_sheet = template_wb[template_name]
-                                            new_sheet = wb.create_sheet(new_sheet_name)
+                                    # 複製所有單元格內容和格式
+                                    for row in template_sheet.iter_rows():
+                                        for cell in row:
+                                            new_cell = new_sheet[cell.coordinate]
+                                            new_cell.value = cell.value
+                                            if cell.has_style:
+                                                new_cell.font = cell.font.copy()
+                                                new_cell.border = cell.border.copy()
+                                                new_cell.fill = cell.fill.copy()
+                                                new_cell.number_format = cell.number_format
+                                                new_cell.protection = cell.protection.copy()
+                                                new_cell.alignment = cell.alignment.copy()
 
-                                            # 複製所有單元格內容和格式
-                                            for row in template_sheet.iter_rows():
-                                                for cell in row:
-                                                    new_cell = new_sheet[cell.coordinate]
-                                                    new_cell.value = cell.value
-                                                    if cell.has_style:
-                                                        new_cell.font = cell.font.copy()
-                                                        new_cell.border = cell.border.copy()
-                                                        new_cell.fill = cell.fill.copy()
-                                                        new_cell.number_format = cell.number_format
-                                                        new_cell.protection = cell.protection.copy()
-                                                        new_cell.alignment = cell.alignment.copy()
+                                    # 複製列寬
+                                    for col_letter, col_dim in template_sheet.column_dimensions.items():
+                                        new_sheet.column_dimensions[col_letter].width = col_dim.width
 
-                                            # 複製列寬
-                                            for col_letter, col_dim in template_sheet.column_dimensions.items():
-                                                new_sheet.column_dimensions[col_letter].width = col_dim.width
+                                    # 複製行高與隱藏狀態
+                                    for row_num, row_dim in template_sheet.row_dimensions.items():
+                                        new_sheet.row_dimensions[row_num].height = row_dim.height
+                                        new_sheet.row_dimensions[row_num].hidden = row_dim.hidden
 
-                                            # 複製行高與隱藏狀態
-                                            for row_num, row_dim in template_sheet.row_dimensions.items():
-                                                new_sheet.row_dimensions[row_num].height = row_dim.height
-                                                new_sheet.row_dimensions[row_num].hidden = row_dim.hidden
+                                    template_wb.close()
+                                    print(f"已從外部模板複製「空白範例」為「{new_sheet_name}」(編號 {record_number})")
+                                    template_copied = True
+                                else:
+                                    template_wb.close()
+                                    print(f"外部模板檔案中找不到「空白範例」工作表")
+                            except Exception as e:
+                                print(f"從外部模板檔案複製失敗: {str(e)}")
+                        else:
+                            print(f"找不到外部模板檔案: {template_file}")
 
-                                            template_wb.close()
-                                            print(f"已從模板檔案「{template_name}」複製為「{new_sheet_name}」(編號 {record_number})")
-                                            template_copied = True
-                                            break
-
-                                    if not template_copied:
-                                        template_wb.close()
-                                except Exception as e:
-                                    print(f"從模板檔案複製失敗: {str(e)}")
-
-                        # 方法3: 如果都沒有模板，創建空白工作表
+                        # 備用：外部模板不存在時，建立空白工作表
                         if not template_copied:
                             new_sheet = wb.create_sheet(new_sheet_name)
                             print(f"已建立新工作表「{new_sheet_name}」(編號 {record_number}，無模板)")
