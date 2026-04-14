@@ -148,31 +148,47 @@ class FinanceTool:
                 except (ValueError, TypeError):
                     return default
 
+            # 先讀取基礎數值欄位（B3=電站壽命、B5=起始年度），供後續公式欄位 fallback 使用
+            plant_lifetime = _si(s1['B3'].value, 20)
+            year_start = _si(s1['B5'].value, None)
+
+            # 結束年度：新公版 D5 為公式 =B5+B3-1，data_only=True 無法取得快取時改為後端計算
+            raw_year_end = _si(s1['D5'].value, None)
+            year_end = raw_year_end if raw_year_end else (
+                year_start + plant_lifetime - 1 if year_start is not None else None
+            )
+
+            # 年限欄位：新公版改為 =B3（公式），data_only=True 無法取得快取時以電站壽命代入
+            # D24（模組回收費用支提年限）為例外，保留直接讀取
+            def _year(cell_val):
+                v = _si(cell_val, None)
+                return v if v else plant_lifetime
+
             # 讀取並轉換所有必要數據
             data = {
                 'project_name': s1['B2'].value,
-                'year_start': _si(s1['B5'].value, None),
-                'year_end': _si(s1['D5'].value, None),
+                'year_start': year_start,
+                'year_end': year_end,
                 'capacities': _sd(s1['B4'].value, None),
                 'electricity_generation': _sd(s1['C10'].value, None),
                 'first_year_decade': _sd(s1['C11'].value, None),
                 'every_year_decade': _sd(s1['C12'].value, None),
                 'rate_of_sell': _sd(s1['C13'].value, None),
-                'income_years': _si(s1['D10'].value, None),
+                'income_years': _year(s1['D10'].value),
                 'equipment_cost': _sd(s1['C16'].value, None),
-                'equipment_years': _si(s1['D16'].value, None),
+                'equipment_years': _year(s1['D16'].value),
                 'profit_rate': _sd(s1['C17'].value, None),
                 'development_cost': _sd(s1['C18'].value, None),
                 'rent_mode': _si(s1['C19'].value, 1),
                 'rent': _sd(s1['C20'].value, Decimal('0')),
-                'rent_years': _si(s1['D20'].value, 0),
+                'rent_years': _year(s1['D20'].value),
                 'rent_method2_ratio': _sd(s1['C21'].value, Decimal('0')),
                 'maintenance_cost': _sd(s1['C22'].value, Decimal('0')),
-                'maintenance_years': _si(s1['D22'].value, 0),
+                'maintenance_years': _year(s1['D22'].value),
                 'insurance_cost': _sd(s1['C23'].value, Decimal('0')),
-                'insurance_years': _si(s1['D23'].value, 0),
+                'insurance_years': _year(s1['D23'].value),
                 'recycle_cost': _sd(s1['C24'].value, Decimal('0')),
-                'recycle_years': _si(s1['D24'].value, 0),
+                'recycle_years': _si(s1['D24'].value, 0),  # 例外：保留直接讀取
                 'interest_rate': _sd(s1['C25'].value, None),
                 'income_tax': _sd(s1['C26'].value, None),
                 'loan_rate': _sd(s1['C31'].value, None),

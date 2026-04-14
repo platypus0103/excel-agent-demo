@@ -63,42 +63,56 @@ class EquipmentCostTool:
             wb = load_workbook(file_path, data_only=True)
             sheet = wb.active
 
+            # 先讀取基礎數值欄位（B3=電站壽命、B5=起始年度），供後續公式欄位 fallback 使用
+            plant_lifetime = self._safe_int_convert(sheet["B3"].value, 20)
+            start_year = self._safe_int_convert(sheet["B5"].value, 2020)
+
+            # 結束年度：新公版 D5 為公式 =B5+B3-1，data_only=True 無法取得快取時改為後端計算
+            raw_end_year = self._safe_int_convert(sheet["D5"].value, 0)
+            end_year = raw_end_year if raw_end_year else start_year + plant_lifetime - 1
+
+            # 年限欄位：新公版改為 =B3（公式），data_only=True 無法取得快取時以電站壽命代入
+            # D24（模組回收費用支提年限）為例外，保留直接讀取
+            def _year(raw_val):
+                v = self._safe_int_convert(raw_val, 0)
+                return v if v else plant_lifetime
+
             # 根據提供的 Excel 結構讀取數據
             # 欄位對應：B欄為參數數值、C欄為額外數值、D欄為支提年限
             data = {
                 "project_name": sheet["B2"].value,
-                "plant_lifetime": self._safe_int_convert(sheet["B3"].value, 20),  # 電站壽命
+                "plant_lifetime": plant_lifetime,
                 "capacity": self._safe_float_convert(sheet["B4"].value, 436.1),#建置量(kWp)
-                "start_year": self._safe_int_convert(sheet["B5"].value, 2020),#起始年度
-                "end_year": self._safe_int_convert(sheet["D5"].value, 2039),#結束年度
+                "start_year": start_year,
+                "end_year": end_year,  # 後端計算（新公版 D5 為公式）
                 "annual_generation": self._safe_float_convert(sheet["B10"].value, 0),#年度AC併網總發電量
                 "annual_ac_generation": self._safe_float_convert(sheet["C10"].value, 0),  # 年度AC併網總發電量
-                "electricity_revenue_years": self._safe_int_convert(sheet["D10"].value, 0),  # 電費收入年限
+                "electricity_revenue_years": _year(sheet["D10"].value),  # 新公版 =B3
                 "first_year_decline_rate": self._safe_float_convert(sheet["C11"].value, 0),  # 首年衰退率
                 "fit_rate": self._safe_float_convert(sheet["C12"].value, 0),#次年衰退率
                 "fit_price_c13": self._safe_float_convert(sheet["C13"].value, 0),  # 躉售費率(FIT)從C13讀取
                 "equipment_cost": self._safe_int_convert(sheet["C16"].value, 0),  # 每kWp設備成本
-                "equipment_amortization_years": self._safe_int_convert(sheet["D16"].value, 0),  # 設備費用(價金)支提年限
+                "equipment_amortization_years": _year(sheet["D16"].value),  # 新公版 =B3
                 "loan_interest": self._safe_float_convert(sheet["C26"].value, 0),#所得稅率
                 "development_fee": self._safe_int_convert(sheet["C18"].value, 0),  # 開發費
                 "rent_calculation_method": self._safe_float_convert(sheet["C19"].value, 0),  # 租金費用租金計算方式
-                "rent_calculation_amortization_years": self._safe_int_convert(sheet["D19"].value, 0),  # 租金費用租金計算方式支提年限
+                "rent_calculation_amortization_years": _year(sheet["D19"].value),  # 新公版 =B3
                 "rent_method1_total": self._safe_float_convert(sheet["C20"].value, 0),  # 租金費用【方式1參數】租金總額
-                "rent_method1_amortization_years": self._safe_int_convert(sheet["D20"].value, 0),  # 租金費用【方式1參數】租金總額支提年限
+                "rent_method1_amortization_years": _year(sheet["D20"].value),  # 新公版 =B3
                 "rent_method2_ratio": self._safe_float_convert(sheet["C21"].value, 0),  # 租金費用【方式2參數】抽成比率
-                "rent_method2_amortization_years": self._safe_int_convert(sheet["D21"].value, 0),  # 租金費用【方式2參數】抽成比率支提年限
+                "rent_method2_amortization_years": _year(sheet["D21"].value),  # 新公版 =B3
                 "loan_amount": self._safe_float_convert(sheet["C24"].value, 0),#【方式1參數】租金總額
                 "maintenance_cost": self._safe_float_convert(sheet["C22"].value, 0),#運維費用每kw運維成本
-                "maintenance_amortization_years": self._safe_int_convert(sheet["D22"].value, 0),  # 運維費用支提年限
+                "maintenance_amortization_years": _year(sheet["D22"].value),  # 新公版 =B3
                 "insurance_cost": self._safe_float_convert(sheet["C23"].value, 0),#保險費用占整體設備費用比例
-                "insurance_amortization_years": self._safe_int_convert(sheet["D23"].value, 0),  # 保險費用支提年限
+                "insurance_amortization_years": _year(sheet["D23"].value),  # 新公版 =B3
                 "recycle_cost": self._safe_float_convert(sheet["C24"].value, 0),  # 從C24讀取回收費用
-                "recycle_amortization_years": self._safe_int_convert(sheet["D24"].value, 0),  # 模組回收費用支提年限
+                "recycle_amortization_years": self._safe_int_convert(sheet["D24"].value, 0),  # 例外：保留直接讀取
                 "profit_rate": self._safe_float_convert(sheet["C17"].value, 0),  # 信邦利潤率
                 "bank_interest_rate": self._safe_float_convert(sheet["C25"].value, 0),  # 利息費用銀行利率
-                "interest_amortization_years": self._safe_int_convert(sheet["D25"].value, 0),  # 利息費用支提年限
+                "interest_amortization_years": _year(sheet["D25"].value),  # 新公版 =B3
                 "tax_rate": self._safe_float_convert(sheet["C26"].value, 0),  # 所得稅率
-                "tax_amortization_years": self._safe_int_convert(sheet["D26"].value, 0),  # 所得稅支提年限
+                "tax_amortization_years": _year(sheet["D26"].value),  # 新公版 =B3
                 # C31~C34 數據讀取
                 "c31_value": self._safe_float_convert(sheet["C31"].value, 0),  # 貸款成數占總設備費用比例
                 "c32_value": self._safe_float_convert(sheet["C32"].value, 0),  # 貸款還款攤還期數
