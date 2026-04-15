@@ -1222,11 +1222,13 @@ def get_excel_defaults():
             except Exception as e:
                 print(f"警告：讀取 Excel 檔案失敗，使用備用預設值: {e}")
 
-        return jsonify({
+        response = jsonify({
             "status": "success",
             "defaults": defaults,
             "excel_file": excel_file
         })
+        response.headers['Cache-Control'] = 'no-store'
+        return response
 
     except Exception as e:
         log_error(session.get('user_email', 'anonymous'), 'get_excel_defaults', e)

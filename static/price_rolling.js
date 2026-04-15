@@ -17,11 +17,19 @@ function openPriceDialog() {
     document.getElementById('priceDialogOverlay').classList.add('active');
     initializePriceDialogDrag();
 
+    // 先清空欄位，避免顯示上一個檔案的殘留值
+    const costEl = document.getElementById('priceEquipmentCost');
+    const rateEl = document.getElementById('priceProfitRate');
+    const feeEl  = document.getElementById('priceDevelopmentFee');
+    if (costEl) costEl.value = '';
+    if (rateEl) rateEl.value = '';
+    if (feeEl)  feeEl.value  = '';
+
     // 從 Excel 讀取 C16(初始價金)、C17(利潤率)、C18(開發費) 預填至表單
     const caseInfo = getCurrentCaseInfo();
     let url = '/api/get_excel_defaults';
     if (caseInfo && caseInfo.original_filename) {
-        url += `?case_id=${encodeURIComponent(caseInfo.case_id || '')}&case_name=${encodeURIComponent(caseInfo.case_name || '')}&original_filename=${encodeURIComponent(caseInfo.original_filename)}`;
+        url += `?case_id=${encodeURIComponent(caseInfo.case_id || '')}&case_name=${encodeURIComponent(caseInfo.case_name || '')}&original_filename=${encodeURIComponent(caseInfo.original_filename)}&_t=${Date.now()}`;
     }
 
     fetch(url)
@@ -29,9 +37,6 @@ function openPriceDialog() {
         .then(data => {
             if (data.status === 'success' && data.defaults) {
                 const d = data.defaults;
-                const costEl = document.getElementById('priceEquipmentCost');
-                const rateEl = document.getElementById('priceProfitRate');
-                const feeEl  = document.getElementById('priceDevelopmentFee');
                 if (costEl && d.equipment_cost != null) costEl.value = d.equipment_cost;
                 if (rateEl && d.profit_rate   != null) rateEl.value  = d.profit_rate;
                 if (feeEl  && d.development_fee != null) feeEl.value  = d.development_fee;
