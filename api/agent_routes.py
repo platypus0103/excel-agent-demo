@@ -1975,14 +1975,32 @@ def download_template():
         src_sheet = wb_src['空白範例']
 
         # 建立新 workbook，將來源工作表的儲存格逐一複製
+        from openpyxl.formula.translate import Translator
+        from openpyxl.utils import get_column_letter, column_index_from_string
+
         wb_new = Workbook()
         ws_new = wb_new.active
         ws_new.title = src_sheet.title
 
         DOWNLOAD_ROWS = 35
-        for row in src_sheet.iter_rows(max_row=DOWNLOAD_ROWS):
+        SRC_START_COL = 2   # 來源從 B 欄（col=2）開始
+        COL_OFFSET = -1     # 整體向左平移 1 欄，B→A、C→B …
+
+        for row in src_sheet.iter_rows(max_row=DOWNLOAD_ROWS, min_col=SRC_START_COL):
             for cell in row:
-                new_cell = ws_new.cell(row=cell.row, column=cell.column, value=cell.value)
+                dst_col = cell.column + COL_OFFSET
+                value = cell.value
+
+                # 公式欄位：同步平移公式內的欄位參照
+                if isinstance(value, str) and value.startswith('='):
+                    src_coord = f"{get_column_letter(cell.column)}{cell.row}"
+                    dst_coord = f"{get_column_letter(dst_col)}{cell.row}"
+                    try:
+                        value = Translator(value, src_coord).translate_formula(dst_coord)
+                    except Exception:
+                        pass  # 翻譯失敗保留原公式
+
+                new_cell = ws_new.cell(row=cell.row, column=dst_col, value=value)
                 if cell.has_style:
                     new_cell.font        = copy(cell.font)
                     new_cell.fill        = copy(cell.fill)
@@ -1990,17 +2008,25 @@ def download_template():
                     new_cell.alignment   = copy(cell.alignment)
                     new_cell.number_format = cell.number_format
 
-        # 複製欄寬與列高（只複製有用到的列高）
+        # 複製欄寬與列高（欄號同步平移）
         for col_letter, col_dim in src_sheet.column_dimensions.items():
-            ws_new.column_dimensions[col_letter].width = col_dim.width
+            src_col_idx = column_index_from_string(col_letter)
+            if src_col_idx >= SRC_START_COL:
+                dst_col_letter = get_column_letter(src_col_idx + COL_OFFSET)
+                ws_new.column_dimensions[dst_col_letter].width = col_dim.width
         for row_num, row_dim in src_sheet.row_dimensions.items():
             if row_num <= DOWNLOAD_ROWS:
                 ws_new.row_dimensions[row_num].height = row_dim.height
 
-        # 複製合併儲存格（只取前 35 列範圍內的）
+        # 複製合併儲存格（欄號同步平移，排除原始 A 欄跨入的範圍）
         for merged_range in src_sheet.merged_cells.ranges:
-            if merged_range.min_row <= DOWNLOAD_ROWS:
-                ws_new.merge_cells(str(merged_range))
+            if merged_range.min_row <= DOWNLOAD_ROWS and merged_range.min_col >= SRC_START_COL:
+                ws_new.merge_cells(
+                    start_row=merged_range.min_row,
+                    start_column=merged_range.min_col + COL_OFFSET,
+                    end_row=merged_range.max_row,
+                    end_column=merged_range.max_col + COL_OFFSET
+                )
 
         # 輸出為記憶體串流並回傳
         output = io.BytesIO()

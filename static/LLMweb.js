@@ -1316,6 +1316,15 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }
 
+                    // 多站彙整年份列補白字：openpyxl 寫入的字色有時無法被 SheetJS 解析，
+                    // 在資料轉換層直接補上，確保白字顯示正確
+                    if (sheetName === '多站彙整' && !vObj.fc && vObj.bg) {
+                        const _raw = vObj.v;
+                        const _isYearNum   = typeof _raw === 'number' && Number.isInteger(_raw) && _raw >= 2000 && _raw <= 2100;
+                        const _isYearLabel = _raw === '年份' || vObj.m === '年份';
+                        if (_isYearNum || _isYearLabel) vObj.fc = '#FFFFFF';
+                    }
+
                     celldata.push({ r: row, c: col, v: vObj });
                 }
             }
@@ -1662,13 +1671,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (v) {
                     if (v.bg) {
                         tdStyle += `background:${v.bg};`;
-                        // 年份列補白字：值是 2000~2100 的整數（年份數字）或「年份」標籤
-                        if (!v.fc) {
-                            const _raw = v.v;
-                            const _isYearNum   = typeof _raw === 'number' && Number.isInteger(_raw) && _raw >= 2000 && _raw <= 2100;
-                            const _isYearLabel = _raw === '年份' || v.m === '年份';
-                            if (_isYearNum || _isYearLabel) tdStyle += 'color:#FFFFFF;';
-                        }
                     }
                     if (v.fc) tdStyle += `color:${v.fc};`;
                     if (v.bl) tdStyle += 'font-weight:bold;';
