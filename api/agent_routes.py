@@ -5,6 +5,7 @@ from flask import Blueprint, request, jsonify, send_file, session
 from werkzeug.utils import secure_filename
 import sys
 import os
+import re
 
 # 調整匯入路徑
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -739,6 +740,13 @@ def agent_chat():
     if not user_query:
         return jsonify({"error": "請提供 'query' 參數"}), 400
 
+    # ── 千分位逗號正規化：-40,000 → -40000（避免 regex 解析與 LLM tool call 錯誤）──
+    user_query = re.sub(
+        r'(?<!\d)(-?\d{1,3}(?:,\d{3})+)(?!\d)',
+        lambda m: m.group(0).replace(',', ''),
+        user_query
+    )
+
     # ── 使用說明快捷回應（不走 AI，直接回傳固定說明）──
     _HELP_KEYWORDS = {'使用說明', '說明', 'help', '幫助', '如何使用', '怎麼用', '功能介紹', '教學'}
     if user_query.strip().lower() in _HELP_KEYWORDS or user_query.strip() in _HELP_KEYWORDS:
@@ -759,8 +767,6 @@ def agent_chat():
     try:
         # 獲取 Agent 實例
         agent = get_agent()
-
-        import re
 
         # 使用通用定址 helper 取得 Excel 檔案路徑
         excel_path = _find_excel_file(case_id=case_id, case_name=case_name, original_filename=original_filename)
