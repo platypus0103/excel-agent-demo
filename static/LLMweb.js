@@ -699,8 +699,9 @@ document.addEventListener('DOMContentLoaded', function() {
         updateImportSheetsBtnState();
 
         // 設置全局變量，供價金滾算等功能使用
+        // 注意：id 存字串，與 activeCaseId（String(c.id)）型別一致，確保 === 比較正確
         window.currentCase = {
-            id: cases[caseId].id,           // DB 的數字 ID，用於後端定址
+            id: String(cases[caseId].id),   // 字串，與 activeCaseId 型別一致
             name: cases[caseId].name,
             original_filename: cases[caseId].excelOriginalFileName || '',
             sheet_name: cases[caseId].sheetName || null
