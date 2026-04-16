@@ -292,17 +292,21 @@ def _parse_modification(query: str, current_sheet: str = None) -> dict:
                 if not (1900 <= candidate <= 2100):
                     result['new_value'] = candidate
 
-    # 欄位關鍵字：移除干擾詞後取最長詞
+    # 欄位關鍵字：移除干擾詞後，優先取已知欄位關鍵字，否則取最長詞
     fq = query
     for pattern in [r'p\d+', r'公版|綜合損益表|損益表|現金流量表|流量表',
                     r'\d{4}\s*[~～\-到至]\s*\d{4}', r'\d{4}\s*年?',
+                    r'全部年份|所有年份|全年份|年份',              # 避免時間描述詞被誤選為欄位
                     r'第?\s*\d{1,3}\s*行',   # 行號（如「第48行」「48行」），避免誤判為欄位名
                     r'(?:改成|改為|設為|設成|變成|變為|→|->)\s*-?\d+(?:\.\d+)?',
                     r'我想|想要|想|要|幫我|請|調整|變更|修改|更改|把|的|將|中|裡|內|改|成|為|變|設定|可以|能|麻煩']:
         fq = re.sub(pattern, ' ', fq, flags=re.IGNORECASE)
     words = [w.strip() for w in re.split(r'[\s，。、！？]+', fq) if len(w.strip()) >= 2]
     if words:
-        result['field_keyword'] = max(words, key=len)
+        # 優先選取符合已知欄位清單的詞（避免「全部」「年份」等描述詞搶佔欄位位置）
+        all_known_keywords = [kw for kws in _FIELD_SECTION_MAP.values() for kw in kws]
+        known_matches = [w for w in words if any(kw in w or w in kw for kw in all_known_keywords)]
+        result['field_keyword'] = max(known_matches, key=len) if known_matches else max(words, key=len)
 
     # 推斷 section_type
     if not result['section_type'] and result['field_keyword']:
@@ -968,10 +972,11 @@ def agent_chat():
         # ── 0c. 現金流量表參數修改（多站彙整專用）──
         _is_edit_intent_cf = re.search(r'修改|更改|改成|設定|編輯|把.+改|變更|調整', user_query)
         if _is_edit_intent_cf:
+            _is_agg_context = (sheet_name == '多站彙整') or ('多站彙整' in user_query)
             cf_param, cf_value = _detect_cashflow_param(user_query)
             if cf_param:
                 # 驗證：必須在多站彙整工作表，或 query 中明確指定「多站彙整」
-                is_agg_sheet = (sheet_name == '多站彙整') or ('多站彙整' in user_query)
+                is_agg_sheet = _is_agg_context
                 if not is_agg_sheet:
                     agent_response = f'「{cf_param}」參數只存在於「多站彙整」工作表，請先切換到該分頁再操作。'
                     return jsonify({"query": user_query, "response": agent_response, "excel_modified": False})
@@ -1009,6 +1014,17 @@ def agent_chat():
                     f'2. 調整項目：{cf_param}\n'
                     f'3. 調整後數值：{cf_value}\n'
                     f'目標資料已經鎖定，確定要執行修改嗎？(y / n)'
+                )
+                return jsonify({"query": user_query, "response": agent_response, "excel_modified": False})
+
+            elif _is_agg_context:
+                # 在多站彙整但找不到對應參數 → 提示使用者，不往下走
+                _valid_params = '、'.join(_CASHFLOW_PARAM_KEYWORDS.keys())
+                agent_response = (
+                    f'找不到你指定的參數，可能是字打錯了。\n\n'
+                    f'多站彙整可修改的參數為：\n'
+                    f'**{_valid_params}**\n\n'
+                    f'請確認後重新輸入。'
                 )
                 return jsonify({"query": user_query, "response": agent_response, "excel_modified": False})
 
@@ -1075,7 +1091,7 @@ def agent_chat():
                     excel_modified = False
 
                 else:
-                    # 資訊完整 → 存入快取，呈現確認訊息
+                    # 資訊完整 → 存入快取，直接用 Python 產生格式固定的確認訊息（不走 LLM，確保格式穩定）
                     _set_pending_modification(case_id, case_name, parsed)
                     year_desc = (
                         "、".join([f"{y}年={v}" for y, v in sorted(parsed['year_value_map'].items())])
@@ -1087,17 +1103,27 @@ def agent_chat():
                         if parsed.get('row_hint') and not parsed.get('field_keyword')
                         else (parsed.get('field_keyword') or '未指定')
                     )
-                    inject = (
-                        f"[系統已解析出以下修改參數，請用繁體中文呈現 Double Check 確認訊息，禁止呼叫任何工具：\n"
-                        f"分頁={parsed.get('sheet_name') or '未指定'}, "
-                        f"區域={parsed.get('section_type') or '未推斷出'}, "
-                        f"{'行號=第' + str(parsed['row_hint']) + '行, ' if parsed.get('row_hint') else ''}"
-                        f"項目={_location_desc}, "
-                        f"改為={parsed.get('new_value') if parsed.get('year_value_map') is None else '見年份對應'}, "
-                        f"年份={year_desc}]\n"
+                    _sheet_disp   = parsed.get('sheet_name') or '未指定'
+                    _section_disp = parsed.get('section_type') or '待確認'
+                    _value_disp   = (
+                        year_desc
+                        if parsed.get('year_value_map')
+                        else str(parsed.get('new_value'))
                     )
-                    enhanced_query = f"{sheet_names_prefix}{inject}{user_query}"
-                    agent_response = agent.chat(enhanced_query)
+                    _row_line = (
+                        f"\n行號：第{parsed['row_hint']}行"
+                        if parsed.get('row_hint') else ""
+                    )
+                    agent_response = (
+                        f"根據系統已解析的修改參數，Double Check 確認訊息如下：\n\n"
+                        f"分頁：{_sheet_disp}\n"
+                        f"區域：{_section_disp}\n"
+                        f"項目：{_location_desc}{_row_line}\n"
+                        f"修改值：{_value_disp}\n"
+                        f"年份範圍：{year_desc}\n\n"
+                        f"請確認是否要將「{_sheet_disp}」工作表中 {year_desc} 的「{_location_desc}」，"
+                        f"統一修改為 {_value_disp}？（y / n）"
+                    )
                     excel_modified = False
             else:
                 current_sheet_info = f"[使用者目前觀看的工作表：{sheet_name}]\n" if sheet_name else ""
@@ -2608,9 +2634,9 @@ def create_income_cashflow_section(target_wb, cases_info, agg_last_row, item_tot
         agg_ws.cell(row=r89, column=4,
                     value=f"=C{_income_r44}")
 
-        # Row 92：借款（負數，現金流出）= -設備支出絕對值 * 貸款成數(%)/100（D欄單格）
+        # Row 92：借款（負數，現金流出）= -設備支出絕對值 * 貸款成數(小數)（D欄單格）
         agg_ws.cell(row=r92, column=4,
-                    value=f"=-D{r89}*{p_loan}/100")
+                    value=f"=-D{r89}*{p_loan}")
 
         # Row 93：還款 = -|借款|/攤還期數（負數，現金流出），從 E 欄開始填 repay_val 年
         if repay_val > 0:
@@ -2618,15 +2644,15 @@ def create_income_cashflow_section(target_wb, cases_info, agg_last_row, item_tot
                 agg_ws.cell(row=r93, column=5 + i,
                             value=f"=-D{r92}/{p_repay}")
 
-        # Row 94：現金增資（負數，現金流出）= -設備支出絕對值 * (1-貸款成數(%)/100)（D欄單格）
+        # Row 94：現金增資（負數，現金流出）= -設備支出絕對值 * (1-貸款成數(小數))（D欄單格）
         agg_ws.cell(row=r94, column=4,
-                    value=f"=-D{r89}*(1-{p_loan}/100)")
+                    value=f"=-D{r89}*(1-{p_loan})")
 
-        # Row 95：現金股利 = 前一年稅後淨利(row85) * 股利比率(%)/100，從 E 欄起
+        # Row 95：現金股利 = 前一年稅後淨利(row85) * 股利比率(小數)，從 E 欄起
         for i in range(n_years - 1):
             prev_col_l = get_column_letter(4 + i)
             agg_ws.cell(row=r95, column=5 + i,
-                        value=f"=-{prev_col_l}{r85}*{p_div}/100")
+                        value=f"=-{prev_col_l}{r85}*{p_div}")
 
         # Row 96：年底減資 = -現金增資/攤還期數，從最後一年往前回填 cap_val 年
         if cap_val > 0:
@@ -2700,14 +2726,14 @@ def create_income_cashflow_section(target_wb, cases_info, agg_last_row, item_tot
         agg_ws.cell(row=r107, column=3,
                     value=f"=IRR({first_col_l}{r106}:{last_col_l}{r106})")
 
-        # ── 第二張綜合損益表 row 70：利息費用 = -借款餘額 * 銀行利率/100 ──
+        # ── 第二張綜合損益表 row 70：利息費用 = -借款餘額 * 銀行利率(小數) ──
         # 借款餘額 = row 109（現金流量表），銀行利率 = p_bank
         dst_r70 = income_start + (70 - 37)
         for i in range(n_years):
             col   = 4 + i
             col_l = get_column_letter(col)
             agg_ws.cell(row=dst_r70, column=col,
-                        value=f"=-{col_l}{r109}*{p_bank}/100")
+                        value=f"=-{col_l}{r109}*{p_bank}")
 
     # ── 更新年份列（template 第 37、60 列 → D欄起；第 82 列 → E欄起）──
     # 綜合損益表 第一年份列（template row 37）
@@ -2990,11 +3016,14 @@ def import_sheets():
                 ("年底減資攤還期數", finance_params.get('cap_reduction_periods')),
                 ("銀行利率(%)",    finance_params.get('bank_rate')),
             ]
+            _pct_names = {'貸款成數(%)', '股利比率(%)', '銀行利率(%)'}
             for i, (name, value) in enumerate(params_to_write):
                 row = param_start_row + i
                 agg_ws.cell(row=row, column=2, value=name)   # B 欄放名稱
                 if value is not None:
-                    agg_ws.cell(row=row, column=3, value=value)  # C 欄放值
+                    # 百分比欄位除以 100 存成小數，讓 Excel 百分比格式正確顯示
+                    write_val = value / 100 if name in _pct_names else value
+                    agg_ws.cell(row=row, column=3, value=write_val)  # C 欄放值
             print(f"[import_sheets] 財務參數已寫入彙整總表 row {param_start_row}~{param_start_row+3}")
 
         # 儲存目標檔案
