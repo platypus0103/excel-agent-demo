@@ -108,6 +108,7 @@ document.addEventListener('DOMContentLoaded', function() {
         renderCaseList();
         renderChat();
         if (caseTitle) caseTitle.textContent = '請選擇或新增試算表';
+        createSimpleTable(null);
     }
 
     async function checkSession() {
