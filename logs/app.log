@@ -1,784 +1,193 @@
-[2026-04-16 00:27:24] [INFO] ============================================================
-[2026-04-16 00:27:24] [INFO] 財模助手 啟動
-[2026-04-16 00:27:24] [INFO] ============================================================
-[2026-04-16 00:27:27] [INFO] ============================================================
-[2026-04-16 00:27:27] [INFO] 財模助手 啟動
-[2026-04-16 00:27:27] [INFO] ============================================================
-[2026-04-16 00:27:29] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=13ms
-[2026-04-16 00:27:30] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
-[2026-04-16 00:27:30] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=17ms
-[2026-04-16 00:27:30] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/16/messages status=200 time=34ms
-[2026-04-16 00:27:30] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(16) file=16_excel公版(3).xlsx
-[2026-04-16 00:27:30] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=4ms
-[2026-04-16 00:28:04] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/18/messages status=200 time=5ms
-[2026-04-16 00:28:05] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(18) file=18_excel公版(3).xlsx
-[2026-04-16 00:28:05] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=4ms
-[2026-04-16 00:28:05] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/16/messages status=200 time=2ms
-[2026-04-16 00:28:06] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/18/messages status=200 time=5ms
-[2026-04-16 00:28:07] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/16/messages status=200 time=3ms
-[2026-04-16 00:28:07] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/18/messages status=200 time=2ms
-[2026-04-16 00:28:09] [INFO] [OK] user=123@gmail.com action=create_case | case_id=19 name=表 3
-[2026-04-16 00:28:09] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=16ms
-[2026-04-16 00:28:09] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/19/messages status=200 time=2ms
-[2026-04-16 00:28:10] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/list_case_sheets status=200 time=230ms
-[2026-04-16 00:28:30] [INFO] [OK] user=123@gmail.com action=import_sheets | target=表 3 imported=3
-[2026-04-16 00:28:30] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/import_sheets status=200 time=14766ms
-[2026-04-16 00:28:30] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 3(19) file=表 3_整合表格.xlsx
-[2026-04-16 00:28:30] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=2ms
-[2026-04-16 00:33:23] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=0ms
-[2026-04-16 00:33:23] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
-[2026-04-16 00:33:23] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=2ms
-[2026-04-16 00:33:23] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/16/messages status=200 time=2ms
-[2026-04-16 00:33:23] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(16) file=16_excel公版(3).xlsx
-[2026-04-16 00:33:24] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=2ms
-[2026-04-16 00:33:25] [INFO] [OK] user=123@gmail.com action=create_case | case_id=20 name=表 4
-[2026-04-16 00:33:25] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=10ms
-[2026-04-16 00:33:25] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/20/messages status=200 time=2ms
-[2026-04-16 00:33:26] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/list_case_sheets status=200 time=219ms
-[2026-04-16 00:33:40] [INFO] [OK] user=123@gmail.com action=import_sheets | target=表 4 imported=4
-[2026-04-16 00:33:40] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/import_sheets status=200 time=9052ms
-[2026-04-16 00:33:40] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 4(20) file=表 4_整合表格.xlsx
-[2026-04-16 00:33:40] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
-[2026-04-16 00:34:44] [INFO] [OK] user=123@gmail.com action=create_case | case_id=21 name=表 5
-[2026-04-16 00:34:44] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=9ms
-[2026-04-16 00:34:44] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/21/messages status=200 time=3ms
-[2026-04-16 00:34:52] [INFO] [OK] user=123@gmail.com action=upload_excel | case=表 5(21) file=excel公版(3).xlsx
-[2026-04-16 00:34:52] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/upload_excel status=200 time=19ms
-[2026-04-16 00:34:52] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=21 count=1
-[2026-04-16 00:34:52] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/21/messages status=200 time=24ms
-[2026-04-16 00:34:52] [INFO] [OK] user=123@gmail.com action=update_case | case_id=21 name=淡江大學
-[2026-04-16 00:34:52] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/21 status=200 time=35ms
-[2026-04-16 00:34:52] [INFO] [OK] user=123@gmail.com action=update_case | case_id=21 name=淡江大學
-[2026-04-16 00:34:52] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/21 status=200 time=40ms
-[2026-04-16 00:35:11] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_template status=200 time=219ms
-[2026-04-16 00:44:07] [INFO] ============================================================
-[2026-04-16 00:44:07] [INFO] 財模助手 啟動
-[2026-04-16 00:44:07] [INFO] ============================================================
-[2026-04-16 00:48:32] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=19ms
-[2026-04-16 00:48:32] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
-[2026-04-16 00:48:33] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=22ms
-[2026-04-16 00:48:33] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/16/messages status=200 time=51ms
-[2026-04-16 00:48:33] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(16) file=16_excel公版(3).xlsx
-[2026-04-16 00:48:33] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 00:48:34] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_template status=200 time=231ms
-[2026-04-16 01:02:47] [INFO] ============================================================
-[2026-04-16 01:02:47] [INFO] 財模助手 啟動
-[2026-04-16 01:02:47] [INFO] ============================================================
-[2026-04-16 01:02:49] [INFO] ============================================================
-[2026-04-16 01:02:49] [INFO] 財模助手 啟動
-[2026-04-16 01:02:49] [INFO] ============================================================
-[2026-04-16 01:04:56] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=10ms
-[2026-04-16 01:04:57] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
-[2026-04-16 01:04:57] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=18ms
-[2026-04-16 01:04:57] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/16/messages status=200 time=46ms
-[2026-04-16 01:04:57] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(16) file=16_excel公版(3).xlsx
-[2026-04-16 01:04:57] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 01:05:04] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=317ms
-[2026-04-16 01:05:42] [INFO] [OK] user=123@gmail.com action=create_case | case_id=22 name=表 6
-[2026-04-16 01:05:42] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=14ms
-[2026-04-16 01:05:42] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/22/messages status=200 time=4ms
-[2026-04-16 01:05:46] [INFO] [OK] user=123@gmail.com action=upload_excel | case=表 6(22) file=模擬輸入 2.xlsx
-[2026-04-16 01:05:46] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/upload_excel status=200 time=89ms
-[2026-04-16 01:05:46] [INFO] [OK] user=123@gmail.com action=update_case | case_id=22 name=淡江大學-財務模擬案場
-[2026-04-16 01:05:46] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/22 status=200 time=25ms
-[2026-04-16 01:05:46] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=22 count=1
-[2026-04-16 01:05:46] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/22/messages status=200 time=27ms
-[2026-04-16 01:05:46] [INFO] [OK] user=123@gmail.com action=update_case | case_id=22 name=淡江大學-財務模擬案場
-[2026-04-16 01:05:46] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/22 status=200 time=46ms
-[2026-04-16 01:05:48] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=58ms
-[2026-04-16 01:05:54] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=53ms
-[2026-04-16 01:05:56] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/18/messages status=200 time=3ms
-[2026-04-16 01:05:56] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(18) file=18_excel公版(3).xlsx
-[2026-04-16 01:05:56] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 01:05:57] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=903ms
-[2026-04-16 01:05:59] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/22/messages status=200 time=2ms
-[2026-04-16 01:06:00] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=59ms
-[2026-04-16 01:06:32] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=60ms
-[2026-04-16 01:06:34] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/18/messages status=200 time=3ms
-[2026-04-16 01:06:36] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=920ms
-[2026-04-16 01:06:37] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/16/messages status=200 time=3ms
-[2026-04-16 01:06:38] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=289ms
-[2026-04-16 01:06:40] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/21/messages status=200 time=4ms
-[2026-04-16 01:06:40] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(21) file=21_excel公版(3).xlsx
-[2026-04-16 01:06:40] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=2ms
-[2026-04-16 01:06:41] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=29ms
-[2026-04-16 01:06:43] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/22/messages status=200 time=5ms
-[2026-04-16 01:06:43] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=55ms
-[2026-04-16 01:07:58] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/21/messages status=200 time=4ms
-[2026-04-16 01:07:59] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/18/messages status=200 time=3ms
-[2026-04-16 01:08:01] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=999ms
-[2026-04-16 01:08:03] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/22/messages status=200 time=2ms
-[2026-04-16 01:08:04] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=56ms
-[2026-04-16 01:08:06] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=0ms
-[2026-04-16 01:08:07] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
-[2026-04-16 01:08:07] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=1ms
-[2026-04-16 01:08:07] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/16/messages status=200 time=2ms
-[2026-04-16 01:08:07] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(16) file=16_excel公版(3).xlsx
-[2026-04-16 01:08:07] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 01:08:09] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=300ms
-[2026-04-16 01:08:10] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/22/messages status=200 time=2ms
-[2026-04-16 01:08:10] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學-財務模擬案場(22) file=22_模擬輸入 2.xlsx
-[2026-04-16 01:08:10] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=2ms
-[2026-04-16 01:08:14] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=54ms
-[2026-04-16 01:08:16] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/21/messages status=200 time=2ms
-[2026-04-16 01:08:16] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(21) file=21_excel公版(3).xlsx
-[2026-04-16 01:08:16] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 01:08:18] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=29ms
-[2026-04-16 01:14:37] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/18/messages status=200 time=3ms
-[2026-04-16 01:14:37] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(18) file=18_excel公版(3).xlsx
-[2026-04-16 01:14:37] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=2ms
-[2026-04-16 01:14:38] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/22/messages status=200 time=2ms
-[2026-04-16 01:14:39] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=59ms
-[2026-04-16 01:14:49] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling | case=淡江大學-財務模擬案場(22) mode=CashMode boundary=20000
-[2026-04-16 01:14:50] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling_done | case=淡江大學-財務模擬案場(22) mode=CashMode
-[2026-04-16 01:14:50] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/calculate_price_rolling status=200 time=1098ms
-[2026-04-16 01:14:50] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=22 count=1
-[2026-04-16 01:14:50] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/22/messages status=200 time=9ms
-[2026-04-16 01:14:53] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學-財務模擬案場(22) query=是
-[2026-04-16 01:15:10] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=17302ms | query=是
-[2026-04-16 01:15:10] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學-財務模擬案場(22) file=22_模擬輸入 2.xlsx
-[2026-04-16 01:15:10] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=4ms
-[2026-04-16 01:15:10] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=22 count=2
-[2026-04-16 01:15:10] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/22/messages status=200 time=14ms
-[2026-04-16 01:17:28] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學-財務模擬案場(22) query=我想修改保險費 全部改成-40,000
-[2026-04-16 01:18:09] [INFO] [OK] user=123@gmail.com action=agent_chat_done | case=淡江大學-財務模擬案場(22) excel_modified=False tools_used=[] response_len=43
-[2026-04-16 01:18:09] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=40762ms | query=我想修改保險費 全部改成-40,000
-[2026-04-16 01:18:09] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=22 count=2
-[2026-04-16 01:18:09] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/22/messages status=200 time=10ms
-[2026-04-16 01:34:41] [INFO] ============================================================
-[2026-04-16 01:34:41] [INFO] 財模助手 啟動
-[2026-04-16 01:34:41] [INFO] ============================================================
-[2026-04-16 01:34:43] [INFO] ============================================================
-[2026-04-16 01:34:43] [INFO] 財模助手 啟動
-[2026-04-16 01:34:43] [INFO] ============================================================
-[2026-04-16 01:34:44] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=11ms
-[2026-04-16 01:34:44] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
-[2026-04-16 01:34:44] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=19ms
-[2026-04-16 01:34:45] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/16/messages status=200 time=53ms
-[2026-04-16 01:34:45] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(16) file=16_excel公版(3).xlsx
-[2026-04-16 01:34:45] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 01:34:52] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/22/messages status=200 time=2ms
-[2026-04-16 01:34:52] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學-財務模擬案場(22) file=22_模擬輸入 2.xlsx
-[2026-04-16 01:34:52] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=2ms
-[2026-04-16 01:34:53] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/21/messages status=200 time=2ms
-[2026-04-16 01:34:53] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(21) file=21_excel公版(3).xlsx
-[2026-04-16 01:34:53] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 01:45:10] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=41ms
-[2026-04-16 01:45:13] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling | case=淡江大學(21) mode=CashMode boundary=20000
-[2026-04-16 01:45:13] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling_done | case=淡江大學(21) mode=CashMode
-[2026-04-16 01:45:13] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/calculate_price_rolling status=200 time=339ms
-[2026-04-16 01:45:13] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=21 count=1
-[2026-04-16 01:45:13] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/21/messages status=200 time=11ms
-[2026-04-16 01:45:19] [ERROR] [ERROR] user=123@gmail.com action=request_teardown | exception=UnboundLocalError: cannot access local variable 're' where it is not associated with a value
-[2026-04-16 01:45:19] [DEBUG] [TRACEBACK] Traceback (most recent call last):
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 2193, in wsgi_app
-    response = self.handle_exception(e)
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
-    return cors_after_request(app.make_response(f(*args, **kwargs)))
-                                                ~^^^^^^^^^^^^^^^^^
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 2190, in wsgi_app
-    response = self.full_dispatch_request()
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 1486, in full_dispatch_request
-    rv = self.handle_user_exception(e)
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
-    return cors_after_request(app.make_response(f(*args, **kwargs)))
-                                                ~^^^^^^^^^^^^^^^^^
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
-    rv = self.dispatch_request()
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
-    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
-  File "D:\code\信邦\ai_agent2\api\agent_routes.py", line 743, in agent_chat
-    user_query = re.sub(
-                 ^^
-UnboundLocalError: cannot access local variable 're' where it is not associated with a value
+[2026-04-17 16:37:34] [INFO] ============================================================
+[2026-04-17 16:37:34] [INFO] 財模助手 啟動
+[2026-04-17 16:37:34] [INFO] ============================================================
+[2026-04-17 16:37:36] [INFO] ============================================================
+[2026-04-17 16:37:36] [INFO] 財模助手 啟動
+[2026-04-17 16:37:36] [INFO] ============================================================
+[2026-04-17 16:37:40] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=15ms
+[2026-04-17 16:37:41] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
+[2026-04-17 16:37:41] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=20ms
+[2026-04-17 16:37:41] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/27/messages status=200 time=60ms
+[2026-04-17 16:37:41] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(27) file=27_excel公版(3).xlsx
+[2026-04-17 16:37:41] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
+[2026-04-17 16:37:42] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/31/messages status=200 time=2ms
+[2026-04-17 16:37:42] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 5(31) file=表 5_整合表格.xlsx
+[2026-04-17 16:37:42] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=2ms
+[2026-04-17 16:37:44] [INFO] [OK] user=123@gmail.com action=create_case | case_id=33 name=表 7
+[2026-04-17 16:37:44] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=15ms
+[2026-04-17 16:37:45] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/33/messages status=200 time=3ms
+[2026-04-17 16:37:46] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/list_case_sheets status=200 time=164ms
+[2026-04-17 16:38:02] [INFO] [OK] user=123@gmail.com action=import_sheets | target=表 7 imported=3
+[2026-04-17 16:38:02] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/import_sheets status=200 time=8780ms
+[2026-04-17 16:38:02] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 7(33) file=表 7_整合表格.xlsx
+[2026-04-17 16:38:02] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
+[2026-04-17 16:38:10] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/list_case_sheets status=200 time=167ms
+[2026-04-17 16:38:20] [INFO] [OK] user=123@gmail.com action=import_sheets | target=表 7 imported=1
+[2026-04-17 16:38:20] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/import_sheets status=200 time=5960ms
+[2026-04-17 16:38:20] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 7(33) file=表 7_整合表格.xlsx
+[2026-04-17 16:38:20] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
+[2026-04-17 16:38:31] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/list_case_sheets status=200 time=166ms
+[2026-04-17 16:38:51] [INFO] [OK] user=123@gmail.com action=import_sheets | target=表 7 imported=1
+[2026-04-17 16:38:51] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/import_sheets status=200 time=6423ms
+[2026-04-17 16:38:51] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 7(33) file=表 7_整合表格.xlsx
+[2026-04-17 16:38:51] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
+[2026-04-17 16:39:12] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=282ms
+[2026-04-17 16:39:14] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/list_case_sheets status=200 time=165ms
+[2026-04-17 16:39:33] [INFO] [OK] user=123@gmail.com action=import_sheets | target=表 7 imported=1
+[2026-04-17 16:39:33] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/import_sheets status=200 time=6779ms
+[2026-04-17 16:39:33] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 7(33) file=表 7_整合表格.xlsx
+[2026-04-17 16:39:33] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=2ms
+[2026-04-17 16:41:55] [INFO] [OK] user=123@gmail.com action=delete_case | case_id=29 name=表 3
+[2026-04-17 16:41:55] [INFO] [OK] user=123@gmail.com action=http_request | method=DELETE path=/api/cases/29 status=200 time=13ms
+[2026-04-17 16:41:56] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=2ms
+[2026-04-17 16:41:56] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 4(30) file=表 4_整合表格.xlsx
+[2026-04-17 16:41:56] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=2ms
+[2026-04-17 16:41:57] [INFO] [OK] user=123@gmail.com action=delete_case | case_id=30 name=表 4
+[2026-04-17 16:41:57] [INFO] [OK] user=123@gmail.com action=http_request | method=DELETE path=/api/cases/30 status=200 time=9ms
+[2026-04-17 16:41:58] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/27/messages status=200 time=3ms
+[2026-04-17 16:42:00] [INFO] [OK] user=123@gmail.com action=delete_case | case_id=31 name=表 5
+[2026-04-17 16:42:00] [INFO] [OK] user=123@gmail.com action=http_request | method=DELETE path=/api/cases/31 status=200 time=9ms
+[2026-04-17 16:42:02] [INFO] [OK] user=123@gmail.com action=delete_case | case_id=32 name=表 6
+[2026-04-17 16:42:02] [INFO] [OK] user=123@gmail.com action=http_request | method=DELETE path=/api/cases/32 status=200 time=12ms
+[2026-04-17 16:42:03] [ERROR] [ERROR] user=123@gmail.com action=http_request | method=POST path=/api/delete_excel status=404 time=2ms
+[2026-04-17 16:42:03] [INFO] [OK] user=123@gmail.com action=delete_case | case_id=33 name=表 7
+[2026-04-17 16:42:03] [INFO] [OK] user=123@gmail.com action=http_request | method=DELETE path=/api/cases/33 status=200 time=11ms
+[2026-04-17 16:42:06] [ERROR] [ERROR] user=123@gmail.com action=delete_excel | file=27_excel公版(3).xlsx | exception=PermissionError: [WinError 32] 程序無法存取檔案，因為檔案正由另一個程序使用。: 'D:\\code\\信邦\\ai_agent2\\Excel User Data\\123@gmail.com\\27_excel公版(3).xlsx'
+[2026-04-17 16:42:06] [DEBUG] [TRACEBACK] Traceback (most recent call last):
+  File "D:\code\信邦\ai_agent2\api\agent_routes.py", line 1532, in delete_excel
+    os.remove(file_path)
+    ~~~~~~~~~^^^^^^^^^^^
+PermissionError: [WinError 32] 程序無法存取檔案，因為檔案正由另一個程序使用。: 'D:\\code\\信邦\\ai_agent2\\Excel User Data\\123@gmail.com\\27_excel公版(3).xlsx'
 
-[2026-04-16 01:45:24] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=1ms
-[2026-04-16 01:45:25] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
-[2026-04-16 01:45:25] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=1ms
-[2026-04-16 01:45:25] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/16/messages status=200 time=2ms
-[2026-04-16 01:45:25] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(16) file=16_excel公版(3).xlsx
-[2026-04-16 01:45:25] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=2ms
-[2026-04-16 01:45:26] [INFO] [OK] user=123@gmail.com action=create_case | case_id=23 name=表 7
-[2026-04-16 01:45:26] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=11ms
-[2026-04-16 01:45:26] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/23/messages status=200 time=2ms
-[2026-04-16 01:45:31] [INFO] [OK] user=123@gmail.com action=upload_excel | case=表 7(23) file=excel公版(3).xlsx
-[2026-04-16 01:45:31] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/upload_excel status=200 time=29ms
-[2026-04-16 01:45:31] [INFO] [OK] user=123@gmail.com action=update_case | case_id=23 name=淡江大學
-[2026-04-16 01:45:31] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/23 status=200 time=16ms
-[2026-04-16 01:45:31] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=23 count=1
-[2026-04-16 01:45:31] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/23/messages status=200 time=12ms
-[2026-04-16 01:45:31] [INFO] [OK] user=123@gmail.com action=update_case | case_id=23 name=淡江大學
-[2026-04-16 01:45:31] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/23 status=200 time=36ms
-[2026-04-16 01:45:31] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=64ms
-[2026-04-16 01:45:34] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling | case=表 7(23) mode=CashMode boundary=20000
-[2026-04-16 01:45:34] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling_done | case=表 7(23) mode=CashMode
-[2026-04-16 01:45:34] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/calculate_price_rolling status=200 time=323ms
-[2026-04-16 01:45:35] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=23 count=1
-[2026-04-16 01:45:35] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/23/messages status=200 time=9ms
-[2026-04-16 01:45:42] [ERROR] [ERROR] user=123@gmail.com action=request_teardown | exception=UnboundLocalError: cannot access local variable 're' where it is not associated with a value
-[2026-04-16 01:45:42] [DEBUG] [TRACEBACK] Traceback (most recent call last):
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 2193, in wsgi_app
-    response = self.handle_exception(e)
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
-    return cors_after_request(app.make_response(f(*args, **kwargs)))
-                                                ~^^^^^^^^^^^^^^^^^
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 2190, in wsgi_app
-    response = self.full_dispatch_request()
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 1486, in full_dispatch_request
-    rv = self.handle_user_exception(e)
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
-    return cors_after_request(app.make_response(f(*args, **kwargs)))
-                                                ~^^^^^^^^^^^^^^^^^
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
-    rv = self.dispatch_request()
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
-    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
-  File "D:\code\信邦\ai_agent2\api\agent_routes.py", line 743, in agent_chat
-    user_query = re.sub(
-                 ^^
-UnboundLocalError: cannot access local variable 're' where it is not associated with a value
+[2026-04-17 16:42:06] [ERROR] [ERROR] user=123@gmail.com action=http_request | method=POST path=/api/delete_excel status=500 time=14ms
+[2026-04-17 16:42:06] [INFO] [OK] user=123@gmail.com action=delete_case | case_id=27 name=淡江大學
+[2026-04-17 16:42:06] [INFO] [OK] user=123@gmail.com action=http_request | method=DELETE path=/api/cases/27 status=200 time=16ms
+[2026-04-17 16:42:06] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/28/messages status=200 time=3ms
+[2026-04-17 16:42:06] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(28) file=28_excel公版(3).xlsx
+[2026-04-17 16:42:06] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=2ms
+[2026-04-17 16:42:08] [INFO] [OK] user=123@gmail.com action=create_case | case_id=29 name=表 8
+[2026-04-17 16:42:08] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=9ms
+[2026-04-17 16:42:08] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/29/messages status=200 time=2ms
+[2026-04-17 16:42:09] [ERROR] [ERROR] user=123@gmail.com action=delete_excel | file=28_excel公版(3).xlsx | exception=PermissionError: [WinError 32] 程序無法存取檔案，因為檔案正由另一個程序使用。: 'D:\\code\\信邦\\ai_agent2\\Excel User Data\\123@gmail.com\\28_excel公版(3).xlsx'
+[2026-04-17 16:42:09] [DEBUG] [TRACEBACK] Traceback (most recent call last):
+  File "D:\code\信邦\ai_agent2\api\agent_routes.py", line 1532, in delete_excel
+    os.remove(file_path)
+    ~~~~~~~~~^^^^^^^^^^^
+PermissionError: [WinError 32] 程序無法存取檔案，因為檔案正由另一個程序使用。: 'D:\\code\\信邦\\ai_agent2\\Excel User Data\\123@gmail.com\\28_excel公版(3).xlsx'
 
-[2026-04-16 01:46:05] [INFO] ============================================================
-[2026-04-16 01:46:05] [INFO] 財模助手 啟動
-[2026-04-16 01:46:05] [INFO] ============================================================
-[2026-04-16 01:46:30] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=11ms
-[2026-04-16 01:46:30] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
-[2026-04-16 01:46:31] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=19ms
-[2026-04-16 01:46:31] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/16/messages status=200 time=56ms
-[2026-04-16 01:46:31] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(16) file=16_excel公版(3).xlsx
-[2026-04-16 01:46:31] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 01:46:31] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/21/messages status=200 time=2ms
-[2026-04-16 01:46:31] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(21) file=21_excel公版(3).xlsx
-[2026-04-16 01:46:31] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=2ms
-[2026-04-16 01:46:33] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=27ms
-[2026-04-16 01:46:35] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling | case=淡江大學(21) mode=CashMode boundary=20000
-[2026-04-16 01:46:35] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling_done | case=淡江大學(21) mode=CashMode
-[2026-04-16 01:46:35] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/calculate_price_rolling status=200 time=352ms
-[2026-04-16 01:46:35] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=21 count=1
-[2026-04-16 01:46:35] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/21/messages status=200 time=11ms
-[2026-04-16 01:46:37] [ERROR] [ERROR] user=123@gmail.com action=request_teardown | exception=UnboundLocalError: cannot access local variable 're' where it is not associated with a value
-[2026-04-16 01:46:37] [DEBUG] [TRACEBACK] Traceback (most recent call last):
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 2193, in wsgi_app
-    response = self.handle_exception(e)
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
-    return cors_after_request(app.make_response(f(*args, **kwargs)))
-                                                ~^^^^^^^^^^^^^^^^^
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 2190, in wsgi_app
-    response = self.full_dispatch_request()
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 1486, in full_dispatch_request
-    rv = self.handle_user_exception(e)
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
-    return cors_after_request(app.make_response(f(*args, **kwargs)))
-                                                ~^^^^^^^^^^^^^^^^^
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
-    rv = self.dispatch_request()
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
-    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
-  File "D:\code\信邦\ai_agent2\api\agent_routes.py", line 744, in agent_chat
-    user_query = re.sub(
-                 ^^
-UnboundLocalError: cannot access local variable 're' where it is not associated with a value
-
-[2026-04-16 01:46:47] [INFO] ============================================================
-[2026-04-16 01:46:47] [INFO] 財模助手 啟動
-[2026-04-16 01:46:47] [INFO] ============================================================
-[2026-04-16 01:46:49] [INFO] ============================================================
-[2026-04-16 01:46:49] [INFO] 財模助手 啟動
-[2026-04-16 01:46:49] [INFO] ============================================================
-[2026-04-16 01:46:49] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=9ms
-[2026-04-16 01:46:50] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
-[2026-04-16 01:46:50] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=43ms
-[2026-04-16 01:46:50] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/16/messages status=200 time=5ms
-[2026-04-16 01:46:50] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(16) file=16_excel公版(3).xlsx
-[2026-04-16 01:46:50] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=2ms
-[2026-04-16 01:46:52] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=263ms
-[2026-04-16 01:46:54] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/21/messages status=200 time=2ms
-[2026-04-16 01:46:54] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(21) file=21_excel公版(3).xlsx
-[2026-04-16 01:46:54] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=2ms
-[2026-04-16 01:46:54] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=35ms
-[2026-04-16 01:46:56] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling | case=淡江大學(21) mode=CashMode boundary=20000
-[2026-04-16 01:46:56] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling_done | case=淡江大學(21) mode=CashMode
-[2026-04-16 01:46:56] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/calculate_price_rolling status=200 time=327ms
-[2026-04-16 01:46:57] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=21 count=1
-[2026-04-16 01:46:57] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/21/messages status=200 time=10ms
-[2026-04-16 01:46:59] [ERROR] [ERROR] user=123@gmail.com action=request_teardown | exception=UnboundLocalError: cannot access local variable 're' where it is not associated with a value
-[2026-04-16 01:46:59] [DEBUG] [TRACEBACK] Traceback (most recent call last):
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 2193, in wsgi_app
-    response = self.handle_exception(e)
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
-    return cors_after_request(app.make_response(f(*args, **kwargs)))
-                                                ~^^^^^^^^^^^^^^^^^
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 2190, in wsgi_app
-    response = self.full_dispatch_request()
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 1486, in full_dispatch_request
-    rv = self.handle_user_exception(e)
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
-    return cors_after_request(app.make_response(f(*args, **kwargs)))
-                                                ~^^^^^^^^^^^^^^^^^
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 1484, in full_dispatch_request
-    rv = self.dispatch_request()
-  File "D:\code\信邦\ai_agent2\.venv\Lib\site-packages\flask\app.py", line 1469, in dispatch_request
-    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
-  File "D:\code\信邦\ai_agent2\api\agent_routes.py", line 744, in agent_chat
-    user_query = re.sub(
-                 ^^
-UnboundLocalError: cannot access local variable 're' where it is not associated with a value
-
-[2026-04-16 01:47:35] [INFO] ============================================================
-[2026-04-16 01:47:35] [INFO] 財模助手 啟動
-[2026-04-16 01:47:35] [INFO] ============================================================
-[2026-04-16 01:47:55] [INFO] ============================================================
-[2026-04-16 01:47:55] [INFO] 財模助手 啟動
-[2026-04-16 01:47:55] [INFO] ============================================================
-[2026-04-16 01:47:57] [INFO] ============================================================
-[2026-04-16 01:47:57] [INFO] 財模助手 啟動
-[2026-04-16 01:47:57] [INFO] ============================================================
-[2026-04-16 01:48:00] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=9ms
-[2026-04-16 01:48:01] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
-[2026-04-16 01:48:01] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=14ms
-[2026-04-16 01:48:01] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/16/messages status=200 time=44ms
-[2026-04-16 01:48:02] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(16) file=16_excel公版(3).xlsx
-[2026-04-16 01:48:02] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 01:48:02] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/21/messages status=200 time=3ms
-[2026-04-16 01:48:02] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(21) file=21_excel公版(3).xlsx
-[2026-04-16 01:48:02] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=4ms
-[2026-04-16 01:48:03] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=32ms
-[2026-04-16 01:48:05] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling | case=淡江大學(21) mode=CashMode boundary=20000
-[2026-04-16 01:48:05] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling_done | case=淡江大學(21) mode=CashMode
-[2026-04-16 01:48:05] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/calculate_price_rolling status=200 time=361ms
-[2026-04-16 01:48:05] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=21 count=1
-[2026-04-16 01:48:05] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/21/messages status=200 time=11ms
-[2026-04-16 01:48:07] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(21) query=是
-[2026-04-16 01:48:20] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=12980ms | query=是
-[2026-04-16 01:48:20] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(21) file=21_excel公版(3).xlsx
-[2026-04-16 01:48:20] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
-[2026-04-16 01:48:20] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=21 count=2
-[2026-04-16 01:48:20] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/21/messages status=200 time=14ms
-[2026-04-16 01:49:17] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(21) query=我想修改維運費改成-400000
-[2026-04-16 01:49:35] [INFO] [OK] user=123@gmail.com action=agent_chat_done | case=淡江大學(21) excel_modified=False tools_used=[] response_len=63
-[2026-04-16 01:49:35] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=17577ms | query=我想修改維運費改成-400,000
-[2026-04-16 01:49:35] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=21 count=2
-[2026-04-16 01:49:35] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/21/messages status=200 time=9ms
-[2026-04-16 01:49:45] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(21) query=是
-[2026-04-16 01:49:55] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=9977ms | query=是
-[2026-04-16 01:49:55] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(21) file=21_excel公版(3).xlsx
-[2026-04-16 01:49:55] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
-[2026-04-16 01:49:55] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=21 count=2
-[2026-04-16 01:49:55] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/21/messages status=200 time=13ms
-[2026-04-16 01:57:40] [INFO] [OK] user=123@gmail.com action=create_case | case_id=24 name=表 8
-[2026-04-16 01:57:40] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=13ms
-[2026-04-16 01:57:41] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/24/messages status=200 time=2ms
-[2026-04-16 01:57:41] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=57ms
-[2026-04-16 01:57:44] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/23/messages status=200 time=2ms
-[2026-04-16 01:57:44] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(23) file=23_excel公版(3).xlsx
-[2026-04-16 01:57:44] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
-[2026-04-16 01:57:45] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=35ms
-[2026-04-16 01:57:51] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling | case=淡江大學(23) mode=RatioMode boundary=20000
-[2026-04-16 01:57:51] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling_done | case=淡江大學(23) mode=RatioMode
-[2026-04-16 01:57:51] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/calculate_price_rolling status=200 time=181ms
-[2026-04-16 01:57:52] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=23 count=1
-[2026-04-16 01:57:52] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/23/messages status=200 time=9ms
-[2026-04-16 05:13:10] [INFO] ============================================================
-[2026-04-16 05:13:10] [INFO] 財模助手 啟動
-[2026-04-16 05:13:10] [INFO] ============================================================
-[2026-04-16 05:13:12] [INFO] ============================================================
-[2026-04-16 05:13:12] [INFO] 財模助手 啟動
-[2026-04-16 05:13:12] [INFO] ============================================================
-[2026-04-16 05:13:14] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=13ms
-[2026-04-16 05:13:15] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
-[2026-04-16 05:13:15] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=20ms
-[2026-04-16 05:13:15] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/16/messages status=200 time=49ms
-[2026-04-16 05:13:15] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(16) file=16_excel公版(3).xlsx
-[2026-04-16 05:13:15] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 05:13:20] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/24/messages status=200 time=2ms
-[2026-04-16 05:13:20] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 8(24) file=表 8_整合表格.xlsx
-[2026-04-16 05:13:20] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
-[2026-04-16 05:13:23] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/23/messages status=200 time=3ms
-[2026-04-16 05:13:23] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(23) file=23_excel公版(3).xlsx
-[2026-04-16 05:13:23] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 05:13:36] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/24/messages status=200 time=2ms
-[2026-04-16 05:13:37] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/22/messages status=200 time=3ms
-[2026-04-16 05:13:37] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學-財務模擬案場(22) file=22_模擬輸入 2.xlsx
-[2026-04-16 05:13:37] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 05:13:42] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/23/messages status=200 time=2ms
-[2026-04-16 05:13:43] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/22/messages status=200 time=4ms
-[2026-04-16 05:13:45] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/23/messages status=200 time=2ms
-[2026-04-16 05:13:50] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/24/messages status=200 time=2ms
-[2026-04-16 05:13:51] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/21/messages status=200 time=2ms
-[2026-04-16 05:13:51] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(21) file=21_excel公版(3).xlsx
-[2026-04-16 05:13:51] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=2ms
-[2026-04-16 12:04:44] [INFO] ============================================================
-[2026-04-16 12:04:44] [INFO] 財模助手 啟動
-[2026-04-16 12:04:44] [INFO] ============================================================
-[2026-04-16 12:04:46] [INFO] ============================================================
-[2026-04-16 12:04:46] [INFO] 財模助手 啟動
-[2026-04-16 12:04:46] [INFO] ============================================================
-[2026-04-16 12:04:52] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=13ms
-[2026-04-16 12:04:52] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
-[2026-04-16 12:04:53] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=23ms
-[2026-04-16 12:04:53] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/16/messages status=200 time=61ms
-[2026-04-16 12:04:53] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(16) file=16_excel公版(3).xlsx
-[2026-04-16 12:04:53] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=4ms
-[2026-04-16 12:04:55] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/24/messages status=200 time=3ms
-[2026-04-16 12:04:55] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 8(24) file=表 8_整合表格.xlsx
-[2026-04-16 12:04:55] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=5ms
-[2026-04-16 12:04:57] [INFO] [OK] user=123@gmail.com action=create_case | case_id=25 name=表 9
-[2026-04-16 12:04:57] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=12ms
-[2026-04-16 12:04:57] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/25/messages status=200 time=3ms
-[2026-04-16 12:05:02] [INFO] [OK] user=123@gmail.com action=upload_excel | case=表 9(25) file=excel公版(3) - 複製.xlsx
-[2026-04-16 12:05:02] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/upload_excel status=200 time=25ms
-[2026-04-16 12:05:03] [INFO] [OK] user=123@gmail.com action=update_case | case_id=25 name=淡江大學
-[2026-04-16 12:05:03] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/25 status=200 time=22ms
-[2026-04-16 12:05:03] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=25 count=1
-[2026-04-16 12:05:03] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/25/messages status=200 time=34ms
-[2026-04-16 12:05:03] [INFO] [OK] user=123@gmail.com action=update_case | case_id=25 name=淡江大學
-[2026-04-16 12:05:03] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/25 status=200 time=43ms
-[2026-04-16 12:05:05] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=28ms
-[2026-04-16 12:05:08] [INFO] [OK] user=123@gmail.com action=create_case | case_id=26 name=表 10
-[2026-04-16 12:05:08] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=9ms
-[2026-04-16 12:05:08] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/26/messages status=200 time=3ms
-[2026-04-16 12:05:13] [INFO] [OK] user=123@gmail.com action=upload_excel | case=表 10(26) file=excel公版(3).xlsx
-[2026-04-16 12:05:13] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/upload_excel status=200 time=23ms
-[2026-04-16 12:05:13] [INFO] [OK] user=123@gmail.com action=update_case | case_id=26 name=淡江大學
-[2026-04-16 12:05:13] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/26 status=200 time=20ms
-[2026-04-16 12:05:13] [INFO] [OK] user=123@gmail.com action=update_case | case_id=26 name=淡江大學
-[2026-04-16 12:05:13] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/26 status=200 time=26ms
-[2026-04-16 12:05:13] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=26 count=1
-[2026-04-16 12:05:13] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/26/messages status=200 time=36ms
-[2026-04-16 12:05:15] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=32ms
-[2026-04-16 12:05:17] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/20/messages status=200 time=2ms
-[2026-04-16 12:05:17] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 4(20) file=表 4_整合表格.xlsx
-[2026-04-16 12:05:17] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
-[2026-04-16 12:05:18] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/21/messages status=200 time=3ms
-[2026-04-16 12:05:18] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(21) file=21_excel公版(3).xlsx
-[2026-04-16 12:05:18] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 12:05:18] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=243ms
-[2026-04-16 12:20:19] [INFO] ============================================================
-[2026-04-16 12:20:19] [INFO] 財模助手 啟動
-[2026-04-16 12:20:19] [INFO] ============================================================
-[2026-04-16 12:20:21] [INFO] ============================================================
-[2026-04-16 12:20:21] [INFO] 財模助手 啟動
-[2026-04-16 12:20:21] [INFO] ============================================================
-[2026-04-16 12:21:44] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=14ms
-[2026-04-16 12:21:45] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
-[2026-04-16 12:21:45] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=63ms
-[2026-04-16 12:21:45] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/16/messages status=200 time=6ms
-[2026-04-16 12:21:45] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(16) file=16_excel公版(3).xlsx
-[2026-04-16 12:21:45] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 12:22:33] [INFO] [OK] user=123@gmail.com action=create_case | case_id=27 name=表 11
-[2026-04-16 12:22:33] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=15ms
-[2026-04-16 12:22:33] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/27/messages status=200 time=3ms
-[2026-04-16 12:22:36] [INFO] [OK] user=123@gmail.com action=delete_excel | file=16_excel公版(3).xlsx
-[2026-04-16 12:22:36] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/delete_excel status=200 time=3ms
-[2026-04-16 12:22:36] [INFO] [OK] user=123@gmail.com action=delete_case | case_id=16 name=淡江大學
-[2026-04-16 12:22:36] [INFO] [OK] user=123@gmail.com action=http_request | method=DELETE path=/api/cases/16 status=200 time=18ms
-[2026-04-16 12:22:38] [INFO] [OK] user=123@gmail.com action=delete_excel | file=18_excel公版(3).xlsx
-[2026-04-16 12:22:38] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/delete_excel status=200 time=9ms
-[2026-04-16 12:22:38] [INFO] [OK] user=123@gmail.com action=delete_case | case_id=18 name=淡江大學
-[2026-04-16 12:22:38] [INFO] [OK] user=123@gmail.com action=http_request | method=DELETE path=/api/cases/18 status=200 time=15ms
-[2026-04-16 12:22:40] [INFO] [OK] user=123@gmail.com action=delete_case | case_id=19 name=表 3
-[2026-04-16 12:22:40] [INFO] [OK] user=123@gmail.com action=http_request | method=DELETE path=/api/cases/19 status=200 time=11ms
-[2026-04-16 12:22:41] [INFO] [OK] user=123@gmail.com action=delete_case | case_id=20 name=表 4
-[2026-04-16 12:22:41] [INFO] [OK] user=123@gmail.com action=http_request | method=DELETE path=/api/cases/20 status=200 time=12ms
-[2026-04-16 12:22:42] [INFO] [OK] user=123@gmail.com action=delete_excel | file=21_excel公版(3).xlsx
-[2026-04-16 12:22:42] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/delete_excel status=200 time=9ms
-[2026-04-16 12:22:42] [INFO] [OK] user=123@gmail.com action=delete_case | case_id=21 name=淡江大學
-[2026-04-16 12:22:42] [INFO] [OK] user=123@gmail.com action=http_request | method=DELETE path=/api/cases/21 status=200 time=17ms
-[2026-04-16 12:22:43] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/22/messages status=200 time=2ms
-[2026-04-16 12:22:43] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學-財務模擬案場(22) file=22_模擬輸入 2.xlsx
-[2026-04-16 12:22:43] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=4ms
-[2026-04-16 12:22:46] [INFO] [OK] user=123@gmail.com action=delete_excel | file=22_模擬輸入 2.xlsx
-[2026-04-16 12:22:46] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/delete_excel status=200 time=8ms
-[2026-04-16 12:22:46] [INFO] [OK] user=123@gmail.com action=delete_case | case_id=22 name=淡江大學-財務模擬案場
-[2026-04-16 12:22:46] [INFO] [OK] user=123@gmail.com action=http_request | method=DELETE path=/api/cases/22 status=200 time=13ms
-[2026-04-16 12:22:46] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/23/messages status=200 time=2ms
-[2026-04-16 12:22:46] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(23) file=23_excel公版(3).xlsx
-[2026-04-16 12:22:46] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 12:22:47] [INFO] [OK] user=123@gmail.com action=delete_excel | file=23_excel公版(3).xlsx
-[2026-04-16 12:22:47] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/delete_excel status=200 time=4ms
-[2026-04-16 12:22:47] [INFO] [OK] user=123@gmail.com action=delete_case | case_id=23 name=淡江大學
-[2026-04-16 12:22:47] [INFO] [OK] user=123@gmail.com action=http_request | method=DELETE path=/api/cases/23 status=200 time=15ms
-[2026-04-16 12:22:47] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/24/messages status=200 time=4ms
-[2026-04-16 12:22:47] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 8(24) file=表 8_整合表格.xlsx
-[2026-04-16 12:22:47] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 12:22:49] [INFO] [OK] user=123@gmail.com action=delete_case | case_id=24 name=表 8
-[2026-04-16 12:22:49] [INFO] [OK] user=123@gmail.com action=http_request | method=DELETE path=/api/cases/24 status=200 time=9ms
-[2026-04-16 12:22:49] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/25/messages status=200 time=2ms
-[2026-04-16 12:22:49] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(25) file=25_excel公版(3) - 複製.xlsx
-[2026-04-16 12:22:49] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
-[2026-04-16 12:22:52] [INFO] [OK] user=123@gmail.com action=delete_excel | file=25_excel公版(3) - 複製.xlsx
-[2026-04-16 12:22:52] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/delete_excel status=200 time=6ms
-[2026-04-16 12:22:52] [INFO] [OK] user=123@gmail.com action=delete_case | case_id=25 name=淡江大學
-[2026-04-16 12:22:52] [INFO] [OK] user=123@gmail.com action=http_request | method=DELETE path=/api/cases/25 status=200 time=10ms
-[2026-04-16 12:22:52] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/26/messages status=200 time=3ms
-[2026-04-16 12:22:52] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(26) file=26_excel公版(3).xlsx
-[2026-04-16 12:22:52] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
-[2026-04-16 12:22:55] [INFO] [OK] user=123@gmail.com action=delete_excel | file=26_excel公版(3).xlsx
-[2026-04-16 12:22:55] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/delete_excel status=200 time=7ms
-[2026-04-16 12:22:55] [INFO] [OK] user=123@gmail.com action=delete_case | case_id=26 name=淡江大學
-[2026-04-16 12:22:55] [INFO] [OK] user=123@gmail.com action=http_request | method=DELETE path=/api/cases/26 status=200 time=11ms
-[2026-04-16 12:22:55] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/27/messages status=200 time=4ms
-[2026-04-16 12:26:51] [INFO] [OK] user=123@gmail.com action=upload_excel | case=表 11(27) file=excel公版(3).xlsx
-[2026-04-16 12:26:51] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/upload_excel status=200 time=29ms
-[2026-04-16 12:26:51] [INFO] [OK] user=123@gmail.com action=update_case | case_id=27 name=淡江大學
-[2026-04-16 12:26:51] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/27 status=200 time=23ms
-[2026-04-16 12:26:51] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=27 count=1
-[2026-04-16 12:26:51] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/27/messages status=200 time=15ms
-[2026-04-16 12:26:51] [INFO] [OK] user=123@gmail.com action=update_case | case_id=27 name=淡江大學
-[2026-04-16 12:26:51] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/27 status=200 time=45ms
-[2026-04-16 12:27:11] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=31ms
-[2026-04-16 12:30:21] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=27ms
-[2026-04-16 12:30:25] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling | case=淡江大學(27) mode=CashMode boundary=20000
-[2026-04-16 12:30:26] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling_done | case=淡江大學(27) mode=CashMode
-[2026-04-16 12:30:26] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/calculate_price_rolling status=200 time=401ms
-[2026-04-16 12:30:26] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=27 count=1
-[2026-04-16 12:30:26] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/27/messages status=200 time=10ms
-[2026-04-16 12:30:30] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(27) query=是
-[2026-04-16 12:30:49] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=19712ms | query=是
-[2026-04-16 12:30:49] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(27) file=27_excel公版(3).xlsx
-[2026-04-16 12:30:49] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=7ms
-[2026-04-16 12:30:49] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=27 count=2
-[2026-04-16 12:30:49] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/27/messages status=200 time=15ms
-[2026-04-16 12:31:15] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(27) query=我想修改全部年份的保險費 改成-40000
-[2026-04-16 12:32:56] [INFO] [OK] user=123@gmail.com action=agent_chat_done | case=淡江大學(27) excel_modified=False tools_used=[] response_len=141
-[2026-04-16 12:32:56] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=100868ms | query=我想修改全部年份的保險費 改成-40000
-[2026-04-16 12:32:56] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=27 count=2
-[2026-04-16 12:32:56] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/27/messages status=200 time=11ms
-[2026-04-16 12:34:25] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(27) query=是
-[2026-04-16 12:34:25] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=95ms | query=是
-[2026-04-16 12:34:25] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=27 count=2
-[2026-04-16 12:34:25] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/27/messages status=200 time=12ms
-[2026-04-16 12:34:34] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(27) query=我想修改全部年份的保險費 改成-40000
-[2026-04-16 12:34:46] [INFO] [OK] user=123@gmail.com action=agent_chat_done | case=淡江大學(27) excel_modified=False tools_used=[] response_len=43
-[2026-04-16 12:34:46] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=12220ms | query=我想修改全部年份的保險費 改成-40000
-[2026-04-16 12:34:46] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=27 count=2
-[2026-04-16 12:34:46] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/27/messages status=200 time=10ms
-[2026-04-16 12:37:39] [INFO] ============================================================
-[2026-04-16 12:37:39] [INFO] 財模助手 啟動
-[2026-04-16 12:37:39] [INFO] ============================================================
-[2026-04-16 12:38:38] [INFO] ============================================================
-[2026-04-16 12:38:38] [INFO] 財模助手 啟動
-[2026-04-16 12:38:38] [INFO] ============================================================
-[2026-04-16 12:38:40] [INFO] ============================================================
-[2026-04-16 12:38:40] [INFO] 財模助手 啟動
-[2026-04-16 12:38:40] [INFO] ============================================================
-[2026-04-16 12:38:43] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=12ms
-[2026-04-16 12:38:44] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=1ms
-[2026-04-16 12:38:44] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=17ms
-[2026-04-16 12:38:44] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/27/messages status=200 time=48ms
-[2026-04-16 12:38:44] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(27) file=27_excel公版(3).xlsx
-[2026-04-16 12:38:44] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=2ms
-[2026-04-16 12:38:52] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(27) query=我想修改全部年份的保險費 改成-40000
-[2026-04-16 12:39:04] [INFO] [OK] user=123@gmail.com action=agent_chat_done | case=淡江大學(27) excel_modified=False tools_used=[] response_len=49
-[2026-04-16 12:39:04] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=11558ms | query=我想修改全部年份的保險費 改成-40000
-[2026-04-16 12:39:04] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=27 count=2
-[2026-04-16 12:39:04] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/27/messages status=200 time=14ms
-[2026-04-16 12:39:32] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(27) query=我想修改全部年份的保險費 改成-40000
-[2026-04-16 12:39:32] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=105ms | query=我想修改全部年份的保險費 改成-40000
-[2026-04-16 12:39:33] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=27 count=2
-[2026-04-16 12:39:33] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/27/messages status=200 time=9ms
-[2026-04-16 12:39:36] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(27) query=我想修改全部年份的保險費 改成-40000
-[2026-04-16 12:39:47] [INFO] [OK] user=123@gmail.com action=agent_chat_done | case=淡江大學(27) excel_modified=False tools_used=[] response_len=45
-[2026-04-16 12:39:47] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=10858ms | query=我想修改全部年份的保險費 改成-40000
-[2026-04-16 12:39:47] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=27 count=2
-[2026-04-16 12:39:47] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/27/messages status=200 time=12ms
-[2026-04-16 12:40:09] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(27) query=我想修改2021的保險費 改成-40000
-[2026-04-16 12:40:33] [INFO] [OK] user=123@gmail.com action=agent_chat_done | case=淡江大學(27) excel_modified=False tools_used=[] response_len=100
-[2026-04-16 12:40:33] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=24548ms | query=我想修改2021的保險費 改成-40000
-[2026-04-16 12:40:33] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=27 count=2
-[2026-04-16 12:40:33] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/27/messages status=200 time=12ms
-[2026-04-16 13:00:34] [INFO] ============================================================
-[2026-04-16 13:00:34] [INFO] 財模助手 啟動
-[2026-04-16 13:00:34] [INFO] ============================================================
-[2026-04-16 13:00:36] [INFO] ============================================================
-[2026-04-16 13:00:36] [INFO] 財模助手 啟動
-[2026-04-16 13:00:36] [INFO] ============================================================
-[2026-04-16 13:01:13] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=11ms
-[2026-04-16 13:01:13] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
-[2026-04-16 13:01:13] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=14ms
-[2026-04-16 13:01:13] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/27/messages status=200 time=45ms
-[2026-04-16 13:01:13] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(27) file=27_excel公版(3).xlsx
-[2026-04-16 13:01:13] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 13:01:15] [INFO] [OK] user=123@gmail.com action=create_case | case_id=28 name=表 2
-[2026-04-16 13:01:15] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=11ms
-[2026-04-16 13:01:15] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/28/messages status=200 time=3ms
-[2026-04-16 13:01:23] [INFO] [OK] user=123@gmail.com action=upload_excel | case=表 2(28) file=excel公版(3).xlsx
-[2026-04-16 13:01:23] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/upload_excel status=200 time=29ms
-[2026-04-16 13:01:23] [INFO] [OK] user=123@gmail.com action=update_case | case_id=28 name=淡江大學
-[2026-04-16 13:01:23] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/28 status=200 time=33ms
-[2026-04-16 13:01:23] [INFO] [OK] user=123@gmail.com action=update_case | case_id=28 name=淡江大學
-[2026-04-16 13:01:23] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/28 status=200 time=50ms
-[2026-04-16 13:01:23] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=28 count=1
-[2026-04-16 13:01:23] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/28/messages status=200 time=56ms
-[2026-04-16 13:01:24] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=31ms
-[2026-04-16 13:01:26] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling | case=淡江大學(28) mode=CashMode boundary=20000
-[2026-04-16 13:01:27] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling_done | case=淡江大學(28) mode=CashMode
-[2026-04-16 13:01:27] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/calculate_price_rolling status=200 time=362ms
-[2026-04-16 13:01:27] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=28 count=1
-[2026-04-16 13:01:27] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/28/messages status=200 time=8ms
-[2026-04-16 13:01:29] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(28) query=是
-[2026-04-16 13:01:43] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=14183ms | query=是
-[2026-04-16 13:01:43] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(28) file=28_excel公版(3).xlsx
-[2026-04-16 13:01:43] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
-[2026-04-16 13:01:43] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=28 count=2
-[2026-04-16 13:01:43] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/28/messages status=200 time=13ms
-[2026-04-16 13:02:18] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(28) query=我想修改全部年份的保險費 改成-40000
-[2026-04-16 13:02:18] [INFO] [OK] user=123@gmail.com action=agent_chat_done | case=淡江大學(28) excel_modified=False tools_used=[] response_len=137
-[2026-04-16 13:02:18] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=138ms | query=我想修改全部年份的保險費 改成-40000
-[2026-04-16 13:02:18] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=28 count=2
-[2026-04-16 13:02:18] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/28/messages status=200 time=12ms
-[2026-04-16 13:02:29] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(28) query=n
-[2026-04-16 13:02:40] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=10729ms | query=n
-[2026-04-16 13:02:40] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=28 count=2
-[2026-04-16 13:02:40] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/28/messages status=200 time=11ms
-[2026-04-16 13:02:51] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(28) query=我想修改全部年份的運維費 改成-4000
-[2026-04-16 13:02:51] [INFO] [OK] user=123@gmail.com action=agent_chat_done | case=淡江大學(28) excel_modified=False tools_used=[] response_len=135
-[2026-04-16 13:02:51] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=68ms | query=我想修改全部年份的運維費 改成-4,000
-[2026-04-16 13:02:51] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=28 count=2
-[2026-04-16 13:02:51] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/28/messages status=200 time=10ms
-[2026-04-16 13:02:58] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(28) query=n
-[2026-04-16 13:03:17] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=18808ms | query=n
-[2026-04-16 13:03:17] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=28 count=2
-[2026-04-16 13:03:17] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/28/messages status=200 time=9ms
-[2026-04-16 13:03:33] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(28) query=我想修改保險費 每年改成-40000
-[2026-04-16 13:03:33] [INFO] [OK] user=123@gmail.com action=agent_chat_done | case=淡江大學(28) excel_modified=False tools_used=[] response_len=137
-[2026-04-16 13:03:33] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=70ms | query=我想修改保險費 每年改成-40,000
-[2026-04-16 13:03:33] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=28 count=2
-[2026-04-16 13:03:33] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/28/messages status=200 time=12ms
-[2026-04-16 13:03:56] [INFO] ============================================================
-[2026-04-16 13:03:56] [INFO] 財模助手 啟動
-[2026-04-16 13:03:56] [INFO] ============================================================
-[2026-04-16 13:04:00] [INFO] ============================================================
-[2026-04-16 13:04:00] [INFO] 財模助手 啟動
-[2026-04-16 13:04:00] [INFO] ============================================================
-[2026-04-16 13:04:15] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=10ms
-[2026-04-16 13:04:17] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
-[2026-04-16 13:04:17] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=23ms
-[2026-04-16 13:04:17] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/27/messages status=200 time=35ms
-[2026-04-16 13:04:17] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(27) file=27_excel公版(3).xlsx
-[2026-04-16 13:04:17] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=9ms
-[2026-04-16 13:04:18] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/28/messages status=200 time=2ms
-[2026-04-16 13:04:18] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(28) file=28_excel公版(3).xlsx
-[2026-04-16 13:04:18] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=2ms
-[2026-04-16 13:04:40] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(28) query=我想修改全部年份的保險費 改成-40000
-[2026-04-16 13:04:40] [INFO] [OK] user=123@gmail.com action=agent_chat_done | case=淡江大學(28) excel_modified=False tools_used=[] response_len=127
-[2026-04-16 13:04:40] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=100ms | query=我想修改全部年份的保險費 改成-40000
-[2026-04-16 13:04:40] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=28 count=2
-[2026-04-16 13:04:40] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/28/messages status=200 time=12ms
-[2026-04-16 13:04:47] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(28) query=y
-[2026-04-16 13:04:57] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=10142ms | query=y
-[2026-04-16 13:04:57] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(28) file=28_excel公版(3).xlsx
-[2026-04-16 13:04:57] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=8ms
-[2026-04-16 13:04:57] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=28 count=2
-[2026-04-16 13:04:57] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/28/messages status=200 time=16ms
-[2026-04-16 13:05:38] [INFO] [OK] user=123@gmail.com action=create_case | case_id=29 name=表 3
-[2026-04-16 13:05:38] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=12ms
-[2026-04-16 13:05:38] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/29/messages status=200 time=3ms
-[2026-04-16 13:06:10] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/list_case_sheets status=200 time=151ms
-[2026-04-16 13:06:39] [INFO] [OK] user=123@gmail.com action=import_sheets | target=表 3 imported=3
-[2026-04-16 13:06:39] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/import_sheets status=200 time=8077ms
-[2026-04-16 13:06:40] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 3(29) file=表 3_整合表格.xlsx
-[2026-04-16 13:06:40] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
-[2026-04-16 13:07:50] [INFO] [OK] user=123@gmail.com action=create_case | case_id=30 name=表 4
-[2026-04-16 13:07:50] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=9ms
-[2026-04-16 13:07:50] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=2ms
-[2026-04-16 13:07:51] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/list_case_sheets status=200 time=157ms
-[2026-04-16 13:08:06] [INFO] [OK] user=123@gmail.com action=import_sheets | target=表 4 imported=3
-[2026-04-16 13:08:06] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/import_sheets status=200 time=8617ms
-[2026-04-16 13:08:06] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 4(30) file=表 4_整合表格.xlsx
-[2026-04-16 13:08:06] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=2ms
-[2026-04-16 13:11:30] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 4(30) file=表 4_整合表格.xlsx
-[2026-04-16 13:11:30] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 13:33:58] [INFO] ============================================================
-[2026-04-16 13:33:58] [INFO] 財模助手 啟動
-[2026-04-16 13:33:58] [INFO] ============================================================
-[2026-04-16 13:34:13] [INFO] ============================================================
-[2026-04-16 13:34:13] [INFO] 財模助手 啟動
-[2026-04-16 13:34:13] [INFO] ============================================================
-[2026-04-16 13:34:26] [INFO] ============================================================
-[2026-04-16 13:34:26] [INFO] 財模助手 啟動
-[2026-04-16 13:34:26] [INFO] ============================================================
-[2026-04-16 13:34:41] [INFO] ============================================================
-[2026-04-16 13:34:41] [INFO] 財模助手 啟動
-[2026-04-16 13:34:41] [INFO] ============================================================
-[2026-04-16 13:34:56] [INFO] ============================================================
-[2026-04-16 13:34:56] [INFO] 財模助手 啟動
-[2026-04-16 13:34:56] [INFO] ============================================================
-[2026-04-16 13:35:42] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=11ms
-[2026-04-16 13:35:43] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
-[2026-04-16 13:35:43] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=24ms
-[2026-04-16 13:35:43] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/27/messages status=200 time=53ms
-[2026-04-16 13:35:43] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(27) file=27_excel公版(3).xlsx
-[2026-04-16 13:35:43] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=4ms
-[2026-04-16 13:36:48] [INFO] [OK] user=123@gmail.com action=create_case | case_id=31 name=表 5
-[2026-04-16 13:36:48] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=13ms
-[2026-04-16 13:36:48] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/31/messages status=200 time=3ms
-[2026-04-16 13:36:49] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/list_case_sheets status=200 time=140ms
-[2026-04-16 13:37:03] [INFO] [OK] user=123@gmail.com action=import_sheets | target=表 5 imported=3
-[2026-04-16 13:37:03] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/import_sheets status=200 time=9422ms
-[2026-04-16 13:37:03] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 5(31) file=表 5_整合表格.xlsx
-[2026-04-16 13:37:03] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
-[2026-04-16 13:37:30] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/27/messages status=200 time=4ms
-[2026-04-16 13:37:33] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/28/messages status=200 time=3ms
-[2026-04-16 13:37:33] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(28) file=28_excel公版(3).xlsx
-[2026-04-16 13:37:33] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 13:37:34] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/27/messages status=200 time=4ms
-[2026-04-16 13:37:37] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=2ms
-[2026-04-16 13:37:37] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 4(30) file=表 4_整合表格.xlsx
-[2026-04-16 13:37:37] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
-[2026-04-16 13:37:37] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/31/messages status=200 time=2ms
-[2026-04-16 13:37:40] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=2ms
-[2026-04-16 13:37:48] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/31/messages status=200 time=4ms
-[2026-04-16 13:37:52] [INFO] [OK] user=123@gmail.com action=create_case | case_id=32 name=表 6
-[2026-04-16 13:37:52] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=9ms
-[2026-04-16 13:37:52] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/32/messages status=200 time=2ms
-[2026-04-16 13:37:54] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/list_case_sheets status=200 time=186ms
-[2026-04-16 13:38:06] [INFO] [OK] user=123@gmail.com action=import_sheets | target=表 6 imported=3
-[2026-04-16 13:38:06] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/import_sheets status=200 time=8747ms
-[2026-04-16 13:38:06] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 6(32) file=表 6_整合表格.xlsx
-[2026-04-16 13:38:06] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
-[2026-04-16 13:38:18] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/31/messages status=200 time=2ms
-[2026-04-16 13:38:18] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=2ms
-[2026-04-16 13:38:20] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/32/messages status=200 time=2ms
-[2026-04-16 13:39:48] [INFO] [OK] user=123@gmail.com action=agent_chat | case=表 6(32) query=我想修改攤還期數 改成14年
-[2026-04-16 13:39:48] [INFO] [OK] user=123@gmail.com action=agent_chat_done | case=表 6(32) excel_modified=False tools_used=[] response_len=123
-[2026-04-16 13:39:48] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=132ms | query=我想修改攤還期數 改成14年
-[2026-04-16 13:39:48] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=32 count=2
-[2026-04-16 13:39:48] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/32/messages status=200 time=14ms
-[2026-04-16 13:40:00] [INFO] [OK] user=123@gmail.com action=agent_chat | case=表 6(32) query=是
-[2026-04-16 13:40:00] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=47ms | query=是
-[2026-04-16 13:40:00] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=32 count=2
-[2026-04-16 13:40:00] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/32/messages status=200 time=10ms
-[2026-04-16 13:47:56] [INFO] [OK] user=123@gmail.com action=agent_chat | case=表 6(32) query=我想修改還款期數改成14年
-[2026-04-16 13:47:56] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=48ms | query=我想修改還款期數改成14年
-[2026-04-16 13:47:56] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=32 count=2
-[2026-04-16 13:47:56] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/32/messages status=200 time=15ms
-[2026-04-16 13:48:02] [INFO] [OK] user=123@gmail.com action=agent_chat | case=表 6(32) query=y
-[2026-04-16 13:48:06] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=4556ms | query=y
-[2026-04-16 13:48:06] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 6(32) file=表 6_整合表格.xlsx
-[2026-04-16 13:48:06] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=6ms
-[2026-04-16 13:48:06] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=32 count=2
-[2026-04-16 13:48:06] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/32/messages status=200 time=14ms
-[2026-04-16 13:54:25] [INFO] ============================================================
-[2026-04-16 13:54:25] [INFO] 財模助手 啟動
-[2026-04-16 13:54:25] [INFO] ============================================================
-[2026-04-16 13:54:32] [INFO] ============================================================
-[2026-04-16 13:54:32] [INFO] 財模助手 啟動
-[2026-04-16 13:54:32] [INFO] ============================================================
-[2026-04-16 13:56:00] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=15ms
-[2026-04-16 13:56:01] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
-[2026-04-16 13:56:01] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=25ms
-[2026-04-16 13:56:01] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/27/messages status=200 time=47ms
-[2026-04-16 13:56:01] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(27) file=27_excel公版(3).xlsx
-[2026-04-16 13:56:01] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=304 time=3ms
-[2026-04-16 13:56:04] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/32/messages status=200 time=3ms
-[2026-04-16 13:56:04] [INFO] [OK] user=123@gmail.com action=download_excel | case=表 6(32) file=表 6_整合表格.xlsx
-[2026-04-16 13:56:04] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
-[2026-04-16 14:00:33] [INFO] [OK] user=123@gmail.com action=agent_chat | case=表 6(32) query=我想修改還款年分 改成16
-[2026-04-16 14:00:33] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=53ms | query=我想修改還款年分 改成16
-[2026-04-16 14:00:33] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=32 count=2
-[2026-04-16 14:00:33] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/32/messages status=200 time=13ms
+[2026-04-17 16:42:09] [ERROR] [ERROR] user=123@gmail.com action=http_request | method=POST path=/api/delete_excel status=500 time=10ms
+[2026-04-17 16:42:09] [INFO] [OK] user=123@gmail.com action=delete_case | case_id=28 name=淡江大學
+[2026-04-17 16:42:09] [INFO] [OK] user=123@gmail.com action=http_request | method=DELETE path=/api/cases/28 status=200 time=14ms
+[2026-04-17 16:42:46] [INFO] [OK] user=123@gmail.com action=upload_excel | case=表 8(29) file=excel公版(3) - 複製.xlsx
+[2026-04-17 16:42:46] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/upload_excel status=200 time=21ms
+[2026-04-17 16:42:46] [INFO] [OK] user=123@gmail.com action=update_case | case_id=29 name=淡江大學
+[2026-04-17 16:42:46] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/29 status=200 time=18ms
+[2026-04-17 16:42:46] [INFO] [OK] user=123@gmail.com action=update_case | case_id=29 name=淡江大學
+[2026-04-17 16:42:46] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/29 status=200 time=36ms
+[2026-04-17 16:42:46] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=29 count=1
+[2026-04-17 16:42:46] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/29/messages status=200 time=44ms
+[2026-04-17 16:42:49] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=26ms
+[2026-04-17 16:42:53] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling | case=淡江大學(29) mode=CashMode boundary=20000
+[2026-04-17 16:42:54] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling_done | case=淡江大學(29) mode=CashMode
+[2026-04-17 16:42:54] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/calculate_price_rolling status=200 time=322ms
+[2026-04-17 16:42:54] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=29 count=1
+[2026-04-17 16:42:54] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/29/messages status=200 time=9ms
+[2026-04-17 16:42:57] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡江大學(29) query=是
+[2026-04-17 16:43:00] [INFO] [OK] user=123@gmail.com action=create_case | case_id=30 name=表 9
+[2026-04-17 16:43:00] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=139ms
+[2026-04-17 16:43:00] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=20ms
+[2026-04-17 16:43:01] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=86ms
+[2026-04-17 16:43:07] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling | case=表 9(30) mode=RatioMode boundary=20000
+[2026-04-17 16:43:07] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling_done | case=表 9(30) mode=RatioMode
+[2026-04-17 16:43:07] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/calculate_price_rolling status=200 time=597ms
+[2026-04-17 16:43:07] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=30 count=1
+[2026-04-17 16:43:07] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/30/messages status=200 time=9ms
+[2026-04-17 16:43:08] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=11092ms | query=是
+[2026-04-17 16:43:09] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學(29) file=29_excel公版(3) - 複製.xlsx
+[2026-04-17 16:43:09] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
+[2026-04-17 16:43:09] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=29 count=2
+[2026-04-17 16:43:09] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/29/messages status=200 time=13ms
+[2026-04-17 16:43:17] [INFO] [OK] user=123@gmail.com action=upload_excel | case=表 9(30) file=excel公版(3).xlsx
+[2026-04-17 16:43:17] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/upload_excel status=200 time=44ms
+[2026-04-17 16:43:17] [INFO] [OK] user=123@gmail.com action=update_case | case_id=30 name=淡淡大學
+[2026-04-17 16:43:17] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/30 status=200 time=28ms
+[2026-04-17 16:43:17] [INFO] [OK] user=123@gmail.com action=update_case | case_id=30 name=淡淡大學
+[2026-04-17 16:43:17] [INFO] [OK] user=123@gmail.com action=http_request | method=PUT path=/api/cases/30 status=200 time=43ms
+[2026-04-17 16:43:17] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=30 count=1
+[2026-04-17 16:43:17] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/30/messages status=200 time=53ms
+[2026-04-17 16:43:19] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=30ms
+[2026-04-17 16:43:21] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling | case=淡淡大學(30) mode=RatioMode boundary=20000
+[2026-04-17 16:43:21] [INFO] [OK] user=123@gmail.com action=calculate_price_rolling_done | case=淡淡大學(30) mode=RatioMode
+[2026-04-17 16:43:21] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/calculate_price_rolling status=200 time=235ms
+[2026-04-17 16:43:21] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=30 count=1
+[2026-04-17 16:43:21] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/30/messages status=200 time=9ms
+[2026-04-17 16:43:29] [INFO] [OK] user=123@gmail.com action=create_case | case_id=31 name=表 10
+[2026-04-17 16:43:29] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=8ms
+[2026-04-17 16:43:29] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/31/messages status=200 time=3ms
+[2026-04-17 16:43:29] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/get_excel_defaults status=200 time=74ms
+[2026-04-17 16:43:41] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=3ms
+[2026-04-17 16:43:42] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/31/messages status=200 time=2ms
+[2026-04-17 16:43:43] [INFO] [OK] user=123@gmail.com action=delete_case | case_id=31 name=表 10
+[2026-04-17 16:43:43] [INFO] [OK] user=123@gmail.com action=http_request | method=DELETE path=/api/cases/31 status=200 time=10ms
+[2026-04-17 16:43:43] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/29/messages status=200 time=2ms
+[2026-04-17 16:43:48] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=2ms
+[2026-04-17 16:43:49] [INFO] [OK] user=123@gmail.com action=agent_chat | case=淡淡大學(30) query=是
+[2026-04-17 16:44:00] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/agent_chat status=200 time=10698ms | query=是
+[2026-04-17 16:44:00] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡淡大學(30) file=30_excel公版(3).xlsx
+[2026-04-17 16:44:00] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=3ms
+[2026-04-17 16:44:00] [INFO] [OK] user=123@gmail.com action=save_messages | case_id=30 count=2
+[2026-04-17 16:44:00] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases/30/messages status=200 time=11ms
+[2026-04-17 16:45:51] [INFO] [OK] user=123@gmail.com action=logout | 登出
+[2026-04-17 16:45:51] [INFO] [OK] user=anonymous action=http_request | method=POST path=/api/auth/logout status=200 time=0ms
+[2026-04-17 16:45:59] [INFO] [OK] user=123@gmail.com action=register | 新帳號建立
+[2026-04-17 16:45:59] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/auth/login status=200 time=14ms
+[2026-04-17 16:45:59] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=1ms
+[2026-04-17 16:45:59] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/1/messages status=200 time=3ms
+[2026-04-17 16:45:59] [INFO] [OK] user=123@gmail.com action=download_excel | case=淡江大學-財務模擬案場(1) file=1_模擬輸入.xlsx
+[2026-04-17 16:45:59] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=200 time=2ms
+[2026-04-17 16:46:03] [INFO] [OK] user=123@gmail.com action=logout | 登出
+[2026-04-17 16:46:03] [INFO] [OK] user=anonymous action=http_request | method=POST path=/api/auth/logout status=200 time=0ms
+[2026-04-17 16:46:11] [INFO] [OK] user=1111@gmail.com action=register | 新帳號建立
+[2026-04-17 16:46:11] [INFO] [OK] user=1111@gmail.com action=http_request | method=POST path=/api/auth/login status=200 time=9ms
+[2026-04-17 16:46:11] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases status=200 time=1ms
+[2026-04-17 16:46:11] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/29/messages status=200 time=2ms
+[2026-04-17 16:46:11] [ERROR] [ERROR] user=1111@gmail.com action=http_request | method=GET path=/api/download_excel status=404 time=1ms
+[2026-04-17 16:46:13] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=2ms
+[2026-04-17 16:46:13] [ERROR] [ERROR] user=1111@gmail.com action=http_request | method=GET path=/api/download_excel status=404 time=1ms
+[2026-04-17 16:46:14] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/29/messages status=200 time=2ms
+[2026-04-17 16:46:15] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=4ms
+[2026-04-17 16:46:15] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/29/messages status=200 time=2ms
+[2026-04-17 16:46:16] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=2ms
+[2026-04-17 16:46:21] [INFO] [OK] user=1111@gmail.com action=logout | 登出
+[2026-04-17 16:46:21] [INFO] [OK] user=anonymous action=http_request | method=POST path=/api/auth/logout status=200 time=0ms
+[2026-04-17 16:46:25] [INFO] [OK] user=1111@gmail.com action=login | 登入成功
+[2026-04-17 16:46:25] [INFO] [OK] user=1111@gmail.com action=http_request | method=POST path=/api/auth/login status=200 time=2ms
+[2026-04-17 16:46:25] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases status=200 time=2ms
+[2026-04-17 16:46:25] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/29/messages status=200 time=2ms
+[2026-04-17 16:46:25] [ERROR] [ERROR] user=1111@gmail.com action=http_request | method=GET path=/api/download_excel status=404 time=1ms
+[2026-04-17 16:46:27] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=3ms
+[2026-04-17 16:46:27] [ERROR] [ERROR] user=1111@gmail.com action=http_request | method=GET path=/api/download_excel status=404 time=1ms
+[2026-04-17 16:46:28] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/29/messages status=200 time=2ms
+[2026-04-17 16:46:29] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=2ms
+[2026-04-17 16:46:30] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/29/messages status=200 time=2ms
+[2026-04-17 16:46:30] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=2ms
+[2026-04-17 16:46:31] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/29/messages status=200 time=2ms
+[2026-04-17 16:46:31] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=3ms
+[2026-04-17 16:46:31] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/29/messages status=200 time=2ms
+[2026-04-17 16:46:31] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=4ms
+[2026-04-17 16:46:32] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/29/messages status=200 time=2ms
+[2026-04-17 16:46:32] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=2ms
+[2026-04-17 16:46:33] [INFO] [OK] user=1111@gmail.com action=logout | 登出
+[2026-04-17 16:46:33] [INFO] [OK] user=anonymous action=http_request | method=POST path=/api/auth/logout status=200 time=0ms
+[2026-04-17 16:46:34] [INFO] [OK] user=anonymous action=http_request | method=GET path=/ status=200 time=0ms
+[2026-04-17 16:46:35] [ERROR] [ERROR] user=anonymous action=http_request | method=GET path=/api/auth/me status=401 time=0ms
+[2026-04-17 16:46:35] [ERROR] [ERROR] user=anonymous action=http_request | method=GET path=/favicon.ico status=404 time=0ms
+[2026-04-17 16:46:40] [INFO] [OK] user=1111@gmail.com action=login | 登入成功
+[2026-04-17 16:46:40] [INFO] [OK] user=1111@gmail.com action=http_request | method=POST path=/api/auth/login status=200 time=2ms
+[2026-04-17 16:46:40] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases status=200 time=2ms
+[2026-04-17 16:46:40] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/29/messages status=200 time=7ms
+[2026-04-17 16:46:40] [ERROR] [ERROR] user=1111@gmail.com action=http_request | method=GET path=/api/download_excel status=404 time=1ms
+[2026-04-17 16:46:44] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=2ms
+[2026-04-17 16:46:44] [ERROR] [ERROR] user=1111@gmail.com action=http_request | method=GET path=/api/download_excel status=404 time=1ms
+[2026-04-17 16:46:45] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/29/messages status=200 time=2ms
+[2026-04-17 16:46:45] [INFO] [OK] user=1111@gmail.com action=http_request | method=GET path=/api/cases/30/messages status=200 time=2ms

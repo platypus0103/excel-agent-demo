@@ -1828,7 +1828,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 caseData.sheets.forEach((sheet, sheetIndex) => {
                     const sheetId = `sheet_${index}_${sheetIndex}`;
                     html += `
-                        <div class="import-sheet-item" data-sheet-name="${sheet}">
+                        <div class="import-sheet-item" data-case-name="${caseData.case_name}" data-sheet-name="${sheet}">
                             <input type="checkbox" id="${sheetId}"
                                    onchange="toggleSheetSelection('${caseData.case_name}', '${sheet}', '${caseData.filename}', this.checked)">
                             <label for="${sheetId}">${sheet}</label>
@@ -1872,7 +1872,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // 更新 UI
-        const sheetItem = document.querySelector(`.import-sheet-item[data-sheet-name="${sheetName}"]`);
+        const sheetItem = document.querySelector(`.import-sheet-item[data-case-name="${caseName}"][data-sheet-name="${sheetName}"]`);
         if (sheetItem) {
             sheetItem.classList.toggle('selected', isSelected);
         }
