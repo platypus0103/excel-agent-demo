@@ -1065,6 +1065,116 @@ class ExcelTool:
         except Exception as e:
             return {"success": False, "message": f"比較 IRR 失敗: {str(e)}"}
 
+    def delete_sheet(self, sheet_name: str = None, sheet_names: list = None) -> dict:
+        """
+        從目前 Excel 檔案中刪除指定工作表。支援刪除單個或多個。
+        [v2 - 同步刪除滾算紀錄單對應列]
+        """
+        try:
+            wb = load_workbook(self.file_path)
+            sheets = wb.sheetnames
+
+            targets = []
+            if sheet_names:
+                targets.extend(sheet_names)
+            if sheet_name and sheet_name not in targets:
+                targets.append(sheet_name)
+
+            if not targets:
+                return {"success": False, "message": "請指定要刪除的工作表名稱"}
+
+            if "多站彙整" in targets:
+                return {"success": False, "message": "「多站彙整」總表不可被刪除"}
+
+            if len(sheets) <= len(targets) and all(t in sheets for t in targets):
+                return {
+                    "success": False,
+                    "message": "無法刪除所有工作表，Excel 至少需保留一個工作表。"
+                }
+
+            deleted = []
+            not_found = []
+
+            for target in targets:
+                if target not in wb.sheetnames:
+                    close = [s for s in wb.sheetnames if target.lower() in s.lower()]
+                    if close:
+                        not_found.append(f"{target} (您是否指: {', '.join(close)}?)")
+                    else:
+                        not_found.append(target)
+                    continue
+
+                del wb[target]
+                deleted.append(target)
+
+                # ── 同步更新「滾算紀錄單(總紀錄)」──────────────────────────
+                import re as _re
+                m = _re.match(r'^p(\d+)$', target, _re.IGNORECASE)
+                if m:
+                    record_number = int(m.group(1))
+                    summary_ws = None
+                    for sn in wb.sheetnames:
+                        if sn == "滾算紀錄單(總紀錄)" or sn == "滾算紀錄單（總紀錄）" or ("總紀錄" in sn and "滾算" in sn):
+                            summary_ws = wb[sn]
+                            break
+                    if summary_ws is not None:
+                        scan_end = (summary_ws.max_row or 1) + 5
+                        for row in range(scan_end, 1, -1):
+                            cv = summary_ws.cell(row=row, column=1).value
+                            if cv is None:
+                                continue
+                            try:
+                                if int(float(str(cv))) == record_number:
+                                    summary_ws.delete_rows(row)
+                                    print(f"[delete_sheet] 已從滾算紀錄單刪除第 {row} 列（紀錄編號={record_number}）")
+                            except (ValueError, TypeError):
+                                pass
+
+            # ── 多站彙整更新（若有）──────────────────────────────
+            if "多站彙整" in wb.sheetnames and deleted:
+                try:
+                    from api.agent_routes import rebuild_multi_site_summary
+                    rebuild_multi_site_summary(wb)
+                    print("[delete_sheet] 已觸發重建多站彙整表")
+                except Exception as e:
+                    import traceback
+                    print(f"[delete_sheet] 重建多站彙整表失敗: {e}")
+                    traceback.print_exc()
+
+            wb.save(self.file_path)
+            wb.close()
+
+            # 重算公式快取：openpyxl save 後會清空所有公式的 <v> 快取值，
+            # 必須透過 LibreOffice headless 重新計算並寫回，否則前端所有公式格顯示 0
+            if deleted:
+                try:
+                    _recalc(self.file_path, timeout=90)
+                    print(f"[delete_sheet] 公式重算完成")
+                except Exception as e:
+                    print(f"[delete_sheet] recalc 失敗（非致命）: {e}")
+
+            if not deleted:
+                return {
+                    "success": False,
+                    "message": f"找不到指定的工作表: {', '.join(not_found)}"
+                }
+
+            msg = f"已成功刪除工作表: {', '.join(deleted)}。"
+            if not_found:
+                msg += f" (以下找不到: {', '.join(not_found)})"
+
+            return {
+                "success": True,
+                "message": msg,
+                "deleted_sheet": deleted[0] if len(deleted) == 1 else deleted,
+                "remaining_sheets": wb.sheetnames
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"刪除工作表失敗: {str(e)}"
+            }
+
 
 # 定義工具的 schema（用於 function calling）
 EXCEL_TOOLS_SCHEMA = [
@@ -1261,6 +1371,34 @@ EXCEL_TOOLS_SCHEMA = [
                     }
                 },
                 "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_excel_sheet",
+            "description": (
+                "刪除 Excel 檔案中的指定工作表。"
+                "使用此工具前，若使用者沒有明確指定工作表名稱，必須先呼叫 list_excel_sheets 取得清單，"
+                "再向使用者 double-check 確認要刪除哪一個，確認後才執行刪除。"
+                "適用於：「刪除 p3 這個分頁」、「把滾算紀錄5移除」等指令。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "sheet_name": {
+                        "type": "string",
+                        "description": "要刪除的單個工作表精確名稱，例如「p3」"
+                    },
+                    "sheet_names": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "若要一次刪除多個工作表，請提供名稱陣列，例如 [\"p7\", \"p12\"]"
+                    }
+                }
             }
         }
     }

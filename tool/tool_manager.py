@@ -86,6 +86,13 @@ class ToolManager:
             schema=EQUIPMENT_COST_TOOLS_SCHEMA[0]
         )
 
+        # 註冊刪除工作表工具
+        self.register_tool(
+            name="delete_excel_sheet",
+            function=self.excel_tool.delete_sheet,
+            schema=EXCEL_TOOLS_SCHEMA[8]
+        )
+
         print(f"已註冊 {len(self.tools)} 個工具")
 
     def register_tool(self, name: str, function: Callable, schema: Dict):

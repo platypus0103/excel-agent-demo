@@ -1530,41 +1530,266 @@ document.addEventListener('DOMContentLoaded', function() {
 
         let activeSheetIndex = 0;
 
-        function renderTabs() {
+        // ── 群組狀態：從案場狀態恢復，否則初始化為空 ──────────────────
+        let groups = (cases[activeCaseId] && cases[activeCaseId].rollingGroups)
+                     ? cases[activeCaseId].rollingGroups : [];
+
+        function buildGroups() {
+            // 過濾已不存在的分頁
+            groups.forEach(g => {
+                if (g.sheetNames) {
+                    g.sheetNames = g.sheetNames.filter(name => data.some(d => d.name === name));
+                }
+            });
+            // 移除空群組
+            groups = groups.filter(g => g.sheetNames && g.sheetNames.length > 0);
+
+            const hasMultiSite = data.some(s => s.name === '多站彙整');
+
+            if (hasMultiSite) {
+                const singleSiteSheets = data
+                    .filter(s => s.name !== '多站彙整' && s.name !== '空白範例')
+                    .map(s => s.name);
+                const oldGroup = groups.find(g => g.label === '單站各表');
+                groups = [];
+                if (singleSiteSheets.length > 0) {
+                    groups.push({
+                        label: '單站各表',
+                        sheetNames: singleSiteSheets,
+                        collapsed: oldGroup ? oldGroup.collapsed : false,
+                        indices: []
+                    });
+                }
+            } else {
+                const isRollingSheet = name =>
+                    /^p\d+$/i.test((name || '').trim()) ||
+                    /^滾算紀錄\d+$/.test((name || '').trim());
+
+                const assigned = new Set();
+                groups.forEach(g => g.sheetNames.forEach(n => assigned.add(n)));
+
+                const unassigned = [];
+                data.forEach(s => {
+                    if (isRollingSheet(s.name) && !assigned.has(s.name)) {
+                        unassigned.push(s.name);
+                    }
+                });
+
+                if (unassigned.length > 0) {
+                    let maxBatch = 0;
+                    groups.forEach(g => {
+                        const m = g.label.match(/Group-(\d+)/i);
+                        if (m) maxBatch = Math.max(maxBatch, parseInt(m[1], 10));
+                    });
+                    groups.push({
+                        label: `Group-${maxBatch + 1}`,
+                        sheetNames: unassigned,
+                        collapsed: false,
+                        indices: []
+                    });
+                }
+            }
+
+            // 更新每個群組在 data 陣列中的索引
+            groups.forEach(g => {
+                g.indices = [];
+                data.forEach((s, idx) => {
+                    if (g.sheetNames.includes(s.name)) g.indices.push(idx);
+                });
+            });
+
+            if (cases[activeCaseId]) cases[activeCaseId].rollingGroups = groups;
+        }
+
+        function getVisibleItems() {
+            const items = [];
+            let i = 0;
+            while (i < data.length) {
+                const grp = groups.find(g => g.indices.includes(i));
+                if (grp) {
+                    if (grp.collapsed) {
+                        if (grp.indices[0] === i) items.push({ type: 'cluster', group: grp });
+                        i++;
+                        continue;
+                    } else {
+                        items.push({ type: 'sheet', index: i });
+                        if (grp.indices[grp.indices.length - 1] === i) {
+                            items.push({ type: 'group-end', group: grp });
+                        }
+                        i++;
+                        continue;
+                    }
+                }
+                items.push({ type: 'sheet', index: i });
+                i++;
+            }
+            return items;
+        }
+
+        function renderTabs(isToggle = false) {
             const bar = document.getElementById('sheet-tab-bar');
             if (!bar) return;
             bar.innerHTML = '';
-            data.forEach((sheet, i) => {
-                const tab = document.createElement('div');
-                tab.style.cssText = [
-                    'padding:6px 14px 5px',
-                    'cursor:pointer',
-                    'font-size:12px',
-                    'border:1px solid ' + (i === activeSheetIndex ? '#2c7be5' : '#ccc'),
-                    'border-bottom:' + (i === activeSheetIndex ? '2px solid #fff' : '1px solid #ccc'),
-                    'border-radius:4px 4px 0 0',
-                    'background:' + (i === activeSheetIndex ? '#fff' : '#eee'),
-                    'color:' + (i === activeSheetIndex ? '#2c7be5' : '#555'),
-                    'font-weight:' + (i === activeSheetIndex ? 'bold' : 'normal'),
-                    'white-space:nowrap',
-                    'user-select:none',
-                    'margin-bottom:-2px',
-                    'transition:background .15s'
-                ].join(';');
-                tab.textContent = sheet.name || ('工作表' + (i + 1));
-                tab.title = sheet.name || '';
-                tab.addEventListener('click', () => {
-                    activeSheetIndex = i;
-                    renderTabs();
-                    renderSheetContent(i);
-                });
-                tab.addEventListener('mouseenter', () => {
-                    if (i !== activeSheetIndex) tab.style.background = '#e0e0e0';
-                });
-                tab.addEventListener('mouseleave', () => {
-                    if (i !== activeSheetIndex) tab.style.background = '#eee';
-                });
-                bar.appendChild(tab);
+
+            getVisibleItems().forEach(item => {
+                if (item.type === 'sheet') {
+                    const i = item.index;
+                    const sheet = data[i];
+                    const isActive = i === activeSheetIndex;
+
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'sheet-tab-wrapper' + (isToggle ? ' tab-animate' : '');
+                    wrapper.style.cssText = 'position:relative;display:inline-flex;align-items:flex-end;';
+
+                    const tab = document.createElement('div');
+                    tab.style.cssText = [
+                        'padding:6px 28px 5px 14px',
+                        'cursor:pointer',
+                        'font-size:12px',
+                        'border:1px solid ' + (isActive ? '#2c7be5' : '#ccc'),
+                        'border-bottom:' + (isActive ? '2px solid #fff' : '1px solid #ccc'),
+                        'border-radius:4px 4px 0 0',
+                        'background:' + (isActive ? '#fff' : '#eee'),
+                        'color:' + (isActive ? '#2c7be5' : '#555'),
+                        'font-weight:' + (isActive ? 'bold' : 'normal'),
+                        'white-space:nowrap',
+                        'user-select:none',
+                        'margin-bottom:-2px',
+                        'transition:background .15s',
+                        'position:relative'
+                    ].join(';');
+                    const displayName = sheet.name || ('工作表' + (i + 1));
+                    tab.textContent = displayName;
+                    tab.title = displayName;
+
+                    // 刪除按鈕（hover 才顯示）
+                    const delBtn = document.createElement('span');
+                    delBtn.innerHTML = '&times;';
+                    delBtn.title = '刪除此分頁';
+                    delBtn.style.cssText = [
+                        'position:absolute', 'top:50%', 'right:5px',
+                        'transform:translateY(-50%)',
+                        'width:14px', 'height:14px', 'line-height:14px',
+                        'text-align:center', 'font-size:12px',
+                        'border-radius:50%', 'background:#ccc', 'color:#555',
+                        'cursor:pointer', 'display:none', 'transition:background .15s'
+                    ].join(';');
+                    delBtn.addEventListener('mouseenter', () => { delBtn.style.background = '#e74c3c'; delBtn.style.color = '#fff'; });
+                    delBtn.addEventListener('mouseleave', () => { delBtn.style.background = '#ccc'; delBtn.style.color = '#555'; });
+                    delBtn.addEventListener('click', e => { e.stopPropagation(); handleDeleteSheet(i, sheet.name); });
+                    tab.appendChild(delBtn);
+
+                    tab.addEventListener('click', () => {
+                        activeSheetIndex = i;
+                        renderTabs();
+                        renderSheetContent(i);
+                    });
+                    wrapper.addEventListener('mouseenter', () => {
+                        if (i !== activeSheetIndex) tab.style.background = '#e0e0e0';
+                        delBtn.style.display = 'block';
+                    });
+                    wrapper.addEventListener('mouseleave', () => {
+                        if (i !== activeSheetIndex) tab.style.background = '#eee';
+                        delBtn.style.display = 'none';
+                    });
+                    wrapper.appendChild(tab);
+                    bar.appendChild(wrapper);
+
+                } else if (item.type === 'group-end') {
+                    // 收合箭頭 ‹
+                    const btn = document.createElement('div');
+                    btn.title = `收合「${item.group.label}」`;
+                    btn.innerHTML = '&#8249;';
+                    btn.style.cssText = [
+                        'display:inline-flex', 'align-items:center', 'justify-content:center',
+                        'width:20px', 'height:28px', 'margin-bottom:-2px',
+                        'cursor:pointer', 'font-size:16px', 'color:#2c7be5',
+                        'background:#e8f0fe', 'border:1px solid #b3c6f7',
+                        'border-bottom:2px solid #fff', 'border-radius:4px 4px 0 0',
+                        'user-select:none', 'transition:background .15s'
+                    ].join(';');
+                    btn.addEventListener('mouseenter', () => { btn.style.background = '#c8d8fc'; });
+                    btn.addEventListener('mouseleave', () => { btn.style.background = '#e8f0fe'; });
+                    btn.addEventListener('click', () => {
+                        item.group.collapsed = true;
+                        if (item.group.indices.includes(activeSheetIndex)) {
+                            activeSheetIndex = item.group.indices[0] > 0 ? item.group.indices[0] - 1 : 0;
+                        }
+                        renderTabs(true);
+                        renderSheetContent(activeSheetIndex);
+                    });
+                    bar.appendChild(btn);
+
+                } else if (item.type === 'cluster') {
+                    // 群組標籤（收合狀態）
+                    const cluster = document.createElement('div');
+                    cluster.style.cssText = [
+                        'display:inline-flex', 'align-items:center', 'gap:4px',
+                        'padding:5px 8px 4px 12px', 'margin-bottom:-2px',
+                        'background:#e8f0fe', 'border:1px solid #b3c6f7',
+                        'border-bottom:2px solid #fff', 'border-radius:4px 4px 0 0',
+                        'font-size:12px', 'color:#2c7be5', 'font-weight:bold',
+                        'white-space:nowrap', 'user-select:none', 'cursor:default'
+                    ].join(';');
+
+                    const label = document.createElement('span');
+                    label.textContent = item.group.label;
+
+                    const expandBtn = document.createElement('span');
+                    expandBtn.innerHTML = '&#8250;';
+                    expandBtn.title = `展開「${item.group.label}」`;
+                    expandBtn.style.cssText = [
+                        'display:inline-flex', 'align-items:center', 'justify-content:center',
+                        'width:18px', 'height:18px', 'font-size:16px',
+                        'cursor:pointer', 'border-radius:3px',
+                        'background:#b3c6f7', 'color:#1a4fa0', 'transition:background .15s'
+                    ].join(';');
+                    expandBtn.addEventListener('mouseenter', () => { expandBtn.style.background = '#2c7be5'; expandBtn.style.color = '#fff'; });
+                    expandBtn.addEventListener('mouseleave', () => { expandBtn.style.background = '#b3c6f7'; expandBtn.style.color = '#1a4fa0'; });
+                    expandBtn.addEventListener('click', () => {
+                        item.group.collapsed = false;
+                        renderTabs(true);
+                        renderSheetContent(activeSheetIndex);
+                    });
+
+                    cluster.appendChild(label);
+                    cluster.appendChild(expandBtn);
+                    bar.appendChild(cluster);
+                }
+            });
+        }
+
+        function handleDeleteSheet(idx, sheetName) {
+            if (!confirm(`確定要刪除分頁「${sheetName}」嗎？\n此操作將同步刪除 Excel 檔案中的工作表，無法復原。`)) return;
+
+            const caseData = cases[activeCaseId] || {};
+            const contentArea = document.getElementById('sheet-content-area');
+            if (contentArea) {
+                contentArea.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#888;">刪除並同步資料中，請稍候...</div>';
+            }
+
+            fetch('/api/delete_sheet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    case_id: caseData.id || '',
+                    case_name: caseData.name || '',
+                    original_filename: caseData.excelOriginalFileName || '',
+                    sheet_name: sheetName
+                })
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.status === 'success') {
+                    reloadExcelData(activeCaseId, true);
+                } else {
+                    alert(`刪除失敗：${res.error || '未知錯誤'}`);
+                    reloadExcelData(activeCaseId, true);
+                }
+            })
+            .catch(err => {
+                alert(`刪除失敗：${err.message}`);
+                reloadExcelData(activeCaseId, true);
             });
         }
 
@@ -1576,6 +1801,7 @@ document.addEventListener('DOMContentLoaded', function() {
             displaySheetData(data[idx], idx);
         }
 
+        buildGroups();
         renderTabs();
         renderSheetContent(0);
 

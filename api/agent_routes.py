@@ -3058,3 +3058,54 @@ def import_sheets():
             "status": "error",
             "error": f"匯入失敗: {str(e)}"
         }), 500
+
+
+@agent_bp.route('/delete_sheet', methods=['POST'])
+def delete_sheet():
+    """
+    從後端 Excel 檔案中刪除指定工作表（前端手動刪除觸發）
+    Body: { case_id, case_name, original_filename, sheet_name }
+    """
+    try:
+        data = request.json
+        case_id = data.get('case_id', '')
+        case_name = data.get('case_name', '')
+        original_filename = data.get('original_filename', '')
+        sheet_name = data.get('sheet_name', '').strip()
+
+        user_email = session.get('user_email', 'anonymous')
+
+        if not sheet_name:
+            return jsonify({"error": "缺少工作表名稱"}), 400
+
+        excel_path = _find_excel_file(
+            case_id=case_id,
+            case_name=case_name,
+            original_filename=original_filename
+        )
+        if not excel_path:
+            return jsonify({"error": "找不到對應的 Excel 檔案"}), 404
+
+        from tool.tool_manager import ToolManager
+        tm = ToolManager()
+        tm.set_finance_excel_file(excel_path)
+        result = tm.execute_tool("delete_excel_sheet", {"sheet_name": sheet_name})
+
+        if result.get("success"):
+            log_action(user_email, 'delete_sheet',
+                       f"case={case_name}({case_id}) sheet={sheet_name}")
+            return jsonify({
+                "status": "success",
+                "message": result.get("message", ""),
+                "deleted_sheet": result.get("deleted_sheet", sheet_name),
+                "remaining_sheets": result.get("remaining_sheets", [])
+            })
+        else:
+            return jsonify({"error": result.get("message", "刪除失敗")}), 400
+
+    except Exception as e:
+        import traceback
+        print(f"🚨 刪除工作表錯誤: {e}")
+        print(traceback.format_exc())
+        log_error(session.get('user_email', 'anonymous'), 'delete_sheet', e)
+        return jsonify({"error": f"刪除工作表失敗: {str(e)}"}), 500
