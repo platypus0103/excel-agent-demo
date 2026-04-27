@@ -163,10 +163,18 @@ function clampNonNegative(input) {
 
 // 生成自訂 Step 輸入框
 function generatePriceStepInputs() {
-    const times = parseInt(document.getElementById('priceAdjustTimes').value);
+    const rawValue = document.getElementById('priceAdjustTimes').value;
     const container = document.getElementById('priceStepInputs');
     const manualContainer = document.getElementById('priceManualStepsContainer');
     const autoCheckbox = document.getElementById('priceAutoGenerate');
+
+    if (rawValue === '' || rawValue === null) {
+        manualContainer.style.display = 'none';
+        return;
+    }
+
+    let times = parseInt(rawValue);
+    times = Math.min(Math.max(times, 1), 10);
 
     if (!times || times < 1) {
         manualContainer.style.display = 'none';

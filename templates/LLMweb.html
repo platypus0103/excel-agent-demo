@@ -211,7 +211,7 @@
                             <div id="priceCustomizeParams" class="price-mode-params">
                                 <div class="price-form-group">
                                     <label>調整次數 (最多 10 次)</label>
-                                    <input type="number" id="priceAdjustTimes" min="1" max="10" placeholder="" onchange="generatePriceStepInputs()">
+                                    <input type="number" id="priceAdjustTimes" min="1" max="10" placeholder="" oninput="if(parseInt(this.value)>10) this.value=10" onchange="generatePriceStepInputs()">
                                 </div>
                                 <div class="price-form-group">
                                     <label style="display: flex; align-items: center; cursor: pointer;">
