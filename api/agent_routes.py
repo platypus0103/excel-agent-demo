@@ -1181,6 +1181,20 @@ def set_model():
         log_error(session.get('user_email', 'anonymous'), 'set_model', e, f"model={data.get('model', '') if 'data' in dir() else ''}")
         return jsonify({"status": "error", "error": str(e)}), 500
 
+@agent_bp.route('/release_memory', methods=['POST'])
+def release_memory():
+    """釋放 Ollama 模型記憶體（keep_alive=0）"""
+    try:
+        import ollama
+        agent = get_agent()
+        model_name = agent.config.model_name
+        ollama.generate(model=model_name, keep_alive=0)
+        log_action(session.get('user_email', 'anonymous'), 'release_memory', f"model={model_name}")
+        return jsonify({"status": "success", "model": model_name})
+    except Exception as e:
+        log_error(session.get('user_email', 'anonymous'), 'release_memory', e)
+        return jsonify({"status": "error", "error": str(e)}), 500
+
 @agent_bp.route('/reset', methods=['POST'])
 def reset_agent():
     """重置 Agent 對話歷史"""

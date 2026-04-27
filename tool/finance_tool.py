@@ -346,10 +346,7 @@ class FinanceTool:
             interest_expense = interest_list[year-1]
             depreciation_expense = depreciation_list[year-1]
 
-            if year == 1:
-                net_profit_after_tax_year = incom - maintenance_expense - insurance_expense - recycle_expense - interest_expense - depreciation_expense
-            else:
-                net_profit_after_tax_year = incom - rent_expense - maintenance_expense - insurance_expense - recycle_expense - interest_expense - depreciation_expense
+            net_profit_after_tax_year = incom - rent_expense - maintenance_expense - insurance_expense - recycle_expense - interest_expense - depreciation_expense
 
             tax_flow = net_profit_after_tax_year * excel_data['income_tax']
             net_profit_after_tax_year -= tax_flow

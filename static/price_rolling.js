@@ -570,6 +570,26 @@ function downloadTemplate() {
     window.location.href = '/api/download_template';
 }
 
+function releaseMemory() {
+    const btn = document.getElementById('releaseMemoryBtn');
+    btn.disabled = true;
+    btn.textContent = '釋放中...';
+    fetch('/api/release_memory', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(`記憶體已釋放（模型：${data.model}）`);
+            } else {
+                alert(`釋放失敗：${data.error || '未知錯誤'}`);
+            }
+        })
+        .catch(err => alert(`釋放失敗：${err}`))
+        .finally(() => {
+            btn.disabled = false;
+            btn.textContent = '釋放記憶體';
+        });
+}
+
 // 匯出當前聊天室的 Excel 表格
 function exportCurrentExcel() {
     // 獲取當前案場信息

@@ -406,7 +406,7 @@ class ExcelTool:
 
             if row_hint is not None:
                 hint_row = int(row_hint)
-                hint_label = ws.cell(row=hint_row, column=2).value
+                hint_label = ws.cell(row=hint_row, column=2).value or ws.cell(row=hint_row, column=3).value
                 if hint_label and isinstance(hint_label, str):
                     # B 欄有標籤，直接定位，不做 fuzzy match
                     field_row = hint_row
@@ -415,7 +415,7 @@ class ExcelTool:
                     # B 欄為空但有欄位關鍵字，退回掃描整個區域
                     field_candidates = []
                     for row in range(row_start, min(row_end + 1, ws.max_row + 1)):
-                        cell_value = ws.cell(row=row, column=2).value
+                        cell_value = ws.cell(row=row, column=2).value or ws.cell(row=row, column=3).value
                         if cell_value and isinstance(cell_value, str):
                             field_candidates.append((row, cell_value))
                     match_result = self._fuzzy_match(field_keyword, field_candidates) if field_candidates else None
@@ -435,7 +435,7 @@ class ExcelTool:
                 # 無 row_hint，靠欄位名稱掃描
                 field_candidates = []
                 for row in range(row_start, min(row_end + 1, ws.max_row + 1)):
-                    cell_value = ws.cell(row=row, column=2).value
+                    cell_value = ws.cell(row=row, column=2).value or ws.cell(row=row, column=3).value
                     if cell_value and isinstance(cell_value, str):
                         field_candidates.append((row, cell_value))
 
@@ -880,7 +880,7 @@ class ExcelTool:
             # 掃描整個 B 欄建立候選清單
             field_candidates = []
             for row in range(1, ws.max_row + 1):
-                cell_value = ws.cell(row=row, column=2).value
+                cell_value = ws.cell(row=row, column=2).value or ws.cell(row=row, column=3).value
                 if cell_value and isinstance(cell_value, str) and cell_value.strip():
                     field_candidates.append((row, cell_value.strip()))
 
