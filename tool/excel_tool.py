@@ -1006,65 +1006,6 @@ class ExcelTool:
         """
         return self.read_sheet_by_field(sheet_name, field_keyword, year=year)
 
-    def compare_irr_across_sheets(self, irr_type: str = "全部") -> dict:
-        """
-        比較所有 pN 分頁的 IRR 數值，找出最高的情境。
-
-        Args:
-            irr_type: "全部" | "專案法IRR" | "成本法IRR" | "權益法IRR"
-        """
-        try:
-            wb = load_workbook(self.file_path, data_only=True)
-            all_sheets = wb.sheetnames
-            wb.close()
-
-            # 篩選 pN 分頁並按數字排序
-            p_sheets = sorted(
-                [s for s in all_sheets if re.match(r'^p\d+$', s, re.IGNORECASE)],
-                key=lambda x: int(re.search(r'\d+', x).group())
-            )
-
-            if not p_sheets:
-                return {"success": False, "message": "找不到任何 pN 分頁（p1, p2, p3 等）"}
-
-            irr_fields = ["專案法IRR", "成本法IRR", "權益法IRR"] if irr_type == "全部" else [irr_type]
-
-            results = {}
-            for sheet in p_sheets:
-                sheet_data = {}
-                for field in irr_fields:
-                    res = self.read_sheet_by_field(sheet, field)
-                    val = None
-                    if res.get("success"):
-                        val = res.get("value")
-                        if val is None:
-                            vals = res.get("values", {})
-                            val = next((v for v in vals.values() if v is not None), None)
-                    sheet_data[field] = val
-                results[sheet] = sheet_data
-
-            # 找各 IRR 類型的最高值
-            best = {}
-            for field in irr_fields:
-                max_val, max_sheet = None, None
-                for sheet, data in results.items():
-                    v = data.get(field)
-                    if v is not None and (max_val is None or v > max_val):
-                        max_val, max_sheet = v, sheet
-                best[field] = {"sheet": max_sheet, "value": max_val}
-
-            return {
-                "success": True,
-                "message": f"已比較 {len(p_sheets)} 個情境的 IRR",
-                "sheets_compared": p_sheets,
-                "irr_types_compared": irr_fields,
-                "results": results,
-                "best": best
-            }
-
-        except Exception as e:
-            return {"success": False, "message": f"比較 IRR 失敗: {str(e)}"}
-
     def delete_sheet(self, sheet_name: str = None, sheet_names: list = None) -> dict:
         """
         從目前 Excel 檔案中刪除指定工作表。支援刪除單個或多個。
@@ -1345,32 +1286,6 @@ EXCEL_TOOLS_SCHEMA = [
                     }
                 },
                 "required": ["sheet_name", "field_keyword"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "compare_irr_across_sheets",
-            "description": (
-                "比較所有 pN 情境分頁（p1, p2, p3...）的 IRR 數值，找出最高的情境。"
-                "可指定單一 IRR 類型，或同時比較三種（專案法、成本法、權益法）。"
-                "適用於：「哪個情境 IRR 最高」、「比較所有案例的成本法 IRR」等查詢。"
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "irr_type": {
-                        "type": "string",
-                        "enum": ["全部", "專案法IRR", "成本法IRR", "權益法IRR"],
-                        "description": (
-                            "要比較的 IRR 類型。"
-                            "「全部」= 同時比較三種 IRR（預設值）；"
-                            "「專案法IRR」/「成本法IRR」/「權益法IRR」= 只比較指定類型。"
-                        )
-                    }
-                },
-                "required": []
             }
         }
     },

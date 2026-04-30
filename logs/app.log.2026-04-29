@@ -1,0 +1,20 @@
+[2026-04-29 23:56:48] [INFO] ============================================================
+[2026-04-29 23:56:48] [INFO] AI Excel 助手 啟動
+[2026-04-29 23:56:48] [INFO] ============================================================
+[2026-04-29 23:56:50] [INFO] ============================================================
+[2026-04-29 23:56:50] [INFO] AI Excel 助手 啟動
+[2026-04-29 23:56:50] [INFO] ============================================================
+[2026-04-29 23:56:54] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/ status=200 time=16ms
+[2026-04-29 23:56:55] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/auth/me status=200 time=0ms
+[2026-04-29 23:56:55] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=21ms
+[2026-04-29 23:56:55] [INFO] [OK] user=123@gmail.com action=create_case | case_id=1 name=表 1
+[2026-04-29 23:56:55] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/cases status=200 time=57ms
+[2026-04-29 23:56:55] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/1/messages status=200 time=6ms
+[2026-04-29 23:56:55] [ERROR] [ERROR] user=123@gmail.com action=http_request | method=GET path=/favicon.ico status=404 time=1ms
+[2026-04-29 23:57:10] [INFO] [OK] user=123@gmail.com action=logout | 登出
+[2026-04-29 23:57:10] [INFO] [OK] user=anonymous action=http_request | method=POST path=/api/auth/logout status=200 time=0ms
+[2026-04-29 23:57:29] [INFO] [OK] user=123@gmail.com action=register | 新帳號建立
+[2026-04-29 23:57:29] [INFO] [OK] user=123@gmail.com action=http_request | method=POST path=/api/auth/login status=200 time=12ms
+[2026-04-29 23:57:29] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases status=200 time=1ms
+[2026-04-29 23:57:29] [INFO] [OK] user=123@gmail.com action=http_request | method=GET path=/api/cases/1/messages status=200 time=2ms
+[2026-04-29 23:57:29] [ERROR] [ERROR] user=123@gmail.com action=http_request | method=GET path=/api/download_excel status=404 time=1ms

@@ -34,7 +34,7 @@ def get_logger() -> logging.Logger:
     os.makedirs(log_dir, exist_ok=True)
     log_path = os.path.join(log_dir, 'app.log')
 
-    logger = logging.getLogger('財模助手')
+    logger = logging.getLogger('ExcelAgent')
     logger.setLevel(logging.DEBUG)
 
     # 避免重複加 handler（Flask debug mode 會重新載入模組）

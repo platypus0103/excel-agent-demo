@@ -4,9 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**財模助手** — An AI-powered solar power station financial analysis platform. Users chat in Traditional Chinese with a local LLM (Ollama) to query and modify Excel financial models, compare IRR scenarios, and run price rolling calculations.
-
-This is an **in-development version**. The production-ready version with additional tools (IRR reverse calculation, delete sheet) lives in `../Xinbon_final/`.
+**Excel AI 助手** — An AI-powered Excel analysis platform. Users chat in Traditional Chinese with a local LLM (Ollama) to query and modify Excel spreadsheets, compare IRR scenarios across sheets, and run price rolling calculations.
 
 ## Commands
 
@@ -90,7 +88,7 @@ Browser (SPA) → Flask API (api/) → AIAgent (core/agent.py)
 | `calculate_price_rolling` | `tool/price_rolling_tool.py` | Compute rolling price (no write); modes: CashMode/RatioMode/CustomizeMode |
 | `execute_price_rolling` | `tool/equipment_cost_tool.py` | Compute + write to Excel with audit record |
 
-> **Note:** This version does NOT have `find_parameter_for_target_irr` (IRR 逆推) or `delete_excel_sheet`. Both are implemented in `../Xinbon_final/`.
+> **Note:** This version does NOT have `find_parameter_for_target_irr` (IRR 逆推) or `delete_excel_sheet`.
 
 ### Multi-Tenant Data Isolation
 

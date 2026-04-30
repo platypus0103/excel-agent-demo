@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', function() {
+﻿document.addEventListener('DOMContentLoaded', function() {
     // DOM 元素 - 匹配 HTML 中的實際 ID
     const caseList = document.getElementById('caseList');
     const addCaseBtn = document.getElementById('addCaseBtn');
@@ -18,7 +18,6 @@ document.addEventListener('DOMContentLoaded', function() {
     let caseCounter = 0;
     let isLuckysheetReady = false;
     let luckysheetInitialized = false;
-    let activeTypeMenu = null; // 追蹤當前開啟的類型選單
     let currentAbortController = null;
 
     // 初始化
@@ -537,10 +536,6 @@ document.addEventListener('DOMContentLoaded', function() {
             li.className = 'case-item';
             li.dataset.caseId = caseId;
 
-            // 根據站點類型添加對應的 class（預設為 single）
-            const siteType = caseData.siteType || 'single';
-            li.classList.add(siteType === 'multi' ? 'multi-site' : 'single-site');
-
             if (caseId === activeCaseId) {
                 li.classList.add('active');
             }
@@ -585,106 +580,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target.classList.contains('delete-case-btn')) {
             e.stopPropagation();
             deleteCase(caseId);
-        } else if (e.target.closest('.case-type-menu')) {
-            // 點擊的是類型選單內部，不做處理
-            return;
         } else {
-            // 先切換到該案場
             switchActiveCase(caseId);
-            // 顯示類型切換選單
-            showCaseTypeMenu(e.currentTarget, caseId);
         }
-    }
-
-    // 顯示案場類型切換選單
-    function showCaseTypeMenu(caseElement, caseId) {
-        // 先關閉已開啟的選單
-        closeCaseTypeMenu();
-
-        const caseData = cases[caseId];
-        const currentType = caseData.siteType || 'single';
-
-        // 創建選單
-        const menu = document.createElement('div');
-        menu.className = 'case-type-menu show';
-        menu.id = 'caseTypeMenu';
-
-        menu.innerHTML = `
-            <div class="case-type-menu-header">切換案場類型</div>
-            <button class="case-type-menu-item ${currentType === 'single' ? 'active' : ''}" data-type="single">
-                單站
-            </button>
-            <button class="case-type-menu-item ${currentType === 'multi' ? 'active' : ''}" data-type="multi">
-                多站
-            </button>
-        `;
-
-        // 添加點擊事件
-        menu.querySelectorAll('.case-type-menu-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const newType = item.dataset.type;
-                changeCaseType(caseId, newType);
-                closeCaseTypeMenu();
-            });
-        });
-
-        caseElement.appendChild(menu);
-        activeTypeMenu = menu;
-
-        // 點擊其他地方關閉選單
-        setTimeout(() => {
-            document.addEventListener('click', handleOutsideClick);
-        }, 0);
-    }
-
-    // 關閉類型選單
-    function closeCaseTypeMenu() {
-        if (activeTypeMenu) {
-            activeTypeMenu.remove();
-            activeTypeMenu = null;
-        }
-        document.removeEventListener('click', handleOutsideClick);
-    }
-
-    // 處理點擊外部關閉選單
-    function handleOutsideClick(e) {
-        if (activeTypeMenu && !activeTypeMenu.contains(e.target)) {
-            closeCaseTypeMenu();
-        }
-    }
-
-    // 根據當前案場的站點類型更新「匯入表格」按鈕狀態
-    function updateImportSheetsBtnState() {
-        const btn = document.getElementById('importSheetsBtn');
-        if (!btn) return;
-        const siteType = (activeCaseId && cases[activeCaseId])
-            ? (cases[activeCaseId].siteType || 'single')
-            : 'single';
-        btn.disabled = (siteType !== 'multi');
-    }
-
-    // 更改案場類型
-    function changeCaseType(caseId, newType) {
-        const caseData = cases[caseId];
-        const oldType = caseData.siteType || 'single';
-
-        if (oldType === newType) return;
-
-        caseData.siteType = newType;
-        saveCases();
-        renderCaseList();
-        if (caseId === activeCaseId) updateImportSheetsBtnState();
-
-        // 顯示提示訊息
-        const typeText = newType === 'multi' ? '多站' : '單站';
-        const message = {
-            role: 'bot',
-            text: `案場類型已切換為「${typeText}」`
-        };
-        caseData.messages.push(message);
-        renderChat();
-        saveCases();
     }
 
     function handleCaseRightClick(e) {
@@ -697,9 +595,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (activeCaseId === caseId) return;
 
         activeCaseId = caseId;
-        updateImportSheetsBtnState();
 
-        // 設置全局變量，供價金滾算等功能使用
+        // 設置全局變量
         // 注意：id 存字串，與 activeCaseId（String(c.id)）型別一致，確保 === 比較正確
         window.currentCase = {
             id: String(cases[caseId].id),   // 字串，與 activeCaseId 型別一致
@@ -766,7 +663,6 @@ document.addEventListener('DOMContentLoaded', function() {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
-    // 掛到 window 讓 price_rolling.js 等外部 script 也能使用
     window._renderMarkdown = function(text) { return renderMarkdown(text); };
     function isTableLine(line) {
         var s = line.trim();
@@ -998,7 +894,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             if (data.excel_modified && cases[senderCaseId]) {
-                reloadExcelData(senderCaseId);
+                reloadExcelData(senderCaseId, true);
             }
         })
         .catch(error => {
@@ -1205,12 +1101,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
 
-            // 上傳成功訊息（包含功能說明）
-            const successText = `Excel 檔案已上傳到伺服器：${data.original_filename}\n\n` +
-                      `功能說明：\n` +
-                      `- 價金滾算：請點擊上方的「價金滾算」按鈕來執行滾算計算\n` +
-                      `- 匯入表格：點選上方「匯入表格」可以插入其他案場的資訊\n` +
-                      `- 匯出表格：若想匯出結果，可以點擊上方的「匯出表格」`;
+            // 上傳成功訊息
+            const successText = `Excel 檔案已上傳：${data.original_filename}\n\n` +
+                      `您現在可以在聊天框輸入問題來查詢或修改 Excel 資料。`;
             const successMessage = { role: 'bot', text: successText };
             cases[activeCaseId].messages.push(successMessage);
             renderChat();
@@ -1391,31 +1284,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 事件綁定函數 - 統一管理所有事件
     function bindEvents() {
-        // 案場新增下拉選單（單站 / 多站）
-        const addCaseDropdown = document.getElementById('addCaseDropdown');
-        if (addCaseBtn && addCaseDropdown) {
-            // 點擊 + 按鈕顯示/隱藏下拉選單
-            addCaseBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                addCaseDropdown.classList.toggle('show');
-            });
-
-            // 點擊下拉選單項目
-            addCaseDropdown.querySelectorAll('.add-case-dropdown-item').forEach(item => {
-                item.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const siteType = item.dataset.siteType;
-                    addNewCase(siteType);
-                    addCaseDropdown.classList.remove('show');
-                });
-            });
-
-            // 點擊其他地方關閉下拉選單
-            document.addEventListener('click', (e) => {
-                if (!addCaseBtn.contains(e.target) && !addCaseDropdown.contains(e.target)) {
-                    addCaseDropdown.classList.remove('show');
-                }
-            });
+        // 新增試算表
+        if (addCaseBtn) {
+            addCaseBtn.addEventListener('click', () => addNewCase('single'));
         }
         
         // 聊天相關事件
@@ -1960,270 +1831,5 @@ document.addEventListener('DOMContentLoaded', function() {
         if (sheets && sheets.length > 0) displaySheetData(sheets[0], 0);
     }
 
-    // ========== 匯入表格功能 ==========
-
-    // 儲存選擇的 sheets
-    let selectedSheets = [];
-
-    // 開啟匯入對話框
-    window.openImportDialog = function() {
-        const overlay = document.getElementById('importDialogOverlay');
-        overlay.classList.add('show');
-        selectedSheets = [];
-        updateSelectedCount();
-        loadCaseSheetsForImport();
-    };
-
-    // 關閉匯入對話框
-    window.closeImportDialog = function() {
-        const overlay = document.getElementById('importDialogOverlay');
-        overlay.classList.remove('show');
-        selectedSheets = [];
-    };
-
-    // 載入案場和 sheets 資料
-    async function loadCaseSheetsForImport() {
-        const listContainer = document.getElementById('importCaseList');
-        listContainer.innerHTML = '<div class="import-loading">載入中...</div>';
-
-        try {
-            const response = await fetch('/api/list_case_sheets');
-            const data = await response.json();
-
-            if (data.status === 'success' && data.cases) {
-                renderCaseSheetList(data.cases);
-            } else {
-                listContainer.innerHTML = `
-                    <div class="import-empty-message">
-                        <div class="icon">📭</div>
-                        <div>沒有可匯入的案場</div>
-                    </div>
-                `;
-            }
-        } catch (error) {
-            console.error('載入案場列表失敗:', error);
-            listContainer.innerHTML = `
-                <div class="import-empty-message">
-                    <div class="icon">❌</div>
-                    <div>載入失敗: ${error.message}</div>
-                </div>
-            `;
-        }
-    }
-
-    // 渲染案場和 sheet 列表
-    function renderCaseSheetList(casesData) {
-        const listContainer = document.getElementById('importCaseList');
-
-        // 過濾掉當前案場
-        const filteredCases = casesData.filter(c => {
-            // 比對案場 ID，排除當前案場
-            if (activeCaseId && cases[activeCaseId]) {
-                return c.case_name !== String(cases[activeCaseId].id);
-            }
-            return true;
-        });
-
-        if (filteredCases.length === 0) {
-            listContainer.innerHTML = `
-                <div class="import-empty-message">
-                    <div class="icon">📭</div>
-                    <div>沒有其他案場可匯入</div>
-                </div>
-            `;
-            return;
-        }
-
-        let html = '';
-        filteredCases.forEach((caseData, index) => {
-            const siteType = caseData.site_type || 'single';
-            const siteTypeText = siteType === 'multi' ? '多站' : '單站';
-            const sheetCount = caseData.sheets ? caseData.sheets.length : 0;
-
-            html += `
-                <div class="import-case-item" data-case-name="${caseData.case_name}" data-filename="${caseData.filename}">
-                    <div class="import-case-header" onclick="toggleImportCase(this)">
-                        <span class="import-case-toggle">▶</span>
-                        <span class="import-case-name">${caseData.display_name || caseData.case_name}</span>
-                        <span class="import-case-type ${siteType}">${siteTypeText}</span>
-                        <span class="import-sheet-count">${sheetCount} 個 Sheet</span>
-                    </div>
-                    <div class="import-sheet-list">
-            `;
-
-            if (caseData.sheets && caseData.sheets.length > 0) {
-                caseData.sheets.forEach((sheet, sheetIndex) => {
-                    const sheetId = `sheet_${index}_${sheetIndex}`;
-                    html += `
-                        <div class="import-sheet-item" data-case-name="${caseData.case_name}" data-sheet-name="${sheet}">
-                            <input type="checkbox" id="${sheetId}"
-                                   onchange="toggleSheetSelection('${caseData.case_name}', '${sheet}', '${caseData.filename}', this.checked)">
-                            <label for="${sheetId}">${sheet}</label>
-                        </div>
-                    `;
-                });
-            } else {
-                html += '<div style="color: #7f8c8d; padding: 10px;">此案場沒有 Sheet</div>';
-            }
-
-            html += `
-                    </div>
-                </div>
-            `;
-        });
-
-        listContainer.innerHTML = html;
-    }
-
-    // 展開/收合案場
-    window.toggleImportCase = function(headerElement) {
-        const caseItem = headerElement.closest('.import-case-item');
-        caseItem.classList.toggle('expanded');
-    };
-
-    // 切換 sheet 選擇狀態
-    window.toggleSheetSelection = function(caseName, sheetName, filename, isSelected) {
-        const sheetKey = `${caseName}|${sheetName}|${filename}`;
-
-        if (isSelected) {
-            if (!selectedSheets.find(s => s.key === sheetKey)) {
-                selectedSheets.push({
-                    key: sheetKey,
-                    case_name: caseName,
-                    sheet_name: sheetName,
-                    filename: filename
-                });
-            }
-        } else {
-            selectedSheets = selectedSheets.filter(s => s.key !== sheetKey);
-        }
-
-        // 更新 UI
-        const sheetItem = document.querySelector(`.import-sheet-item[data-case-name="${caseName}"][data-sheet-name="${sheetName}"]`);
-        if (sheetItem) {
-            sheetItem.classList.toggle('selected', isSelected);
-        }
-
-        updateSelectedCount();
-    };
-
-    // 更新已選擇數量
-    function updateSelectedCount() {
-        const countElement = document.getElementById('importSelectedCount');
-        const submitBtn = document.querySelector('.import-btn-submit');
-
-        countElement.textContent = `已選擇 ${selectedSheets.length} 個 Sheet`;
-        submitBtn.disabled = selectedSheets.length === 0;
-    }
-
-    // 執行匯入
-    window.executeImportSheets = async function() {
-        if (selectedSheets.length === 0) {
-            alert('請選擇至少一個 Sheet');
-            return;
-        }
-
-        if (!activeCaseId || !cases[activeCaseId]) {
-            alert('請先選擇目標案場');
-            return;
-        }
-
-        const targetCase = cases[activeCaseId];
-        const targetCaseName = targetCase.name;
-        const targetFilename = targetCase.excelOriginalFileName || null;
-
-        // 先保存選擇的 sheets 資訊（因為關閉對話框會清空）
-        const importedSheets = [...selectedSheets];
-        const importedCount = selectedSheets.length;
-
-        // 顯示載入中
-        const submitBtn = document.querySelector('.import-btn-submit');
-        const originalText = submitBtn.textContent;
-        submitBtn.textContent = '匯入中...';
-        submitBtn.disabled = true;
-
-        // 收集財務參數
-        const loanRatioVal = document.getElementById('importLoanRatio').value;
-        const repayPeriodsVal = document.getElementById('importRepayPeriods').value;
-        const dividendRatioVal = document.getElementById('importDividendRatio').value;
-        const capReductionVal = document.getElementById('importCapReductionPeriods').value;
-        const bankRateVal = document.getElementById('importBankRate').value;
-
-        const financeParams = {
-            loan_ratio: loanRatioVal !== '' ? parseFloat(loanRatioVal) : null,
-            repay_periods: repayPeriodsVal !== '' ? parseInt(repayPeriodsVal) : null,
-            dividend_ratio: dividendRatioVal !== '' ? parseFloat(dividendRatioVal) : null,
-            cap_reduction_periods: capReductionVal !== '' ? parseInt(capReductionVal) : null,
-            bank_rate: bankRateVal !== '' ? parseFloat(bankRateVal) : null
-        };
-
-        try {
-            const response = await fetch('/api/import_sheets', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    target_case_name: targetCaseName,
-                    target_filename: targetFilename,
-                    sheets_to_import: importedSheets.map(s => ({
-                        case_name: s.case_name,
-                        sheet_name: s.sheet_name,
-                        filename: s.filename
-                    })),
-                    finance_params: financeParams
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.status === 'success') {
-                // 關閉對話框
-                closeImportDialog();
-
-                // 更新案場的 Excel 資訊
-                if (data.new_filename) {
-                    cases[activeCaseId].excelOriginalFileName = data.new_filename;
-                    cases[activeCaseId].hasExcel = true;
-                    cases[activeCaseId].excelFileName = data.new_filename;
-
-                    // 同步更新 window.currentCase
-                    if (window.currentCase && window.currentCase.id === activeCaseId) {
-                        window.currentCase.original_filename = data.new_filename;
-                    }
-                }
-
-                // 顯示成功訊息（使用保存的資訊）
-                const sheetList = importedSheets.map(s => `- ${s.case_name}_${s.sheet_name}`).join('\n');
-                const successMessage = {
-                    role: 'bot',
-                    text: `成功匯入 ${importedCount} 個 Sheet\n\n匯入的 Sheet：\n${sheetList}`
-                };
-                cases[activeCaseId].messages.push(successMessage);
-                saveCases();
-                renderChat();
-
-                // 重新載入 Excel 數據
-                reloadExcelData(activeCaseId);
-
-                // 更新案場列表顯示
-                renderCaseList();
-            } else {
-                throw new Error(data.error || '匯入失敗');
-            }
-        } catch (error) {
-            console.error('匯入失敗:', error);
-            alert(`匯入失敗: ${error.message}`);
-        } finally {
-            submitBtn.textContent = originalText;
-            submitBtn.disabled = false;
-        }
-    };
-
-    // 綁定匯入按鈕事件
-    const importSheetsBtn = document.getElementById('importSheetsBtn');
-    if (importSheetsBtn) {
-        importSheetsBtn.addEventListener('click', openImportDialog);
-    }
-
-    // 初始化匯入表格按鈕狀態
-    updateImportSheetsBtnState();
+    // (import feature removed)
 });

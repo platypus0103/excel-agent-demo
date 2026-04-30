@@ -2,9 +2,6 @@
 import json
 from typing import Dict, List, Callable, Any, Optional
 from tool.excel_tool import ExcelTool, EXCEL_TOOLS_SCHEMA
-from tool.finance_tool import FinanceTool
-from tool.price_rolling_tool import PriceRollingTool, PRICE_ROLLING_TOOLS_SCHEMA
-from tool.equipment_cost_tool import EquipmentCostTool, EQUIPMENT_COST_TOOLS_SCHEMA
 
 
 class ToolManager:
@@ -58,39 +55,9 @@ class ToolManager:
             schema=EXCEL_TOOLS_SCHEMA[6]
         )
         self.register_tool(
-            name="compare_irr_across_sheets",
-            function=self.excel_tool.compare_irr_across_sheets,
-            schema=EXCEL_TOOLS_SCHEMA[7]
-        )
-
-        # 財務工具實例（保留供內部呼叫使用，不再對 AI 暴露舊工具）
-        self.finance_tool = FinanceTool()
-
-        # 創建價金滾算工具實例
-        self.price_rolling_tool = PriceRollingTool()
-
-        # 註冊價金滾算工具（純計算，不寫入檔案）
-        self.register_tool(
-            name="calculate_price_rolling",
-            function=self.price_rolling_tool.calculate_price_rolling,
-            schema=PRICE_ROLLING_TOOLS_SCHEMA[0]
-        )
-
-        # 創建設備成本工具實例
-        self.equipment_cost_tool = EquipmentCostTool()
-
-        # 註冊設備成本滾算工具（完整流程：讀取→計算→寫入Excel）
-        self.register_tool(
-            name="execute_price_rolling",
-            function=self.equipment_cost_tool.execute_price_rolling,
-            schema=EQUIPMENT_COST_TOOLS_SCHEMA[0]
-        )
-
-        # 註冊刪除工作表工具
-        self.register_tool(
             name="delete_excel_sheet",
             function=self.excel_tool.delete_sheet,
-            schema=EXCEL_TOOLS_SCHEMA[8]
+            schema=EXCEL_TOOLS_SCHEMA[7]
         )
 
         print(f"已註冊 {len(self.tools)} 個工具")
@@ -170,25 +137,12 @@ class ToolManager:
                 return schema
         return None
 
-    def set_finance_excel_file(self, excel_file_path: str, sheet_name: str = None):
-        """
-        設定財務工具使用的 Excel 檔案路徑和工作表
-
-        Args:
-            excel_file_path: Excel 檔案的完整路徑
-            sheet_name: 工作表名稱，如果為 None 則使用第一個工作表
-        """
-        if hasattr(self, 'finance_tool'):
-            self.finance_tool.set_excel_file(excel_file_path, sheet_name)
-
-        if hasattr(self, 'price_rolling_tool'):
-            self.price_rolling_tool.set_excel_file(excel_file_path, sheet_name)
-
-        # 同時設定 Excel 編輯工具的檔案路徑
+    def set_excel_file(self, excel_file_path: str, sheet_name: str = None):
+        """設定 Excel 工具的檔案路徑"""
         if hasattr(self, 'excel_tool'):
             self.excel_tool.file_path = excel_file_path
 
         if sheet_name:
-            print(f"財務工具 Excel 檔案已設定: {excel_file_path}, 工作表: {sheet_name}")
+            print(f"Excel 檔案已設定: {excel_file_path}, 工作表: {sheet_name}")
         else:
-            print(f"財務工具 Excel 檔案已設定: {excel_file_path}, 使用第一個工作表")
+            print(f"Excel 檔案已設定: {excel_file_path}")

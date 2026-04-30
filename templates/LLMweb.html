@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>LLM 聊天室</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='LLMweb.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='price_rolling.css') }}"> 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Luckysheet -->
     <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/luckysheet@latest/dist/plugins/css/pluginsCss.css' />
@@ -41,19 +40,7 @@
             <button class="sidebar-toggle-btn" id="sidebarToggleBtn" title="收納側邊欄">&#x276E;</button>
             <div class="sidebar-header">
                 <h3>試算表列表</h3>
-                <div class="add-case-dropdown">
-                    <button id="addCaseBtn" class="add-case-btn">+</button>
-                    <div id="addCaseDropdown" class="add-case-dropdown-content">
-                        <button class="add-case-dropdown-item" data-site-type="single">
-                            <span class="site-indicator single"></span>
-                            單站
-                        </button>
-                        <button class="add-case-dropdown-item" data-site-type="multi">
-                            <span class="site-indicator multi"></span>
-                            多站
-                        </button>
-                    </div>
-                </div>
+                <button id="addCaseBtn" class="add-case-btn">+</button>
             </div>
             <ul id="caseList" class="case-list">
                 <!-- 項目將由 JS 動態載入 -->
@@ -65,10 +52,6 @@
                 <div id="excel-controls">
                     <input type="file" id="fileInput" accept=".xlsx, .xls">
                     <button id="importBtn" style="display: none;">匯入 Excel</button>
-                    <button id="priceRollingBtn" class="price-rolling-btn">價金滾算</button>
-                    <button id="importSheetsBtn" class="price-rolling-btn">單站匯總</button>
-                    <button id="exportExcelBtn" class="price-rolling-btn" onclick="exportCurrentExcel()">匯出表格</button>
-                    <button id="downloadTemplateBtn" class="price-rolling-btn" onclick="downloadTemplate()">公版下載</button>
                     <button id="releaseMemoryBtn" class="price-rolling-btn" onclick="releaseMemory()">釋放記憶體</button>
                     <span id="excel-status">請選擇 Excel 檔案</span>
                 </div>
@@ -113,194 +96,6 @@
         </div>
     </div>
 
-    <!-- 價金滾算對話框 -->
-    <div class="price-dialog-overlay" id="priceDialogOverlay">
-        <div class="price-dialog" id="priceDialog">
-            <div class="price-dialog-header" id="priceDialogHeader">
-                <div class="price-dialog-title">價金滾算參數設定</div>
-                <button class="price-close-btn" onclick="closePriceDialog()">×</button>
-            </div>
-
-            <div class="price-dialog-body">
-                <form id="priceCostForm">
-                    <!-- 基本參數 -->
-                    <div class="price-section-title">基本參數設定</div>
-                    <div class="price-basic-params">
-                        <div class="price-form-group">
-                            <label>初始價金 / kW *</label>
-                            <input type="number" id="priceEquipmentCost" min="0" required placeholder="">
-                        </div>
-
-                        <div class="price-form-group">
-                            <label>信邦利潤率 *</label>
-                            <input type="number" id="priceProfitRate" step="0.01" min="0" max="1" required placeholder="">
-                        </div>
-
-                        <div class="price-form-group">
-                            <label>開發費 (每年)</label>
-                            <input type="number" id="priceDevelopmentFee" min="0" placeholder="">
-                        </div>
-
-                        <div class="price-form-group">
-                            <label>最低可接受價格 *</label>
-                            <input type="number" id="priceBoundary" min="0" required placeholder="">
-                        </div>
-                    </div>
-
-                    <!-- 模式選擇 -->
-                    <div class="price-mode-section">
-                        <div class="price-section-title">選擇計算模式</div>
-                        <div class="price-mode-options">
-                            <div class="price-mode-option" onclick="selectPriceMode('cash')">
-                                <input type="radio" name="priceMode" id="priceModeCash" value="cash">
-                                <label for="priceModeCash">CashMode - 固定金額模式</label>
-                            </div>
-                            <div id="priceCashParams" class="price-mode-params">
-                                <div class="price-form-group">
-                                    <label>每次調整 Step (固定金額)</label>
-                                    <input type="number" id="priceCashStep" min="0" placeholder="">
-                                </div>
-                            </div>
-
-                            <div class="price-mode-option" onclick="selectPriceMode('ratio')">
-                                <input type="radio" name="priceMode" id="priceModeRatio" value="ratio">
-                                <label for="priceModeRatio">RatioMode - 比例模式</label>
-                            </div>
-                            <div id="priceRatioParams" class="price-mode-params">
-                                <div class="price-form-group">
-                                    <label>調整比例 (%)</label>
-                                    <input type="number" id="priceRatioStep" step="0.1" min="0" max="100" placeholder="">
-                                </div>
-                            </div>
-
-                            <!-- ConditionalMode 暫時隱藏，保留代碼供未來啟用
-                            <div class="price-mode-option" onclick="selectPriceMode('conditional')">
-                                <input type="radio" name="priceMode" id="priceModeConditional" value="conditional">
-                                <label for="priceModeConditional">ConditionalMode - 條件模式</label>
-                            </div>
-                            <div id="priceConditionalParams" class="price-mode-params">
-                                <div class="price-params-grid">
-                                    <div class="price-form-group">
-                                        <label>最大價格值</label>
-                                        <input type="number" id="priceMaxValue" min="0" placeholder="">
-                                    </div>
-                                    <div class="price-form-group">
-                                        <label>最小價格值</label>
-                                        <input type="number" id="priceMinValue" min="0" placeholder="">
-                                    </div>
-                                    <div class="price-form-group">
-                                        <label>Step 1 (價金 > 最大值)</label>
-                                        <input type="number" id="priceCondStep1" min="0" placeholder="">
-                                    </div>
-                                    <div class="price-form-group">
-                                        <label>Step 2 (最小值 ≤ 價金 ≤ 最大值)</label>
-                                        <input type="number" id="priceCondStep2" min="0" placeholder="">
-                                    </div>
-                                    <div class="price-form-group">
-                                        <label>Step 3 (價金 < 最小值)</label>
-                                        <input type="number" id="priceCondStep3" min="0" placeholder="">
-                                    </div>
-                                </div>
-                            </div>
-                            -->
-
-                            <div class="price-mode-option" onclick="selectPriceMode('customize')">
-                                <input type="radio" name="priceMode" id="priceModeCustomize" value="customize">
-                                <label for="priceModeCustomize">StrategyMode - 分段策略模式</label>
-                            </div>
-                            <div id="priceCustomizeParams" class="price-mode-params">
-                                <div class="price-form-group">
-                                    <label>調整次數 (最多 10 次)</label>
-                                    <input type="number" id="priceAdjustTimes" min="1" max="10" placeholder="" oninput="if(parseInt(this.value)>10) this.value=10" onchange="generatePriceStepInputs()">
-                                </div>
-                                <div class="price-form-group">
-                                    <label style="display: flex; align-items: center; cursor: pointer;">
-                                        <input type="checkbox" id="priceAutoGenerate" style="margin-right: 8px; width: auto;" onchange="handlePriceAutoGenerate()"> 自動生成 Step
-                                    </label>
-                                </div>
-                                <div id="priceManualStepsContainer" style="display: none; margin-top: 15px;">
-                                    <div style="font-weight: 600; margin-bottom: 10px; color: #667eea;">手動設定每次 Step</div>
-                                    <div id="priceStepInputs" class="price-params-grid"></div>
-                                </div>
-                                <div id="priceAutoStepsDisplay" style="display: none; margin-top: 15px;">
-                                    <div style="font-weight: 600; margin-bottom: 10px; color: #667eea;">自動生成的 Step</div>
-                                    <div id="priceAutoStepsList" style="padding: 15px; background: #f0f3ff; border-radius: 6px; line-height: 1.8;"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-
-            <div class="price-dialog-footer">
-                <button class="price-btn price-btn-cancel" onclick="closePriceDialog()">取消</button>
-                <button class="price-btn price-btn-submit" onclick="submitPriceForm()">開始計算</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 價金滾算結果顯示 -->
-    <div class="price-result-section" id="priceResultSection">
-        <div class="price-result-header">
-            <h2 style="color: #667eea; margin-bottom: 15px;">滾算結果</h2>
-            <button class="price-close-result-btn" onclick="closePriceResult()">×</button>
-        </div>
-        <table class="price-result-table" id="priceResultTable"></table>
-    </div>
-
-    <!-- 匯入表格對話框 -->
-    <div class="import-dialog-overlay" id="importDialogOverlay">
-        <div class="import-dialog" id="importDialog">
-            <div class="import-dialog-header">
-                <div class="import-dialog-title">選擇要匯入的 Sheet</div>
-                <button class="import-close-btn" onclick="closeImportDialog()">×</button>
-            </div>
-            <div class="import-dialog-body">
-                <div class="import-body-layout">
-                    <!-- 左側：Sheet 選擇 -->
-                    <div class="import-left-panel">
-                        <div id="importCaseList" class="import-case-list">
-                            <!-- 案場列表將由 JS 動態載入 -->
-                            <div class="import-loading">載入中...</div>
-                        </div>
-                    </div>
-                    <!-- 右側：財務參數 -->
-                    <div class="import-right-panel">
-                        <div class="import-params-title">現金流量表參數設定</div>
-                        <div class="import-param-group">
-                            <label>貸款成數 (%)</label>
-                            <input type="number" id="importLoanRatio" step="0.1" min="0" max="100" value="80">
-                        </div>
-                        <div class="import-param-group">
-                            <label>還款期數</label>
-                            <input type="number" id="importRepayPeriods" step="1" min="0" value="15">
-                        </div>
-                        <div class="import-param-group">
-                            <label>股利比率 (%)</label>
-                            <input type="number" id="importDividendRatio" step="0.1" min="0" max="100" value="90">
-                        </div>
-                        <div class="import-param-group">
-                            <label>年底減資攤還期數</label>
-                            <input type="number" id="importCapReductionPeriods" step="1" min="0" value="4">
-                        </div>
-                        <div class="import-param-group">
-                            <label>銀行利率 (%)</label>
-                            <input type="number" id="importBankRate" step="0.01" min="0" max="100" value="3">
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="import-dialog-footer">
-                <span id="importSelectedCount">已選擇 0 個 Sheet</span>
-                <div>
-                    <button class="import-btn import-btn-cancel" onclick="closeImportDialog()">取消</button>
-                    <button class="import-btn import-btn-submit" onclick="executeImportSheets()">匯入</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
 <script src="{{ url_for('static', filename='LLMweb.js') }}?v={{ range(1, 99999) | random }}"></script>
-    <script src="{{ url_for('static', filename='price_rolling.js') }}?v={{ range(1, 99999) | random }}"></script>
 </body>
 </html>

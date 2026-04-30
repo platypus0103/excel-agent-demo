@@ -66,7 +66,7 @@ def create_app():
     # ── 請求日誌 ──
     logger = get_logger()
     logger.info("=" * 60)
-    logger.info("財模助手 啟動")
+    logger.info("AI Excel 助手 啟動")
     logger.info("=" * 60)
 
     @app.before_request
